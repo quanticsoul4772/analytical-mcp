@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "analytical": {
+      "command": "node",
+      "args": ["C:\\project-root\\analytical-mcp\\build\\index.js"]
+    }
+  }
+}
