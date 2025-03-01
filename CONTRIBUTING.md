@@ -21,7 +21,7 @@ We appreciate your interest in contributing to the Analytical MCP Server. This d
 
 ### Installation
 ```bash
-git clone https://github.com/quanticsoul4772/analytical-mcp.git
+git clone https://github.com/analytical-mcp/analytical-mcp.git
 cd analytical-mcp
 npm install
 ```
@@ -29,10 +29,23 @@ npm install
 ## Contribution Guidelines
 
 ### Code Style
-- Follow TypeScript best practices
-- Use consistent formatting
-- Write clear, commented code
-- Include unit tests for new features
+- Follow TypeScript best practices as outlined in CLAUDE.md
+- Use ES modules (import/export)
+- Write clear, commented code with JSDoc for complex functions
+- Use Zod for input validation and schema definitions
+- Handle errors with try/catch blocks and provide descriptive error messages
+- Maintain type safety with TypeScript's strict mode
+- Include unit tests for new features when applicable
+
+### Adding New Tools
+When adding a new analytical tool:
+
+1. Create a new file in the `src/tools` directory
+2. Define a Zod schema for input validation
+3. Implement the tool function with proper error handling
+4. Register the tool in `src/tools/index.ts` (both in the tool list and handler)
+5. Add documentation to the README.md
+6. Update the development plan if applicable
 
 ### Reporting Issues
 - Use GitHub Issues

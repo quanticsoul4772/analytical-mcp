@@ -15,11 +15,14 @@
   - [x] [5.1.3] Develop correlation analysis capabilities
   - [x] [5.1.4] Add robust error handling and data validation
 
-### Upcoming Sub-tasks
-- [ ] [5.2] Machine Learning Integration Preparation
-  - [ ] [5.2.1] Research ML model evaluation techniques
-  - [ ] [5.2.2] Design ML tool interfaces
-  - [ ] [5.2.3] Create mock ML dataset structures
+### Machine Learning Integration
+- [x] [5.2] Machine Learning Evaluation Tools
+  - [x] [5.2.1] Research ML model evaluation techniques
+  - [x] [5.2.2] Design ML tool interfaces
+  - [x] [5.2.3] Create ML model evaluation module
+  - [x] [5.2.4] Implement classification metrics (accuracy, precision, recall, F1)
+  - [x] [5.2.5] Implement regression metrics (MSE, MAE, RMSE, R²)
+  - [x] [5.2.6] Add tool to server registration
 
 ### Data Resource Management
 - [ ] [5.3] Enhance Resource Handling

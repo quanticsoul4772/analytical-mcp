@@ -1,7 +1,17 @@
+/**
+ * Advanced Statistical Analysis module
+ * 
+ * This module provides tools for performing advanced statistical analysis
+ * on datasets, including descriptive statistics and correlation analysis.
+ */
+
 import { z } from "zod";
 import * as mathjs from "mathjs";
 
-// Advanced Statistical Analysis Schema
+/**
+ * Advanced Statistical Analysis Schema
+ * Defines the input parameters for advanced statistical analysis
+ */
 export const advancedStatisticalAnalysisSchema = z.object({
   datasetId: z.string().describe("Unique identifier for the dataset"),
   analysisType: z.enum([
@@ -10,25 +20,35 @@ export const advancedStatisticalAnalysisSchema = z.object({
   ]).describe("Type of statistical analysis to perform")
 });
 
-// Implement core statistical functions
+/**
+ * Calculate descriptive statistics for a numeric dataset
+ * @param data Array of numeric values
+ * @returns Object containing various descriptive statistics
+ */
 export function calculateDescriptiveStatistics(data: number[]) {
   return {
-    mean: mathjs.mean(data),
-    median: mathjs.median(data),
-    standardDeviation: mathjs.std(data),
-    variance: mathjs.variance(data),
-    min: mathjs.min(data),
-    max: mathjs.max(data)
+    mean: Number(mathjs.mean(data)),
+    median: Number(mathjs.median(data)),
+    standardDeviation: Number(mathjs.std(data)),
+    variance: Number(mathjs.variance(data)),
+    min: Number(mathjs.min(data)),
+    max: Number(mathjs.max(data))
   };
 }
 
-export function calculateCorrelation(x: number[], y: number[]) {
+/**
+ * Calculate Pearson correlation coefficient between two numeric arrays
+ * @param x First array of numeric values
+ * @param y Second array of numeric values
+ * @returns Correlation coefficient between -1 and 1
+ */
+export function calculateCorrelation(x: number[], y: number[]): number {
   if (x.length !== y.length) {
     throw new Error("Input arrays must have the same length");
   }
 
-  const meanX = mathjs.mean(x);
-  const meanY = mathjs.mean(y);
+  const meanX = Number(mathjs.mean(x));
+  const meanY = Number(mathjs.mean(y));
   
   const numerator = x.reduce((sum, xi, i) => 
     sum + (xi - meanX) * (y[i] - meanY), 0);
@@ -42,13 +62,34 @@ export function calculateCorrelation(x: number[], y: number[]) {
   return numerator / (denominatorX * denominatorY);
 }
 
-// Main analysis function
+/**
+ * Perform advanced statistical analysis on datasets
+ * @param datasetId Identifier for the dataset to analyze
+ * @param analysisType Type of analysis to perform
+ * @returns Formatted markdown string with analysis results
+ */
 export async function advancedAnalyzeDataset(
   datasetId: string, 
   analysisType: string
 ): Promise<string> {
   // Mock datasets for demonstration
-  const mockDatasets = {
+  interface SalesData {
+    quarter: string;
+    revenue: number;
+    marketing_spend: number;
+  }
+  
+  interface CustomerData {
+    age: number;
+    income: number;
+    purchase_value: number;
+  }
+  
+  interface MockDatasets {
+    [key: string]: SalesData[] | CustomerData[];
+  }
+  
+  const mockDatasets: MockDatasets = {
     "sales_quarterly": [
       { quarter: "Q1", revenue: 100000, marketing_spend: 15000 },
       { quarter: "Q2", revenue: 125000, marketing_spend: 18000 },
@@ -70,9 +111,12 @@ export async function advancedAnalyzeDataset(
   }
 
   // Extract numeric columns for analysis
-  const numericColumns = Object.keys(dataset[0])
+  type DatasetItem = SalesData | CustomerData;
+  
+  const firstItem = dataset[0] as DatasetItem;
+  const numericColumns = Object.keys(firstItem)
     .filter(key => 
-      typeof dataset[0][key] === 'number' && 
+      typeof firstItem[key as keyof DatasetItem] === 'number' && 
       key !== 'quarter' // Exclude non-numeric identifiers
     );
 
@@ -80,7 +124,11 @@ export async function advancedAnalyzeDataset(
 
   if (analysisType === "descriptive") {
     numericColumns.forEach(column => {
-      const values = dataset.map(item => item[column]);
+      const values = dataset.map(item => {
+        const typedItem = item as DatasetItem;
+        return Number(typedItem[column as keyof DatasetItem]);
+      });
+      
       const stats = calculateDescriptiveStatistics(values);
       
       result += `## ${column} - Descriptive Statistics\n\n`;
@@ -100,8 +148,15 @@ export async function advancedAnalyzeDataset(
         const col1 = numericColumns[i];
         const col2 = numericColumns[j];
         
-        const x = dataset.map(item => item[col1]);
-        const y = dataset.map(item => item[col2]);
+        const x = dataset.map(item => {
+          const typedItem = item as DatasetItem;
+          return Number(typedItem[col1 as keyof DatasetItem]);
+        });
+        
+        const y = dataset.map(item => {
+          const typedItem = item as DatasetItem;
+          return Number(typedItem[col2 as keyof DatasetItem]);
+        });
         
         const correlation = calculateCorrelation(x, y);
         

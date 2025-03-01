@@ -9,7 +9,15 @@ import {
   advancedAnalyzeDataset, 
   advancedStatisticalAnalysisSchema 
 } from "./advanced_statistical_analysis.js";
+import {
+  evaluateMLModel,
+  mlModelEvaluationSchema
+} from "./ml_model_evaluation.js";
 
+/**
+ * Register all analytical tools with the MCP server
+ * @param server The MCP server instance
+ */
 export function registerTools(server: Server) {
   // Register the tools list
   server.setRequestHandler(ListToolsRequestSchema, async () => {
@@ -51,6 +59,42 @@ export function registerTools(server: Server) {
               }
             },
             required: ["datasetId", "analysisType"]
+          }
+        },
+        {
+          name: "ml_model_evaluation",
+          description: "Evaluate machine learning model performance using various metrics",
+          inputSchema: {
+            type: "object",
+            properties: {
+              modelType: {
+                type: "string",
+                enum: ["classification", "regression"],
+                description: "Type of machine learning model"
+              },
+              actualValues: {
+                type: "array",
+                items: { type: "number" },
+                description: "Actual target values"
+              },
+              predictedValues: {
+                type: "array",
+                items: { type: "number" },
+                description: "Model's predicted values"
+              },
+              evaluationMetrics: {
+                type: "array",
+                items: { 
+                  type: "string",
+                  enum: [
+                    "accuracy", "precision", "recall", "f1_score",
+                    "mse", "mae", "rmse", "r_squared"
+                  ]
+                },
+                description: "Metrics to calculate (optional, defaults based on model type)"
+              }
+            },
+            required: ["modelType", "actualValues", "predictedValues"]
           }
         },
         {
@@ -129,6 +173,50 @@ export function registerTools(server: Server) {
           return {
             isError: true,
             content: [{ type: "text", text: `Error in advanced statistical analysis: ${error instanceof Error ? error.message : String(error)}` }]
+          };
+        }
+      }
+
+      case "ml_model_evaluation": {
+        try {
+          const args = request.params.arguments || {};
+          const modelType = String(args.modelType || "");
+          const actualValues = Array.isArray(args.actualValues) ? args.actualValues.map(Number) : [];
+          const predictedValues = Array.isArray(args.predictedValues) ? args.predictedValues.map(Number) : [];
+          let evaluationMetrics: string[] | undefined = undefined;
+          
+          if (Array.isArray(args.evaluationMetrics)) {
+            evaluationMetrics = args.evaluationMetrics.map(String);
+          }
+          
+          if (!modelType || !["classification", "regression"].includes(modelType)) {
+            return {
+              isError: true,
+              content: [{ type: "text", text: "Error: modelType must be 'classification' or 'regression'" }]
+            };
+          }
+          
+          if (actualValues.length === 0 || predictedValues.length === 0) {
+            return {
+              isError: true,
+              content: [{ type: "text", text: "Error: actualValues and predictedValues must be non-empty arrays" }]
+            };
+          }
+          
+          if (actualValues.length !== predictedValues.length) {
+            return {
+              isError: true,
+              content: [{ type: "text", text: "Error: actualValues and predictedValues must have the same length" }]
+            };
+          }
+          
+          const result = await evaluateMLModel(modelType, actualValues, predictedValues, evaluationMetrics);
+          
+          return { content: [{ type: "text", text: result }] };
+        } catch (error) {
+          return {
+            isError: true,
+            content: [{ type: "text", text: `Error evaluating ML model: ${error instanceof Error ? error.message : String(error)}` }]
           };
         }
       }
