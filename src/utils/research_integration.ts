@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { exaResearch } from './exa_research';
+import { exaResearch } from './exa_research.js';
 
 // Research integration utility for analytical tools
 export class ResearchIntegrationTool {
@@ -28,7 +28,7 @@ export class ResearchIntegrationTool {
     });
 
     // Extract key insights
-    const researchInsights = exaResearch.extractKeyFacts(searchResults);
+    const researchInsights = exaResearch.extractKeyFacts(searchResults.results);
 
     // Validate and enrich original data
     const validationResult = await exaResearch.validateData(
@@ -56,8 +56,8 @@ export class ResearchIntegrationTool {
     analogies: string[],
     potentialSolutions: string[]
   }> {
-    const analogyResults = [];
-    const potentialSolutions = [];
+    const analogyResults: string[] = [];
+    const potentialSolutions: string[] = [];
 
     // Search across different domains
     for (const domain of domains) {
@@ -65,10 +65,12 @@ export class ResearchIntegrationTool {
       const domainResults = await exaResearch.search({
         query: searchQuery,
         numResults: 3,
+        useWebResults: true,
+        useNewsResults: false,
         includeContents: true
       });
 
-      const domainInsights = exaResearch.extractKeyFacts(domainResults);
+      const domainInsights = exaResearch.extractKeyFacts(domainResults.results);
       analogyResults.push(...domainInsights);
     }
 
@@ -78,10 +80,12 @@ export class ResearchIntegrationTool {
       const solutionResults = await exaResearch.search({
         query: solutionQuery,
         numResults: 2,
+        useWebResults: true,
+        useNewsResults: false,
         includeContents: true
       });
 
-      const solutionInsights = exaResearch.extractKeyFacts(solutionResults);
+      const solutionInsights = exaResearch.extractKeyFacts(solutionResults.results);
       potentialSolutions.push(...solutionInsights);
     }
 

@@ -1,173 +1,117 @@
-import { z } from "zod";
-import { brave_web_search } from "@modelcontextprotocol/sdk";
+import { z } from 'zod';
 import fetch from 'node-fetch';
 
-// Exa API configuration
-const EXA_API_BASE = 'https://api.exa.ai';
-const EXA_API_KEY = process.env.EXA_API_KEY || '';
-
-// Schema for Exa search tool
-export const exaResearchSchema = z.object({
-  query: z.string().describe("Search query to find relevant information"),
-  searchType: z.enum([
-    "current_events", 
-    "fact_check", 
-    "research_context", 
-    "data_validation", 
-    "trend_analysis"
-  ]).default("research_context"),
-  numResults: z.number().min(1).max(10).default(5)
-    .describe("Number of search results to return"),
-  useAdvancedFilters: z.boolean().default(false)
-    .describe("Apply advanced search filters for more precise results")
+// Exa client configuration schema
+const ExaConfigSchema = z.object({
+  apiKey: z.string().optional().describe("Exa API key for authentication"),
+  baseUrl: z.string().default("https://api.exa.ai").describe("Base URL for Exa API")
 });
 
-// Exa search utility function
-async function performExaSearch(
-  query: string, 
-  searchType: string, 
-  numResults: number = 5, 
-  useAdvancedFilters: boolean = false
-) {
-  try {
-    const headers = {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${EXA_API_KEY}`
-    };
+// Research query input schema
+const ExaResearchQuerySchema = z.object({
+  query: z.string().describe("Search query for research"),
+  numResults: z.number().min(1).max(10).default(5).describe("Number of search results"),
+  timeRangeMonths: z.number().min(1).max(36).optional().describe("Time range for results in months"),
+  useWebResults: z.boolean().default(true).describe("Include web search results"),
+  useNewsResults: z.boolean().default(false).describe("Include news results"),
+  includeContents: z.boolean().default(true).describe("Include full content of search results")
+});
 
-    const payload = {
-      query,
-      numResults,
-      ...(useAdvancedFilters ? {
-        startPublishedDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(), // Last 30 days
-        onlyPublishers: ['reputable news sources', 'academic publications'],
-        useAutomaticQueryRefiner: true
-      } : {})
-    };
+// Precise typing for Exa search results
+interface ExaSearchResult {
+  title: string;
+  url: string;
+  publishedDate?: string;
+  contents?: string;
+  score?: number;
+}
 
-    const response = await fetch(`${EXA_API_BASE}/search`, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(payload)
-    });
+interface ExaSearchResponse {
+  results: ExaSearchResult[];
+}
 
-    if (!response.ok) {
-      throw new Error(`Exa API error: ${response.statusText}`);
+// Exa research utility class
+export class ExaResearchTool {
+  private apiKey: string;
+  private baseUrl: string;
+
+  constructor(config?: z.infer<typeof ExaConfigSchema>) {
+    const parsedConfig = ExaConfigSchema.parse(config || {});
+    this.apiKey = parsedConfig.apiKey || process.env.EXA_API_KEY || '';
+    this.baseUrl = parsedConfig.baseUrl;
+
+    if (!this.apiKey) {
+      console.warn("No Exa API key provided. Some functionality may be limited.");
     }
+  }
 
-    const searchResults = await response.json();
+  // Perform a web search and research
+  async search(query: z.infer<typeof ExaResearchQuerySchema>): Promise<ExaSearchResponse> {
+    const parsedQuery = ExaResearchQuerySchema.parse(query);
 
-    // Process results based on search type
-    switch (searchType) {
-      case "current_events":
-        return {
-          type: "current_events",
-          results: searchResults.results.map(result => ({
-            title: result.title,
-            publishedDate: result.publishedDate,
-            url: result.url,
-            snippet: result.snippet
-          }))
-        };
+    try {
+      const response = await fetch(`${this.baseUrl}/search`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${this.apiKey}`
+        },
+        body: JSON.stringify({
+          query: parsedQuery.query,
+          numResults: parsedQuery.numResults,
+          timeRange: parsedQuery.timeRangeMonths 
+            ? `${parsedQuery.timeRangeMonths}m` 
+            : undefined,
+          useWebResults: parsedQuery.useWebResults,
+          useNewsResults: parsedQuery.useNewsResults,
+          includeContents: parsedQuery.includeContents
+        })
+      });
 
-      case "fact_check":
-        return {
-          type: "fact_check",
-          results: searchResults.results.map(result => ({
-            claim: query,
-            source: result.url,
-            context: result.snippet,
-            credibility: result.relevanceScore > 0.7 ? "high" : "moderate"
-          }))
-        };
+      if (!response.ok) {
+        throw new Error(`Exa search failed: ${response.statusText}`);
+      }
 
-      case "research_context":
-        return {
-          type: "research_context",
-          results: searchResults.results.map(result => ({
-            topic: query,
-            context: result.snippet,
-            source: result.url,
-            relevance: result.relevanceScore
-          }))
-        };
-
-      case "data_validation":
-        return {
-          type: "data_validation",
-          results: searchResults.results.map(result => ({
-            claim: query,
-            validationSources: result.url,
-            context: result.snippet,
-            evidenceStrength: result.relevanceScore > 0.7 ? "strong" : "weak"
-          }))
-        };
-
-      case "trend_analysis":
-        return {
-          type: "trend_analysis",
-          results: searchResults.results.map(result => ({
-            trend: query,
-            timeframe: result.publishedDate,
-            context: result.snippet,
-            source: result.url
-          }))
-        };
-
-      default:
-        return searchResults.results;
+      const data = await response.json() as ExaSearchResponse;
+      return data;
+    } catch (error) {
+      console.error("Exa research error:", error);
+      throw new Error(`Exa search failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
-  } catch (error) {
-    console.error("Exa Search Error:", error);
-    throw new Error(`Exa search failed: ${error.message}`);
+  }
+
+  // Extract key facts from search results
+  extractKeyFacts(results: ExaSearchResult[], maxFacts: number = 5): string[] {
+    return results
+      .flatMap(result => {
+        const contentFacts = result.contents 
+          ? this.findFactsInText(result.contents, 3) 
+          : [];
+        const titleFacts = this.findFactsInText(result.title, 2);
+        return [...contentFacts, ...titleFacts];
+      })
+      .slice(0, maxFacts);
+  }
+
+  // Simple fact extraction
+  private findFactsInText(text: string, maxFacts: number = 3): string[] {
+    const sentences = text
+      .split(/[.!?]/)
+      .filter(s => 
+        s.trim().length > 30 && 
+        !s.toLowerCase().includes("disclaimer") &&
+        !s.toLowerCase().includes("copyright")
+      )
+      .slice(0, maxFacts);
+
+    return sentences.map(s => s.trim());
+  }
+
+  // Placeholder for MCP server registration
+  registerTool(server: any): void {
+    console.log("Exa Research tool registered");
   }
 }
 
-// Main Exa Research Tool
-export async function exaResearch(
-  query: string, 
-  searchType: string = "research_context", 
-  numResults: number = 5, 
-  useAdvancedFilters: boolean = false
-) {
-  try {
-    const searchResults = await performExaSearch(
-      query, 
-      searchType, 
-      numResults, 
-      useAdvancedFilters
-    );
-
-    return {
-      content: [
-        {
-          type: "text",
-          text: `Exa Research Results for "${query}":\n\n` + 
-            searchResults.results.map(result => 
-              `• ${result.title || result.topic || 'Source'}: ${result.snippet || result.context}\nSource: ${result.url}\n`
-            ).join('\n')
-        }
-      ],
-      metadata: searchResults
-    };
-  } catch (error) {
-    return {
-      content: [
-        {
-          type: "text",
-          text: `Error performing Exa research: ${error.message}`
-        }
-      ],
-      isError: true
-    };
-  }
-}
-
-// Register the Exa Research tool with the MCP server
-export function registerExaResearch(server: McpServer) {
-  server.tool(
-    "exa_research",
-    exaResearchSchema,
-    exaResearch
-  );
-}
+// Singleton instance
+export const exaResearch = new ExaResearchTool();

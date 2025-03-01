@@ -11,23 +11,46 @@
     "build"
   ],
   "scripts": {
-    "build": "tsc && node -e \"require('fs').chmodSync('build/index.js', '755')\"",
+    "build": "tsc",
     "prepare": "npm run build",
     "watch": "tsc --watch",
-    "inspector": "npx @modelcontextprotocol/inspector build/index.js"
+    "inspector": "npx @modelcontextprotocol/inspector build/index.js",
+    "lint": "eslint . --ext .ts",
+    "lint:fix": "eslint . --ext .ts --fix",
+    "format": "prettier --write \"src/**/*.ts\"",
+    "format:check": "prettier --check \"src/**/*.ts\"",
+    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
+    "test:watch": "node --experimental-vm-modules node_modules/jest/bin/jest.js --watch",
+    "test:coverage": "node --experimental-vm-modules node_modules/jest/bin/jest.js --coverage",
+    "test:optimized": "node --max-old-space-size=4096 --expose-gc --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand",
+    "test:api": "node --max-old-space-size=4096 --expose-gc --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand",
+    "test:debug": "node --inspect-brk --expose-gc --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand",
+    "test:win": "set NODE_OPTIONS=--max-old-space-size=4096 && node --expose-gc --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand"
   },
   "dependencies": {
-    "dotenv": "^16.4.5",
     "@modelcontextprotocol/sdk": "0.6.0",
+    "dotenv": "^16.4.5",
     "mathjs": "^14.3.0",
+    "node-fetch": "^3.3.2",
     "zod": "^3.24.2",
-    "papaparse": "^5.4.1",
-    "xlsx": "^0.18.5"
+    "papaparse": "^5.4.1"
   },
   "devDependencies": {
     "@types/node": "^20.11.24",
+    "@types/node-fetch": "^2.6.11",
     "@types/papaparse": "^5.3.14",
-    "@types/xlsx": "^0.0.36",
+    "@typescript-eslint/eslint-plugin": "^6.21.0",
+    "@typescript-eslint/parser": "^6.21.0",
+    "eslint": "^8.57.1",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-prettier": "^5.2.3",
+    "jest": "^29.7.0",
+    "prettier": "^3.5.2",
+    "ts-jest": "^29.1.2",
+    "@types/jest": "^29.5.12",
     "typescript": "^5.3.3"
+  },
+  "engines": {
+    "node": ">=20.0.0"
   }
 }

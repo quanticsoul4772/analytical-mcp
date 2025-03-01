@@ -16,18 +16,18 @@ This MCP server provides powerful analytical tools to AI assistants:
 - **Logical Analysis**: Argument structure, fallacy detection, validity and strength assessment
 - **Perspective Shifting**: Generation of alternative viewpoints for creative problem-solving
 
-## Installation & Setup
+## Getting Started
 
 ### Prerequisites
 
-- Node.js v20+ 
-- npm
+- Node.js v20+
+- API keys for external services (set in environment variables)
 
 ### Installation
 
 ```bash
 # Clone the repository
-git clone https://github.com/analytical-mcp/analytical-mcp.git
+git clone https://github.com/your-username/analytical-mcp.git
 cd analytical-mcp
 
 # Install dependencies
@@ -37,116 +37,66 @@ npm install
 npm run build
 ```
 
-## Direct Data Input
+### Running Tests
 
-All tools now support direct data input, eliminating the need for dataset IDs. Each tool accepts data directly in the method call.
+Tests are configured to use real API dependencies from system environment variables:
 
-### Example: Data Analysis
+```bash
+# Run all tests
+npm test
+
+# Run tests with optimized settings
+npm run test:optimized
+
+# Run specific test for logical fallacy detector
+./test-fallacy-detector.bat  # Windows
+./run-tests-optimized.sh     # Unix/Linux/macOS
+```
+
+See [API_TESTING_GUIDE.md](./API_TESTING_GUIDE.md) for more details on testing with API dependencies.
+
+### Example: Logical Fallacy Detection
 
 ```javascript
-// Analyze a numeric array
-const summaryStats = await analyze_dataset({
-  data: [100, 200, 150, 300, 250],
-  analysisType: "stats"
+// Detect logical fallacies in a given text
+const fallacyAnalysis = await logical_fallacy_detector({
+  text: "Experts say this diet is the best, so it must work perfectly!",
+  confidenceThreshold: 0.5,  // Minimum confidence to report a fallacy
+  categories: ['relevance', 'informal'],  // Fallacy categories to check
+  includeExplanations: true,  // Include detailed explanations
+  includeExamples: true       // Include good and bad reasoning examples
 });
 
-// Analyze an array of objects
-const objectStats = await analyze_dataset({
-  data: [
-    { age: 25, income: 50000 },
-    { age: 35, income: 75000 },
-    { age: 45, income: 100000 }
-  ],
-  analysisType: "stats"
-});
+// Example output structure:
+// {
+//   detectedFallacies: [
+//     {
+//       name: "Appeal to Authority",
+//       category: "relevance",
+//       confidence: 0.7,
+//       description: "...",
+//       examples: {
+//         bad: "...",
+//         good: "..."
+//       }
+//     }
+//   ],
+//   severity: "Low",
+//   reportMarkdown: "Detailed markdown report of fallacies"
+// }
 ```
 
-### Example: Hypothesis Testing
+### Logical Fallacy Detection Features
 
-```javascript
-// Independent t-test
-const tTestResults = await hypothesis_testing({
-  testType: "t_test_independent",
-  data: [
-    [45, 52, 48, 50],  // Group 1
-    [40, 38, 42, 45]   // Group 2
-  ],
-  variables: ["group1", "group2"],
-  alpha: 0.05
-});
-```
+The Logical Fallacy Detector provides:
+- Multiple fallacy category detection
+- Configurable confidence thresholds
+- Detailed explanations of detected fallacies
+- Examples of improved reasoning
+- Overall argument assessment
 
-### Example: Regression Analysis
-
-```javascript
-// Multivariate regression
-const regressionResults = await advanced_regression_analysis({
-  data: [
-    { area: 1000, bedrooms: 2, price: 200000 },
-    { area: 1500, bedrooms: 3, price: 300000 },
-    { area: 2000, bedrooms: 4, price: 400000 }
-  ],
-  regressionType: "multivariate",
-  independentVariables: ["area", "bedrooms"],
-  dependentVariable: "price"
-});
-```
-
-## Configuration
-
-The project includes a `claude_config_example.json` file that shows how to configure the MCP server for Claude. You can use this as a template for your own configuration.
-
-## Integration with Claude Desktop
-
-1. Locate or create your Claude Desktop config file:
-   - Windows: `%APPDATA%\Claude\claude_desktop_config.json`
-   - macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
-
-2. Add the following to your config file:
-
-```json
-{
-  "mcpServers": {
-    "analytical": {
-      "command": "node",
-      "args": ["/absolute/path/to/analytical-mcp/build/index.js"]
-    }
-  }
-}
-```
-
-3. Restart Claude Desktop
-
-## Available Tools
-
-### analyze_dataset
-Provides basic and advanced statistical analysis of datasets.
-
-### decision_analysis
-Analyzes decision options based on multiple criteria.
-
-### advanced_regression_analysis
-Performs various types of regression analysis on datasets.
-
-### hypothesis_testing
-Performs statistical hypothesis tests on datasets.
-
-### data_visualization_generator
-Generates specifications for data visualizations.
-
-### logical_argument_analyzer
-Analyzes logical arguments for structure, fallacies, validity, and strength.
-
-### logical_fallacy_detector
-Detects and explains logical fallacies in text with confidence scoring.
-
-### perspective_shifter
-Generates alternative perspectives on a problem or situation.
-
-## Contributing
-
-Contributions are welcome! Please see our [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
-
-## License
-
-[MIT](LICENSE)
+Supported Fallacy Categories:
+- Informal Fallacies
+- Formal Fallacies
+- Relevance Fallacies
+- Ambiguity Fallacies

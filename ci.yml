@@ -32,4 +32,6 @@ jobs:
       run: npm run lint
 
     - name: Test
-      run: npm test
+      run: npm run test:optimized
+      env:
+        NODE_OPTIONS: "--max-old-space-size=4096"

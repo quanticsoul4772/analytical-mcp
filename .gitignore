@@ -2,8 +2,8 @@
 node_modules/
 
 # Build output
-dist/
 build/
+dist/
 
 # Environment files
 .env
@@ -24,18 +24,10 @@ yarn-error.log*
 .vscode/
 *.swp
 *.swo
-*~
-
-# Temporary files
-.tmp/
-.temp/
-
-# OS generated files
 .DS_Store
-Thumbs.db
 
-# Compiled TypeScript files
-*.tsbuildinfo
+# TypeScript v1 declaration files
+typings/
 
 # Optional npm cache directory
 .npm
@@ -46,8 +38,15 @@ Thumbs.db
 # Optional REPL history
 .node_repl_history
 
-# TypeScript v1 declaration files
-typings/
+# Output of 'npm pack'
+*.tgz
 
-# TypeScript cache
-*.tsbuildinfo
+# Yarn Integrity file
+.yarn-integrity
+
+# dotenv environment variables file
+.env.local
+
+# Temporary files
+*.tmp
+*.bak

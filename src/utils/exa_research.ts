@@ -1,4 +1,6 @@
-import { z } from "zod";
+import { z } from 'zod';
+import fetch from 'node-fetch';
+import { executeApiRequest } from './api_helpers.js';
 
 // Exa client configuration schema
 const ExaConfigSchema = z.object({
@@ -41,37 +43,46 @@ class ExaResearchTool {
   }
 
   // Perform a web search and research
-  async search(query: z.infer<typeof ExaResearchQuerySchema>): Promise<ExaSearchResult[]> {
+  async search(query: z.infer<typeof ExaResearchQuerySchema>): Promise<{ results: ExaSearchResult[] }> {
     const parsedQuery = ExaResearchQuerySchema.parse(query);
 
     try {
-      const response = await fetch(`${this.baseUrl}/search`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${this.apiKey}`
-        },
-        body: JSON.stringify({
-          query: parsedQuery.query,
-          numResults: parsedQuery.numResults,
-          timeRange: parsedQuery.timeRangeMonths 
-            ? `${parsedQuery.timeRangeMonths}m` 
-            : undefined,
-          useWebResults: parsedQuery.useWebResults,
-          useNewsResults: parsedQuery.useNewsResults,
-          includeContents: parsedQuery.includeContents
-        })
+      return await executeApiRequest(async () => {
+        const response = await fetch(`${this.baseUrl}/search`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${this.apiKey}`
+          },
+          body: JSON.stringify({
+            query: parsedQuery.query,
+            numResults: parsedQuery.numResults,
+            timeRange: parsedQuery.timeRangeMonths 
+              ? `${parsedQuery.timeRangeMonths}m` 
+              : undefined,
+            useWebResults: parsedQuery.useWebResults,
+            useNewsResults: parsedQuery.useNewsResults,
+            includeContents: parsedQuery.includeContents
+          })
+        });
+
+        if (!response.ok) {
+          const error = new Error(`Exa search failed: ${response.statusText}`);
+          // Add status code for retry logic
+          (error as any).status = response.status;
+          throw error;
+        }
+
+        const data = await response.json() as { results: ExaSearchResult[] };
+        return data;
+      }, {
+        maxRetries: 5,
+        initialDelay: 500,
+        maxDelay: 10000
       });
-
-      if (!response.ok) {
-        throw new Error(`Exa search failed: ${response.statusText}`);
-      }
-
-      const data = await response.json();
-      return data.results || [];
     } catch (error) {
       console.error("Exa research error:", error);
-      return [];
+      throw new Error(`Exa search failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
@@ -113,21 +124,39 @@ class ExaResearchTool {
     researchContext: string[] 
   }> {
     const researchQuery = `Validate and provide context for: ${context}`;
-    const searchResults = await this.search({ 
-      query: researchQuery, 
-      numResults: 3,
-      includeContents: true 
-    });
+    
+    try {
+      const searchResults = await this.search({ 
+        query: researchQuery, 
+        numResults: 3,
+        useWebResults: true,
+        useNewsResults: false,
+        includeContents: true 
+      });
 
-    const researchContext = this.extractKeyFacts(searchResults);
+      const researchContext = this.extractKeyFacts(searchResults.results);
 
-    // In a real implementation, you might do more sophisticated validation
-    return {
-      validatedData: originalData,
-      researchContext
-    };
+      // In a real implementation, you might do more sophisticated validation
+      return {
+        validatedData: originalData,
+        researchContext
+      };
+    } catch (error) {
+      console.warn(`Data validation request failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      // Return original data if research fails, with empty context
+      return {
+        validatedData: originalData,
+        researchContext: []
+      };
+    }
   }
 }
 
 // Export utility for use across tools
 export const exaResearch = new ExaResearchTool();
+
+// Optional: Registration function for MCP Server
+export function registerExaResearch(server: any) {
+  // Placeholder for potential server registration logic
+  console.log("Exa Research tool registered");
+}
