@@ -1,82 +1,68 @@
-# Analytical MCP Server: Rapid MVP Development Plan
+# Analytical MCP Server - Minimum Viable Product (MVP) Plan
 
-## 🚀 Phase 1-4: Initial Setup and Core Tools (Completed ✅)
-- [x] [1.1-1.6] Node.js and TypeScript Project Setup
-- [x] [2.1-2.2] Core Analytical Tools Development
-- [x] [3.1-3.5] Server Integration
-- [x] [4.1-4.3] Initial MCP Integration and Testing
+## MVP Objectives
+Develop a robust, flexible research and analytical integration system that demonstrates:
+- Dynamic web research capabilities
+- Cross-domain knowledge synthesis
+- Confidence-based data validation
+- Iterative problem-solving strategies
 
-## 🔄 Phase 5: Advanced Analytical Capabilities (Current Phase)
+## Core Features for MVP
 
-### Advanced Statistical Analysis
-- [x] [5.1] Statistical Analysis Expansion
-  - [x] [5.1.1] Create advanced statistical analysis module
-  - [x] [5.1.2] Implement descriptive and correlation analysis
-  - [x] [5.1.3] Add robust error handling
-  - [x] [5.1.4] Create markdown-formatted output
+### 1. Research Utility
+- [x] Exa-powered web and news research
+- [x] Configurable search parameters
+- [x] Fact extraction mechanism
+- [ ] Basic error handling and rate limit management
 
-### Machine Learning Integration
-- [x] [5.2] ML Model Evaluation Preparation
-  - [x] [5.2.1] Research ML model evaluation techniques
-  - [x] [5.2.2] Design ML tool interfaces
-  - [x] [5.2.3] Implement ML model evaluation tool
-    - [x] Support classification metrics
-    - [x] Support regression metrics
-    - [x] Flexible metric selection
-    - [x] Markdown report generation
+### 2. Research Integration
+- [x] Cross-domain research generation
+- [x] Confidence scoring for research insights
+- [x] Data enrichment capabilities
+- [ ] Initial validation strategies
 
-### Data Resource Management
-- [x] [5.3] Enhance Data Handling Capabilities
-  - [x] [5.3.1] Implement dynamic data source discovery
-  - [x] [5.3.2] Add support for multiple data format imports
-    - [x] [5.3.2.1] CSV parsing
-    - [x] [5.3.2.2] Excel/XLSX support
-    - [x] [5.3.2.3] JSON/JSONL handling
-  - [x] [5.3.3] Create data transformation resources
-    - [x] Column selection
-    - [x] Filtering capabilities
-    - [x] Basic aggregation support
+### 3. Analytical Tool Integration
+- [x] Example market strategy analysis
+- [ ] Integration with decision analysis tools
+- [ ] Perspective generation mechanisms
+- [ ] Basic multi-tool workflow demonstration
 
-### Advanced Data Preprocessing
-- [x] [5.4] Data Preprocessing Capabilities
-  - [x] [5.4.1] Implement missing value handling techniques
-    - [x] Mean/median/mode imputation
-    - [x] Flexible column-level processing
-  - [x] [5.4.2] Add data normalization methods
-    - [x] Min-Max scaling
-    - [x] Z-score normalization
-    - [x] Log transformation
-  - [x] [5.4.3] Develop outlier detection and handling
-    - [x] Statistical outlier identification
-    - [x] Removal and capping strategies
-  - [x] [5.4.4] Create flexible preprocessing tool
-    - [x] Support for multiple preprocessing tasks
-    - [x] Markdown-formatted reporting
-    - [x] Error handling and validation
+## Technical Requirements
+- TypeScript implementation
+- Zod-based runtime validation
+- Modular, extensible design
+- Minimal external dependencies
 
-## Total Timeline: Ongoing Development
+## Success Criteria
+1. Demonstrate research tool flexibility
+2. Show cross-domain knowledge synthesis
+3. Provide confidence-based insights
+4. Create reusable research integration patterns
 
-### Key Strategy Points:
-1. Prioritize tools over resources
-2. Use mock data for MVP
-3. Minimal testing focused on tool functionality
-4. Limited documentation covering demo requirements
+## Limitations (Explicitly Acknowledged)
+- Initial NLP capabilities will be basic
+- Research depth is constrained by API limitations
+- Confidence scoring is preliminary
 
-### Post-MVP Priorities (Ongoing)
-- [ ] [6.1] Add real data integration
-- [ ] [6.2] Implement additional analytical tools
-- [ ] [6.3] Add advanced resource support
-- [ ] [6.4] Improve error handling and logging
-- [ ] [6.5] Create more comprehensive documentation
+## Evaluation Metrics
+- Research relevance
+- Insight generation quality
+- Tool integration effectiveness
+- Performance and response time
 
----
+## Potential Future Expansions
+- Advanced NLP for fact extraction
+- Machine learning-based research refinement
+- Multilingual research support
+- More sophisticated confidence algorithms
 
-## Quick Reference: Current Status
+## Recommended Validation Approach
+1. Develop comprehensive test cases
+2. Create example problem-solving scenarios
+3. Conduct manual review of research insights
+4. Iterate based on real-world usage feedback
 
-1. ✅ Core MCP server functionality implemented
-2. ✅ Basic analytical tools developed
-3. ✅ Advanced statistical analysis tool added
-4. ✅ Machine learning model evaluation tool added
-5. ✅ Data resource management tool added
-6. ✅ Advanced data preprocessing tool added
-7. 🚧 Ongoing development and feature expansion
+## Development Roadmap
+- Phase 1: Core Research Utility ✓
+- Phase 2: Tool Integration (Current)
+- Phase 3: Advanced Research Strategies

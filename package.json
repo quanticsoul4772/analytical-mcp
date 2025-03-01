@@ -17,6 +17,7 @@
     "inspector": "npx @modelcontextprotocol/inspector build/index.js"
   },
   "dependencies": {
+    "dotenv": "^16.4.5",
     "@modelcontextprotocol/sdk": "0.6.0",
     "mathjs": "^14.3.0",
     "zod": "^3.24.2",

@@ -1,43 +1,51 @@
 import { z } from "zod";
 import * as math from "mathjs";
 
-// Type definition for our mock datasets
-type Dataset = number[];
-
-// Mock dataset storage
-const mockDatasets: Record<string, Dataset> = {
-  "sales2024": [100, 200, 150, 300, 250, 175, 225, 275, 190, 310, 280, 320],
-  "customerFeedback": [5, 4, 3, 5, 4, 2, 5, 3, 4, 5, 3, 4, 5],
-  "marketingQ1": [15000, 22000, 18000, 25000, 17000, 28000, 20000],
-  "productMetrics": [92, 88, 95, 79, 83, 91, 87, 93, 89, 85, 90, 86, 91, 94],
-  "operationalCosts": [4500, 4800, 5200, 4700, 5100, 4900, 5300, 5000, 4600, 5500]
-};
+// Type definitions
+type Dataset = number[] | Record<string, any>[];
 
 // Schema for the tool parameters
 export const analyzeDatasetSchema = z.object({
-  datasetId: z.string().describe("ID of the dataset to analyze"),
+  data: z.array(z.number()).or(z.array(z.record(z.string(), z.any())))
+    .describe("Array of data to analyze"),
   analysisType: z.enum(["summary", "stats"]).default("summary").describe("Type of analysis to perform")
 });
 
 // Tool implementation
-export async function analyzeDataset(datasetId: string, analysisType: string): Promise<string> {
-  const data = mockDatasets[datasetId];
-  
-  if (!data) {
-    throw new Error(`Dataset with ID '${datasetId}' not found. Available datasets: ${Object.keys(mockDatasets).join(", ")}`);
+export async function analyzeDataset(data: Dataset, analysisType: string): Promise<string> {
+  // Validate inputs
+  if (!Array.isArray(data) || data.length === 0) {
+    throw new Error("Invalid data format. Please provide an array of numeric values or data objects.");
+  }
+
+  // Convert to numeric array if it's an array of objects with a single numeric property
+  let numericData: number[] = [];
+  if (typeof data[0] === 'object') {
+    // If array of objects, use the first numeric property found
+    const firstObject = data[0] as Record<string, any>;
+    const numericProperty = Object.keys(firstObject).find(key => typeof firstObject[key] === 'number');
+    
+    if (!numericProperty) {
+      throw new Error("Could not find numeric property in data objects for analysis.");
+    }
+    
+    numericData = data.map(item => (item as Record<string, any>)[numericProperty] as number);
+  } else {
+    // If already array of numbers
+    numericData = data as number[];
   }
 
   if (analysisType === "stats") {
     // Perform statistical analysis
-    const meanCalc = math.mean(data);
-    const medianCalc = math.median(data);
-    const minCalc = math.min(...data);
-    const maxCalc = math.max(...data);
-    const stdCalc = math.std(data, "uncorrected");
+    const meanCalc = math.mean(numericData);
+    const medianCalc = math.median(numericData);
+    const minCalc = math.min(...numericData);
+    const maxCalc = math.max(...numericData);
+    const stdCalc = math.std(numericData, "uncorrected");
     // Calculate variance manually
-    const varianceCalc = calculateVariance(data);
-    const sumCalc = math.sum(data);
-    const quartiles = getQuartiles(data);
+    const varianceCalc = calculateVariance(numericData);
+    const sumCalc = math.sum(numericData);
+    const quartiles = getQuartiles(numericData);
     
     // Ensure numeric values
     const mean = Number(meanCalc);
@@ -49,9 +57,9 @@ export async function analyzeDataset(datasetId: string, analysisType: string): P
     const sum = Number(sumCalc);
     
     return `
-## Statistical Analysis of Dataset: ${datasetId}
+## Statistical Analysis
 
-- **Count**: ${data.length} values
+- **Count**: ${numericData.length} values
 - **Sum**: ${sum.toFixed(2)}
 - **Range**: ${min} to ${max}
 - **Quartiles**: 
@@ -68,10 +76,10 @@ export async function analyzeDataset(datasetId: string, analysisType: string): P
     `;
   } else {
     // Provide a general summary
-    const meanCalc = math.mean(data);
-    const minCalc = math.min(...data);
-    const maxCalc = math.max(...data);
-    const sumCalc = math.sum(data);
+    const meanCalc = math.mean(numericData);
+    const minCalc = math.min(...numericData);
+    const maxCalc = math.max(...numericData);
+    const sumCalc = math.sum(numericData);
     
     // Ensure numeric values
     const mean = Number(meanCalc);
@@ -80,9 +88,9 @@ export async function analyzeDataset(datasetId: string, analysisType: string): P
     const sum = Number(sumCalc);
     
     return `
-## Summary of Dataset: ${datasetId}
+## Data Summary
 
-This dataset contains ${data.length} values.
+This dataset contains ${numericData.length} values.
 
 **Overview:**
 - Average value: ${mean.toFixed(2)}
@@ -91,7 +99,7 @@ This dataset contains ${data.length} values.
 - Total sum: ${sum.toFixed(2)}
 
 **Sample Data:**
-${data.slice(0, 5).join(", ")}${data.length > 5 ? ", ..." : ""}
+${numericData.slice(0, 5).join(", ")}${numericData.length > 5 ? ", ..." : ""}
     `;
   }
 }

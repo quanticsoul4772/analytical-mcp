@@ -13,7 +13,8 @@ import * as mathjs from "mathjs";
  * Defines the input parameters for advanced statistical analysis
  */
 export const advancedStatisticalAnalysisSchema = z.object({
-  datasetId: z.string().describe("Unique identifier for the dataset"),
+  data: z.array(z.record(z.string(), z.number().or(z.string())))
+    .describe("Array of data objects for statistical analysis"),
   analysisType: z.enum([
     "descriptive", 
     "correlation"
@@ -64,70 +65,35 @@ export function calculateCorrelation(x: number[], y: number[]): number {
 
 /**
  * Perform advanced statistical analysis on datasets
- * @param datasetId Identifier for the dataset to analyze
+ * @param data Array of data objects
  * @param analysisType Type of analysis to perform
  * @returns Formatted markdown string with analysis results
  */
 export async function advancedAnalyzeDataset(
-  datasetId: string, 
+  data: Record<string, number | string>[], 
   analysisType: string
 ): Promise<string> {
-  // Mock datasets for demonstration
-  interface SalesData {
-    quarter: string;
-    revenue: number;
-    marketing_spend: number;
-  }
-  
-  interface CustomerData {
-    age: number;
-    income: number;
-    purchase_value: number;
-  }
-  
-  interface MockDatasets {
-    [key: string]: SalesData[] | CustomerData[];
-  }
-  
-  const mockDatasets: MockDatasets = {
-    "sales_quarterly": [
-      { quarter: "Q1", revenue: 100000, marketing_spend: 15000 },
-      { quarter: "Q2", revenue: 125000, marketing_spend: 18000 },
-      { quarter: "Q3", revenue: 110000, marketing_spend: 16000 },
-      { quarter: "Q4", revenue: 150000, marketing_spend: 22000 }
-    ],
-    "customer_metrics": [
-      { age: 25, income: 50000, purchase_value: 1200 },
-      { age: 35, income: 75000, purchase_value: 2500 },
-      { age: 45, income: 100000, purchase_value: 3800 },
-      { age: 55, income: 125000, purchase_value: 5000 }
-    ]
-  };
-
-  const dataset = mockDatasets[datasetId];
-  
-  if (!dataset) {
-    throw new Error(`Dataset '${datasetId}' not found`);
+  // Validate inputs
+  if (!Array.isArray(data) || data.length === 0) {
+    throw new Error("Invalid data format. Please provide a non-empty array of data objects.");
   }
 
   // Extract numeric columns for analysis
-  type DatasetItem = SalesData | CustomerData;
-  
-  const firstItem = dataset[0] as DatasetItem;
+  const firstItem = data[0];
   const numericColumns = Object.keys(firstItem)
     .filter(key => 
-      typeof firstItem[key as keyof DatasetItem] === 'number' && 
-      key !== 'quarter' // Exclude non-numeric identifiers
+      typeof firstItem[key] === 'number'
     );
 
-  let result = `# Advanced Statistical Analysis for ${datasetId}\n\n`;
+  if (numericColumns.length === 0) {
+    throw new Error("No numeric columns found in the dataset for analysis.");
+  }
+
+  let result = `# Advanced Statistical Analysis\n\n`;
 
   if (analysisType === "descriptive") {
     numericColumns.forEach(column => {
-      const values = dataset.map(item => {
-        const typedItem = item as DatasetItem;
-        return Number(typedItem[column as keyof DatasetItem]);
-      });
+      const values = data.map(item => Number(item[column]));
       
       const stats = calculateDescriptiveStatistics(values);
       
@@ -148,15 +114,8 @@ export async function advancedAnalyzeDataset(
         const col1 = numericColumns[i];
         const col2 = numericColumns[j];
         
-        const x = dataset.map(item => {
-          const typedItem = item as DatasetItem;
-          return Number(typedItem[col1 as keyof DatasetItem]);
-        });
-        
-        const y = dataset.map(item => {
-          const typedItem = item as DatasetItem;
-          return Number(typedItem[col2 as keyof DatasetItem]);
-        });
+        const x = data.map(item => Number(item[col1]));
+        const y = data.map(item => Number(item[col2]));
         
         const correlation = calculateCorrelation(x, y);
         

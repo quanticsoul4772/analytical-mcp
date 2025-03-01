@@ -1,49 +1,31 @@
 import { z } from "zod";
 import * as math from "mathjs";
 
-// Schema for the tool parameters
-export const advancedRegressionAnalysisSchema = z.object({
-  datasetId: z.string().describe("ID of the dataset to analyze"),
-  regressionType: z.enum(["linear", "polynomial", "logistic", "multivariate"]).describe("Type of regression analysis to perform"),
-  independentVariables: z.array(z.string()).describe("Column names of independent variables"),
-  dependentVariable: z.string().describe("Column name of dependent variable"),
-  polynomialDegree: z.number().optional().describe("Degree of polynomial for polynomial regression (default: 2)"),
-  includeMetrics: z.boolean().default(true).describe("Include performance metrics in the result"),
-  includeCoefficients: z.boolean().default(true).describe("Include calculated coefficients in the result")
-});
-
-// Type definitions for our mock datasets and results
+// Type definitions
 type DataPoint = Record<string, number>;
 type Dataset = DataPoint[];
 
-// Mock dataset storage (simple datasets for regression analysis)
-const mockDatasets: Record<string, Dataset> = {
-  "housing": [
-    { area: 1000, bedrooms: 2, age: 10, price: 200000 },
-    { area: 1500, bedrooms: 3, age: 15, price: 300000 },
-    { area: 2000, bedrooms: 3, age: 5, price: 400000 },
-    { area: 1200, bedrooms: 2, age: 20, price: 220000 },
-    { area: 1800, bedrooms: 4, age: 10, price: 350000 }
-  ],
-  "sales": [
-    { advertising: 10, promotions: 2, price: 50, sales: 120 },
-    { advertising: 15, promotions: 3, price: 45, sales: 180 },
-    { advertising: 20, promotions: 1, price: 55, sales: 150 },
-    { advertising: 25, promotions: 4, price: 40, sales: 220 },
-    { advertising: 30, promotions: 2, price: 60, sales: 190 }
-  ],
-  "health": [
-    { exercise_hours: 2, diet_quality: 3, stress_level: 8, health_index: 60 },
-    { exercise_hours: 5, diet_quality: 7, stress_level: 4, health_index: 85 },
-    { exercise_hours: 1, diet_quality: 5, stress_level: 6, health_index: 70 },
-    { exercise_hours: 6, diet_quality: 8, stress_level: 2, health_index: 90 },
-    { exercise_hours: 3, diet_quality: 4, stress_level: 7, health_index: 65 }
-  ]
-};
+// Schema for the tool parameters
+export const advancedRegressionAnalysisSchema = z.object({
+  data: z.array(z.record(z.string(), z.number()))
+    .describe("Array of data points for regression analysis"),
+  regressionType: z.enum(["linear", "polynomial", "logistic", "multivariate"])
+    .describe("Type of regression analysis to perform"),
+  independentVariables: z.array(z.string())
+    .describe("Names of independent variables (must match properties in data objects)"),
+  dependentVariable: z.string()
+    .describe("Name of dependent variable (must match property in data objects)"),
+  polynomialDegree: z.number().optional()
+    .describe("Degree of polynomial for polynomial regression (default: 2)"),
+  includeMetrics: z.boolean().default(true)
+    .describe("Include performance metrics in the result"),
+  includeCoefficients: z.boolean().default(true)
+    .describe("Include calculated coefficients in the result")
+});
 
 // Tool implementation
 export async function advancedRegressionAnalysis(
-  datasetId: string,
+  data: Dataset,
   regressionType: string,
   independentVariables: string[],
   dependentVariable: string,
@@ -52,9 +34,8 @@ export async function advancedRegressionAnalysis(
   includeCoefficients: boolean = true
 ): Promise<string> {
   // Validate inputs
-  const data = mockDatasets[datasetId];
-  if (!data) {
-    throw new Error(`Dataset with ID '${datasetId}' not found. Available datasets: ${Object.keys(mockDatasets).join(", ")}`);
+  if (!Array.isArray(data) || data.length === 0) {
+    throw new Error("Invalid data format. Please provide an array of data points.");
   }
 
   // Check if variables exist in dataset
@@ -68,7 +49,6 @@ export async function advancedRegressionAnalysis(
   // Perform regression analysis based on type
   let result = `## Advanced Regression Analysis: ${regressionType.charAt(0).toUpperCase() + regressionType.slice(1)} Regression\n\n`;
   
-  result += `**Dataset:** ${datasetId}\n`;
   result += `**Dependent Variable:** ${dependentVariable}\n`;
   result += `**Independent Variables:** ${independentVariables.join(", ")}\n\n`;
 

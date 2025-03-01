@@ -93,7 +93,7 @@ export function registerTools(server: Server) {
         switch (name) {
           case "analyze_dataset":
             result = await analyzeDataset(
-              parameters.datasetId as string,
+              parameters.data as number[] | Record<string, any>[],
               parameters.analysisType as string
             );
             break;
@@ -108,7 +108,7 @@ export function registerTools(server: Server) {
             
           case "advanced_regression_analysis":
             result = await advancedRegressionAnalysis(
-              parameters.datasetId as string,
+              parameters.data as Record<string, any>[],
               parameters.regressionType as string,
               parameters.independentVariables as string[],
               parameters.dependentVariable as string,
@@ -121,7 +121,7 @@ export function registerTools(server: Server) {
           case "hypothesis_testing":
             result = await hypothesisTesting(
               parameters.testType as string,
-              parameters.datasetId as string,
+              parameters.data as number[][] | Record<string, any>[],
               parameters.variables as string[],
               parameters.alpha as number | undefined,
               parameters.alternativeHypothesis as string | undefined
@@ -130,7 +130,7 @@ export function registerTools(server: Server) {
             
           case "data_visualization_generator":
             result = await dataVisualizationGenerator(
-              parameters.datasetId as string,
+              parameters.data as Record<string, any>[],
               parameters.visualizationType as string,
               parameters.variables as string[],
               parameters.title as string | undefined,

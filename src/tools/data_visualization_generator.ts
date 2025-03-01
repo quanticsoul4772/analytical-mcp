@@ -2,7 +2,8 @@ import { z } from "zod";
 
 // Schema for the tool parameters
 export const dataVisualizationGeneratorSchema = z.object({
-  datasetId: z.string().describe("ID of the dataset to visualize"),
+  data: z.array(z.record(z.string(), z.any()))
+    .describe("Array of data objects to visualize"),
   visualizationType: z.enum([
     "scatter", 
     "line", 
@@ -14,7 +15,7 @@ export const dataVisualizationGeneratorSchema = z.object({
     "violin", 
     "correlation"
   ]).describe("Type of visualization to generate"),
-  variables: z.array(z.string()).describe("Variables to include in the visualization"),
+  variables: z.array(z.string()).describe("Variable names to include in the visualization (properties in data objects)"),
   title: z.string().optional().describe("Optional title for the visualization"),
   includeTrendline: z.boolean().optional().default(false).describe("Include a trendline (for scatter plots)"),
   options: z.record(z.any()).optional().describe("Additional visualization options")
@@ -22,38 +23,41 @@ export const dataVisualizationGeneratorSchema = z.object({
 
 // Tool implementation
 export async function dataVisualizationGenerator(
-  datasetId: string,
+  data: Record<string, any>[],
   visualizationType: string,
   variables: string[],
   title?: string,
   includeTrendline: boolean = false,
   options?: Record<string, any>
 ): Promise<string> {
-  // Generate a visualization specification based on the visualization type
-  // This will return a configuration that can be used with libraries like Vega-Lite or other visualization tools
+  // Validate inputs
+  if (!Array.isArray(data) || data.length === 0) {
+    throw new Error("Invalid data format. Please provide an array of data objects.");
+  }
   
-  // Check if dataset exists (mock check for demonstration)
-  const availableDatasets = ["sales2024", "customerFeedback", "marketingQ1", "productMetrics", "operationalCosts", "housing", "health", "correlation_data"];
-  
-  if (!availableDatasets.includes(datasetId)) {
-    throw new Error(`Dataset with ID '${datasetId}' not found. Available datasets: ${availableDatasets.join(", ")}`);
+  // Verify that variables exist in the data
+  const sampleDataPoint = data[0];
+  for (const variable of variables) {
+    if (!(variable in sampleDataPoint)) {
+      throw new Error(`Variable '${variable}' not found in data. Available variables: ${Object.keys(sampleDataPoint).join(", ")}`);
+    }
   }
   
   // Set default title if not provided
-  const visualizationTitle = title || `${formatVisualizationType(visualizationType)} of ${variables.join(", ")} for ${datasetId}`;
+  const visualizationTitle = title || `${formatVisualizationType(visualizationType)} of ${variables.join(", ")}`;
   
   // Generate the visualization specification
   let result = `## Data Visualization Generator: ${formatVisualizationType(visualizationType)}\n\n`;
   
-  result += `**Dataset:** ${datasetId}\n`;
   result += `**Variables:** ${variables.join(", ")}\n`;
   result += `**Title:** ${visualizationTitle}\n\n`;
+  result += `**Data Points:** ${data.length}\n\n`;
   
   // Add visualization-specific details
-  result += getVisualizationDetails(visualizationType, variables, datasetId, includeTrendline, options);
+  result += getVisualizationDetails(visualizationType, variables, data, includeTrendline, options);
   
   // Generate visualization specification (in this case, a Vega-Lite specification)
-  const spec = generateVisualizationSpec(visualizationType, variables, datasetId, visualizationTitle, includeTrendline, options);
+  const spec = generateVisualizationSpec(visualizationType, variables, data, visualizationTitle, includeTrendline, options);
   
   result += `\n### Visualization Specification (Vega-Lite)\n\n`;
   result += "```json\n";
@@ -99,7 +103,7 @@ function formatVisualizationType(type: string): string {
 function getVisualizationDetails(
   type: string,
   variables: string[],
-  datasetId: string,
+  data: Record<string, any>[],
   includeTrendline: boolean = false,
   options?: Record<string, any>
 ): string {
@@ -202,7 +206,7 @@ function getVisualizationDetails(
 function generateVisualizationSpec(
   type: string,
   variables: string[],
-  datasetId: string,
+  data: Record<string, any>[],
   title: string,
   includeTrendline: boolean = false,
   options?: Record<string, any>
@@ -210,7 +214,7 @@ function generateVisualizationSpec(
   // Base specification
   const baseSpec = {
     $schema: "https://vega.github.io/schema/vega-lite/v5.json",
-    data: { name: datasetId },
+    data: { values: data },
     title: title,
     width: options?.width || 600,
     height: options?.height || 400
@@ -245,11 +249,11 @@ function generateVisualizationSpec(
           ...(variables.length > 3 && {
             color: {
               field: variables[3],
-              type: isLikelyCategorical(variables[3]) ? "nominal" : "quantitative",
+              type: isLikelyCategorical(variables[3], data) ? "nominal" : "quantitative",
               title: formatFieldName(variables[3])
             }
           }),
-          tooltip: variables.map(v => ({ field: v, type: isLikelyCategorical(v) ? "nominal" : "quantitative" }))
+          tooltip: variables.map(v => ({ field: v, type: isLikelyCategorical(v, data) ? "nominal" : "quantitative" }))
         },
         ...(includeTrendline && {
           layer: [
@@ -273,7 +277,7 @@ function generateVisualizationSpec(
         encoding: {
           x: {
             field: variables[0],
-            type: isLikelyTemporal(variables[0]) ? "temporal" : isLikelyCategorical(variables[0]) ? "ordinal" : "quantitative",
+            type: isLikelyTemporal(variables[0], data) ? "temporal" : isLikelyCategorical(variables[0], data) ? "ordinal" : "quantitative",
             title: formatFieldName(variables[0])
           },
           y: {
@@ -288,7 +292,7 @@ function generateVisualizationSpec(
               title: formatFieldName(variables[2])
             }
           }),
-          tooltip: variables.map(v => ({ field: v, type: isLikelyCategorical(v) ? "nominal" : "quantitative" }))
+          tooltip: variables.map(v => ({ field: v, type: isLikelyCategorical(v, data) ? "nominal" : "quantitative" }))
         }
       };
       
@@ -299,7 +303,7 @@ function generateVisualizationSpec(
         encoding: {
           x: {
             field: variables[0],
-            type: isLikelyCategorical(variables[0]) ? "nominal" : "ordinal",
+            type: isLikelyCategorical(variables[0], data) ? "nominal" : "ordinal",
             title: formatFieldName(variables[0])
           },
           y: {
@@ -314,7 +318,7 @@ function generateVisualizationSpec(
               title: formatFieldName(variables[2])
             }
           }),
-          tooltip: variables.map(v => ({ field: v, type: isLikelyCategorical(v) ? "nominal" : "quantitative" }))
+          tooltip: variables.map(v => ({ field: v, type: isLikelyCategorical(v, data) ? "nominal" : "quantitative" }))
         }
       };
       
@@ -375,12 +379,12 @@ function generateVisualizationSpec(
         encoding: {
           x: {
             field: variables[0],
-            type: isLikelyCategorical(variables[0]) ? "nominal" : "ordinal",
+            type: isLikelyCategorical(variables[0], data) ? "nominal" : "ordinal",
             title: formatFieldName(variables[0])
           },
           y: {
             field: variables[1],
-            type: isLikelyCategorical(variables[1]) ? "nominal" : "ordinal",
+            type: isLikelyCategorical(variables[1], data) ? "nominal" : "ordinal",
             title: formatFieldName(variables[1])
           },
           color: variables.length > 2
@@ -397,8 +401,8 @@ function generateVisualizationSpec(
                 scale: { scheme: "viridis" }
               },
           tooltip: [
-            { field: variables[0], type: isLikelyCategorical(variables[0]) ? "nominal" : "ordinal" },
-            { field: variables[1], type: isLikelyCategorical(variables[1]) ? "nominal" : "ordinal" },
+            { field: variables[0], type: isLikelyCategorical(variables[0], data) ? "nominal" : "ordinal" },
+            { field: variables[1], type: isLikelyCategorical(variables[1], data) ? "nominal" : "ordinal" },
             ...(variables.length > 2
               ? [{ field: variables[2], type: "quantitative" }]
               : [{ aggregate: "count", title: "Count" }]
@@ -534,30 +538,96 @@ function formatFieldName(field: string): string {
     .trim(); // Remove any extra spaces
 }
 
-// Helper function to guess if a field is likely categorical
-function isLikelyCategorical(field: string): boolean {
-  // This is a simple heuristic; in a real implementation, we would analyze the data
+// Helper function to guess if a field is likely categorical based on data
+function isLikelyCategorical(field: string, data: Record<string, any>[]): boolean {
+  // First, check field name for common categorical name patterns
   const categoricalKeywords = [
     "category", "group", "type", "status", "level", "gender", "country", "region",
     "department", "class", "grade", "rating", "id", "code", "name", "campaign"
   ];
   
-  return categoricalKeywords.some(keyword => 
+  const hasKeyword = categoricalKeywords.some(keyword => 
     field.toLowerCase().includes(keyword.toLowerCase())
   );
+  
+  if (hasKeyword) return true;
+  
+  // Next, check the actual data - if there are few unique values compared to the total count
+  // or if the values are strings, it's likely categorical
+  const uniqueValues = new Set();
+  let stringCount = 0;
+  let totalCount = 0;
+  
+  for (const item of data) {
+    if (field in item) {
+      totalCount++;
+      uniqueValues.add(item[field]);
+      if (typeof item[field] === 'string') {
+        stringCount++;
+      }
+    }
+  }
+  
+  // If more than 50% of values are strings, likely categorical
+  if (stringCount / totalCount > 0.5) return true;
+  
+  // If there are relatively few unique values (less than 20% of total), likely categorical
+  if (uniqueValues.size / totalCount < 0.2) return true;
+  
+  return false;
 }
 
-// Helper function to guess if a field is likely temporal (date/time)
-function isLikelyTemporal(field: string): boolean {
-  // This is a simple heuristic; in a real implementation, we would analyze the data
+// Helper function to guess if a field is likely temporal based on data
+function isLikelyTemporal(field: string, data: Record<string, any>[]): boolean {
+  // First, check field name for common temporal name patterns
   const temporalKeywords = [
     "date", "time", "year", "month", "day", "hour", "minute", "second",
     "quarter", "week", "timestamp"
   ];
   
-  return temporalKeywords.some(keyword => 
+  const hasKeyword = temporalKeywords.some(keyword => 
     field.toLowerCase().includes(keyword.toLowerCase())
   );
+  
+  if (hasKeyword) return true;
+  
+  // Check if the field values look like dates
+  // This is a simple check - in a real implementation, we would use more sophisticated methods
+  let dateCount = 0;
+  let totalCount = 0;
+  
+  for (const item of data) {
+    if (field in item) {
+      totalCount++;
+      const value = item[field];
+      
+      // Check if the value is a Date object
+      if (value instanceof Date) {
+        dateCount++;
+        continue;
+      }
+      
+      // Check if value is a timestamp number
+      if (typeof value === 'number' && value > 1000000000000) { // Likely a timestamp in milliseconds
+        dateCount++;
+        continue;
+      }
+      
+      // Check if value is a date string
+      if (typeof value === 'string') {
+        // Simple date string check - not comprehensive
+        const dateRegex = /^\d{4}[-/]\d{1,2}[-/]\d{1,2}|\d{1,2}[-/]\d{1,2}[-/]\d{4}/;
+        if (dateRegex.test(value) || !isNaN(Date.parse(value))) {
+          dateCount++;
+        }
+      }
+    }
+  }
+  
+  // If more than 50% of values appear to be dates, likely temporal
+  if (dateCount / totalCount > 0.5) return true;
+  
+  return false;
 }
 
 // Helper function to get recommended customizations
