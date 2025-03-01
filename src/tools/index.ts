@@ -3,8 +3,12 @@ import {
   ListToolsRequestSchema, 
   CallToolRequestSchema 
 } from "@modelcontextprotocol/sdk/types.js";
-import { analyzeDataset, analyzeDatasetSchema } from "./analyze_dataset.js";
-import { decisionAnalysis, decisionAnalysisSchema } from "./decision_analysis.js";
+import { analyzeDataset } from "./analyze_dataset.js";
+import { decisionAnalysis } from "./decision_analysis.js";
+import { 
+  advancedAnalyzeDataset, 
+  advancedStatisticalAnalysisSchema 
+} from "./advanced_statistical_analysis.js";
 
 export function registerTools(server: Server) {
   // Register the tools list
@@ -13,7 +17,7 @@ export function registerTools(server: Server) {
       tools: [
         {
           name: "analyze_dataset",
-          description: "Analyze a dataset with statistical methods",
+          description: "Analyze a dataset with basic statistical methods",
           inputSchema: {
             type: "object",
             properties: {
@@ -28,6 +32,25 @@ export function registerTools(server: Server) {
               }
             },
             required: ["datasetId"]
+          }
+        },
+        {
+          name: "advanced_statistical_analysis",
+          description: "Perform advanced statistical analysis on datasets",
+          inputSchema: {
+            type: "object",
+            properties: {
+              datasetId: {
+                type: "string",
+                description: "Unique identifier for the dataset"
+              },
+              analysisType: {
+                type: "string",
+                enum: ["descriptive", "correlation"],
+                description: "Type of advanced statistical analysis to perform"
+              }
+            },
+            required: ["datasetId", "analysisType"]
           }
         },
         {
@@ -55,7 +78,7 @@ export function registerTools(server: Server) {
             required: ["options", "criteria"]
           }
         }
-      ],
+      ]
     };
   });
 
@@ -71,34 +94,41 @@ export function registerTools(server: Server) {
           if (!datasetId) {
             return {
               isError: true,
-              content: [
-                {
-                  type: "text",
-                  text: "Error: datasetId is required",
-                },
-              ],
+              content: [{ type: "text", text: "Error: datasetId is required" }]
             };
           }
           
           const result = await analyzeDataset(datasetId, analysisType);
           
-          return {
-            content: [
-              {
-                type: "text",
-                text: result,
-              },
-            ],
-          };
+          return { content: [{ type: "text", text: result }] };
         } catch (error) {
           return {
             isError: true,
-            content: [
-              {
-                type: "text",
-                text: `Error analyzing dataset: ${error instanceof Error ? error.message : String(error)}`,
-              },
-            ],
+            content: [{ type: "text", text: `Error analyzing dataset: ${error instanceof Error ? error.message : String(error)}` }]
+          };
+        }
+      }
+
+      case "advanced_statistical_analysis": {
+        try {
+          const args = request.params.arguments || {};
+          const datasetId = String(args.datasetId || "");
+          const analysisType = String(args.analysisType || "descriptive");
+          
+          if (!datasetId) {
+            return {
+              isError: true,
+              content: [{ type: "text", text: "Error: datasetId is required" }]
+            };
+          }
+          
+          const result = await advancedAnalyzeDataset(datasetId, analysisType);
+          
+          return { content: [{ type: "text", text: result }] };
+        } catch (error) {
+          return {
+            isError: true,
+            content: [{ type: "text", text: `Error in advanced statistical analysis: ${error instanceof Error ? error.message : String(error)}` }]
           };
         }
       }
@@ -117,46 +147,24 @@ export function registerTools(server: Server) {
           if (options.length === 0) {
             return {
               isError: true,
-              content: [
-                {
-                  type: "text",
-                  text: "Error: options must be a non-empty array of strings",
-                },
-              ],
+              content: [{ type: "text", text: "Error: options must be a non-empty array of strings" }]
             };
           }
           
           if (criteria.length === 0) {
             return {
               isError: true,
-              content: [
-                {
-                  type: "text",
-                  text: "Error: criteria must be a non-empty array of strings",
-                },
-              ],
+              content: [{ type: "text", text: "Error: criteria must be a non-empty array of strings" }]
             };
           }
           
           const result = await decisionAnalysis(options, criteria, weights);
           
-          return {
-            content: [
-              {
-                type: "text",
-                text: result,
-              },
-            ],
-          };
+          return { content: [{ type: "text", text: result }] };
         } catch (error) {
           return {
             isError: true,
-            content: [
-              {
-                type: "text",
-                text: `Error analyzing decision: ${error instanceof Error ? error.message : String(error)}`,
-              },
-            ],
+            content: [{ type: "text", text: `Error analyzing decision: ${error instanceof Error ? error.message : String(error)}` }]
           };
         }
       }
@@ -164,12 +172,7 @@ export function registerTools(server: Server) {
       default:
         return {
           isError: true,
-          content: [
-            {
-              type: "text",
-              text: `Unknown tool: ${request.params.name}`,
-            },
-          ],
+          content: [{ type: "text", text: `Unknown tool: ${request.params.name}` }]
         };
     }
   });
