@@ -3,265 +3,234 @@ import {
   ListToolsRequestSchema, 
   CallToolRequestSchema 
 } from "@modelcontextprotocol/sdk/types.js";
-import { analyzeDataset } from "./analyze_dataset.js";
-import { decisionAnalysis } from "./decision_analysis.js";
+import { analyzeDataset, analyzeDatasetSchema } from "./analyze_dataset.js";
+import { decisionAnalysis, decisionAnalysisSchema } from "./decision_analysis.js";
 import { 
-  advancedAnalyzeDataset, 
-  advancedStatisticalAnalysisSchema 
-} from "./advanced_statistical_analysis.js";
+  advancedRegressionAnalysis,
+  advancedRegressionAnalysisSchema
+} from "./advanced_regression_analysis.js";
 import {
-  evaluateMLModel,
-  mlModelEvaluationSchema
-} from "./ml_model_evaluation.js";
+  hypothesisTesting,
+  hypothesisTestingSchema
+} from "./hypothesis_testing.js";
+import {
+  dataVisualizationGenerator,
+  dataVisualizationGeneratorSchema
+} from "./data_visualization_generator.js";
+import {
+  logicalArgumentAnalyzer,
+  logicalArgumentAnalyzerSchema
+} from "./logical_argument_analyzer.js";
+import {
+  logicalFallacyDetector,
+  logicalFallacyDetectorSchema
+} from "./logical_fallacy_detector.js";
+import {
+  perspectiveShifter,
+  perspectiveShifterSchema
+} from "./perspective_shifter.js";
 
-/**
- * Register all analytical tools with the MCP server
- * @param server The MCP server instance
- */
+// Register all tools with the server
 export function registerTools(server: Server) {
-  // Register the tools list
-  server.setRequestHandler(ListToolsRequestSchema, async () => {
-    return {
-      tools: [
-        {
-          name: "analyze_dataset",
-          description: "Analyze a dataset with basic statistical methods",
-          inputSchema: {
-            type: "object",
-            properties: {
-              datasetId: {
-                type: "string",
-                description: "ID of the dataset to analyze"
-              },
-              analysisType: {
-                type: "string",
-                enum: ["summary", "stats"],
-                description: "Type of analysis to perform"
-              }
-            },
-            required: ["datasetId"]
-          }
-        },
-        {
-          name: "advanced_statistical_analysis",
-          description: "Perform advanced statistical analysis on datasets",
-          inputSchema: {
-            type: "object",
-            properties: {
-              datasetId: {
-                type: "string",
-                description: "Unique identifier for the dataset"
-              },
-              analysisType: {
-                type: "string",
-                enum: ["descriptive", "correlation"],
-                description: "Type of advanced statistical analysis to perform"
-              }
-            },
-            required: ["datasetId", "analysisType"]
-          }
-        },
-        {
-          name: "ml_model_evaluation",
-          description: "Evaluate machine learning model performance using various metrics",
-          inputSchema: {
-            type: "object",
-            properties: {
-              modelType: {
-                type: "string",
-                enum: ["classification", "regression"],
-                description: "Type of machine learning model"
-              },
-              actualValues: {
-                type: "array",
-                items: { type: "number" },
-                description: "Actual target values"
-              },
-              predictedValues: {
-                type: "array",
-                items: { type: "number" },
-                description: "Model's predicted values"
-              },
-              evaluationMetrics: {
-                type: "array",
-                items: { 
-                  type: "string",
-                  enum: [
-                    "accuracy", "precision", "recall", "f1_score",
-                    "mse", "mae", "rmse", "r_squared"
-                  ]
-                },
-                description: "Metrics to calculate (optional, defaults based on model type)"
-              }
-            },
-            required: ["modelType", "actualValues", "predictedValues"]
-          }
-        },
-        {
-          name: "decision_analysis",
-          description: "Analyze decision options based on multiple criteria",
-          inputSchema: {
-            type: "object",
-            properties: {
-              options: {
-                type: "array",
-                items: { type: "string" },
-                description: "List of decision options to analyze"
-              },
-              criteria: {
-                type: "array",
-                items: { type: "string" },
-                description: "List of criteria to evaluate options against"
-              },
-              weights: {
-                type: "array",
-                items: { type: "number" },
-                description: "Optional weights for each criterion (must match criteria length)"
-              }
-            },
-            required: ["options", "criteria"]
-          }
-        }
-      ]
-    };
+  // Register tool schemas
+  server.methods.tools.register({
+    name: "analyze_dataset",
+    description: "Analyze a dataset with statistical methods",
+    parameters: analyzeDatasetSchema
   });
 
-  // Handle tool execution
-  server.setRequestHandler(CallToolRequestSchema, async (request) => {
-    switch (request.params.name) {
-      case "analyze_dataset": {
-        try {
-          const args = request.params.arguments || {};
-          const datasetId = String(args.datasetId || "");
-          const analysisType = String(args.analysisType || "summary");
-          
-          if (!datasetId) {
-            return {
-              isError: true,
-              content: [{ type: "text", text: "Error: datasetId is required" }]
-            };
-          }
-          
-          const result = await analyzeDataset(datasetId, analysisType);
-          
-          return { content: [{ type: "text", text: result }] };
-        } catch (error) {
-          return {
-            isError: true,
-            content: [{ type: "text", text: `Error analyzing dataset: ${error instanceof Error ? error.message : String(error)}` }]
-          };
-        }
-      }
+  server.methods.tools.register({
+    name: "decision_analysis",
+    description: "Analyze decision options based on multiple criteria",
+    parameters: decisionAnalysisSchema
+  });
+  
+  server.methods.tools.register({
+    name: "advanced_regression_analysis",
+    description: "Perform advanced regression analysis on datasets",
+    parameters: advancedRegressionAnalysisSchema
+  });
+  
+  server.methods.tools.register({
+    name: "hypothesis_testing",
+    description: "Perform statistical hypothesis tests on datasets",
+    parameters: hypothesisTestingSchema
+  });
+  
+  server.methods.tools.register({
+    name: "data_visualization_generator",
+    description: "Generate specifications for data visualizations",
+    parameters: dataVisualizationGeneratorSchema
+  });
+  
+  server.methods.tools.register({
+    name: "logical_argument_analyzer",
+    description: "Analyze logical arguments for structure, fallacies, validity, and strength",
+    parameters: logicalArgumentAnalyzerSchema
+  });
+  
+  server.methods.tools.register({
+    name: "logical_fallacy_detector",
+    description: "Detect and explain logical fallacies in text with confidence scoring",
+    parameters: logicalFallacyDetectorSchema
+  });
+  
+  server.methods.tools.register({
+    name: "perspective_shifter",
+    description: "Generate alternative perspectives on a problem or situation",
+    parameters: perspectiveShifterSchema
+  });
 
-      case "advanced_statistical_analysis": {
-        try {
-          const args = request.params.arguments || {};
-          const datasetId = String(args.datasetId || "");
-          const analysisType = String(args.analysisType || "descriptive");
-          
-          if (!datasetId) {
-            return {
-              isError: true,
-              content: [{ type: "text", text: "Error: datasetId is required" }]
-            };
-          }
-          
-          const result = await advancedAnalyzeDataset(datasetId, analysisType);
-          
-          return { content: [{ type: "text", text: result }] };
-        } catch (error) {
-          return {
-            isError: true,
-            content: [{ type: "text", text: `Error in advanced statistical analysis: ${error instanceof Error ? error.message : String(error)}` }]
-          };
+  // Handle tool calls
+  server.on(
+    "tools.call",
+    async (req: { body: CallToolRequestSchema }, res) => {
+      try {
+        const { name, parameters } = req.body;
+        
+        let result: string;
+        
+        switch (name) {
+          case "analyze_dataset":
+            result = await analyzeDataset(
+              parameters.datasetId as string,
+              parameters.analysisType as string
+            );
+            break;
+            
+          case "decision_analysis":
+            result = await decisionAnalysis(
+              parameters.options as string[],
+              parameters.criteria as string[],
+              parameters.weights as number[] | undefined
+            );
+            break;
+            
+          case "advanced_regression_analysis":
+            result = await advancedRegressionAnalysis(
+              parameters.datasetId as string,
+              parameters.regressionType as string,
+              parameters.independentVariables as string[],
+              parameters.dependentVariable as string,
+              parameters.polynomialDegree as number | undefined,
+              parameters.includeMetrics as boolean | undefined,
+              parameters.includeCoefficients as boolean | undefined
+            );
+            break;
+            
+          case "hypothesis_testing":
+            result = await hypothesisTesting(
+              parameters.testType as string,
+              parameters.datasetId as string,
+              parameters.variables as string[],
+              parameters.alpha as number | undefined,
+              parameters.alternativeHypothesis as string | undefined
+            );
+            break;
+            
+          case "data_visualization_generator":
+            result = await dataVisualizationGenerator(
+              parameters.datasetId as string,
+              parameters.visualizationType as string,
+              parameters.variables as string[],
+              parameters.title as string | undefined,
+              parameters.includeTrendline as boolean | undefined,
+              parameters.options as Record<string, any> | undefined
+            );
+            break;
+            
+          case "logical_argument_analyzer":
+            result = await logicalArgumentAnalyzer(
+              parameters.argument as string,
+              parameters.analysisType as string | undefined,
+              parameters.includeRecommendations as boolean | undefined
+            );
+            break;
+            
+          case "logical_fallacy_detector":
+            result = await logicalFallacyDetector(
+              parameters.text as string,
+              parameters.confidenceThreshold as number | undefined,
+              parameters.includeExplanations as boolean | undefined,
+              parameters.includeExamples as boolean | undefined,
+              parameters.fallacyCategories as string[] | undefined
+            );
+            break;
+            
+          case "perspective_shifter":
+            result = await perspectiveShifter(
+              parameters.problem as string,
+              parameters.currentPerspective as string | undefined,
+              parameters.shiftType as string | undefined,
+              parameters.numberOfPerspectives as number | undefined,
+              parameters.includeActionable as boolean | undefined
+            );
+            break;
+            
+          default:
+            throw new Error(`Unknown tool: ${name}`);
         }
+        
+        res.json({ result });
+      } catch (error) {
+        console.error("Error calling tool:", error);
+        res.json({
+          error: {
+            message: error instanceof Error ? error.message : String(error)
+          }
+        });
       }
-
-      case "ml_model_evaluation": {
-        try {
-          const args = request.params.arguments || {};
-          const modelType = String(args.modelType || "");
-          const actualValues = Array.isArray(args.actualValues) ? args.actualValues.map(Number) : [];
-          const predictedValues = Array.isArray(args.predictedValues) ? args.predictedValues.map(Number) : [];
-          let evaluationMetrics: string[] | undefined = undefined;
-          
-          if (Array.isArray(args.evaluationMetrics)) {
-            evaluationMetrics = args.evaluationMetrics.map(String);
-          }
-          
-          if (!modelType || !["classification", "regression"].includes(modelType)) {
-            return {
-              isError: true,
-              content: [{ type: "text", text: "Error: modelType must be 'classification' or 'regression'" }]
-            };
-          }
-          
-          if (actualValues.length === 0 || predictedValues.length === 0) {
-            return {
-              isError: true,
-              content: [{ type: "text", text: "Error: actualValues and predictedValues must be non-empty arrays" }]
-            };
-          }
-          
-          if (actualValues.length !== predictedValues.length) {
-            return {
-              isError: true,
-              content: [{ type: "text", text: "Error: actualValues and predictedValues must have the same length" }]
-            };
-          }
-          
-          const result = await evaluateMLModel(modelType, actualValues, predictedValues, evaluationMetrics);
-          
-          return { content: [{ type: "text", text: result }] };
-        } catch (error) {
-          return {
-            isError: true,
-            content: [{ type: "text", text: `Error evaluating ML model: ${error instanceof Error ? error.message : String(error)}` }]
-          };
-        }
-      }
-
-      case "decision_analysis": {
-        try {
-          const args = request.params.arguments || {};
-          const options = Array.isArray(args.options) ? args.options.map(String) : [];
-          const criteria = Array.isArray(args.criteria) ? args.criteria.map(String) : [];
-          let weights: number[] | undefined = undefined;
-          
-          if (Array.isArray(args.weights)) {
-            weights = args.weights.map(Number);
-          }
-          
-          if (options.length === 0) {
-            return {
-              isError: true,
-              content: [{ type: "text", text: "Error: options must be a non-empty array of strings" }]
-            };
-          }
-          
-          if (criteria.length === 0) {
-            return {
-              isError: true,
-              content: [{ type: "text", text: "Error: criteria must be a non-empty array of strings" }]
-            };
-          }
-          
-          const result = await decisionAnalysis(options, criteria, weights);
-          
-          return { content: [{ type: "text", text: result }] };
-        } catch (error) {
-          return {
-            isError: true,
-            content: [{ type: "text", text: `Error analyzing decision: ${error instanceof Error ? error.message : String(error)}` }]
-          };
-        }
-      }
-
-      default:
-        return {
-          isError: true,
-          content: [{ type: "text", text: `Unknown tool: ${request.params.name}` }]
-        };
     }
-  });
+  );
+
+  // Handle tool listing
+  server.on(
+    "tools.list",
+    async (req: { body: ListToolsRequestSchema }, res) => {
+      res.json({
+        tools: [
+          {
+            name: "analyze_dataset",
+            description: "Analyze a dataset with statistical methods",
+            parameters: analyzeDatasetSchema
+          },
+          {
+            name: "decision_analysis",
+            description: "Analyze decision options based on multiple criteria",
+            parameters: decisionAnalysisSchema
+          },
+          {
+            name: "advanced_regression_analysis",
+            description: "Perform advanced regression analysis on datasets",
+            parameters: advancedRegressionAnalysisSchema
+          },
+          {
+            name: "hypothesis_testing",
+            description: "Perform statistical hypothesis tests on datasets",
+            parameters: hypothesisTestingSchema
+          },
+          {
+            name: "data_visualization_generator",
+            description: "Generate specifications for data visualizations",
+            parameters: dataVisualizationGeneratorSchema
+          },
+          {
+            name: "logical_argument_analyzer",
+            description: "Analyze logical arguments for structure, fallacies, validity, and strength",
+            parameters: logicalArgumentAnalyzerSchema
+          },
+          {
+            name: "logical_fallacy_detector",
+            description: "Detect and explain logical fallacies in text with confidence scoring",
+            parameters: logicalFallacyDetectorSchema
+          },
+          {
+            name: "perspective_shifter",
+            description: "Generate alternative perspectives on a problem or situation",
+            parameters: perspectiveShifterSchema
+          }
+        ]
+      });
+    }
+  );
 }

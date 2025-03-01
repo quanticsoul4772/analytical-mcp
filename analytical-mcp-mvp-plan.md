@@ -1,54 +1,58 @@
 # Analytical MCP Server: Rapid MVP Development Plan
 
-## 🚀 Phase 1: Minimal Setup (Completed ✅)
-- [x] [1.1] Install Node.js (v20+)
-- [x] [1.2] Create project with `npx @modelcontextprotocol/create-server analytical-mcp`
-- [x] [1.3] Install essential dependencies
-  - [x] [1.3.1] `@modelcontextprotocol/sdk`
-  - [x] [1.3.2] `zod`
-  - [x] [1.3.3] `mathjs`
-- [x] [1.4] Fix `package.json` if needed
-
-## 🧠 Phase 2: Two Core Analytical Tools (Completed ✅)
-- [x] [2.1] Implement `analyze_dataset` tool
-  - [x] [2.1.1] Parameter schema definition
-  - [x] [2.1.2] Mock data implementation
-  - [x] [2.1.3] Basic statistical calculations
-  - [x] [2.1.4] Formatted output
-
-- [x] [2.2] Implement `decision_analysis` tool
-  - [x] [2.2.1] Parameter schema definition
-  - [x] [2.2.2] Simple multi-criteria decision analysis
-  - [x] [2.2.3] Pros/cons summary
-  - [x] [2.2.4] Ranked recommendation output
-
-## 📁 Phase 3: Server Integration (Completed ✅)
-- [x] [3.1] Set up server entry point
-- [x] [3.2] Register analytical tools
-- [x] [3.3] Configure StdioServerTransport
-- [x] [3.4] Implement basic error handling
-- [x] [3.5] Build the project
-
-## 🚢 Phase 4: Integration & Testing (Completed ✅)
-- [x] [4.1] Configure Claude Desktop integration
-  - [x] [4.1.1] Update `claude_desktop_config.json`
-  - [x] [4.1.2] Test tool discovery in Claude UI
-- [x] [4.2] Test with MCP Inspector
-  - [x] [4.2.1] Run inspector on the build
-  - [x] [4.2.2] Verify tools are registered
-  - [x] [4.2.3] Test tool executions manually
-- [x] [4.3] Create minimal README
+## 🚀 Phase 1-4: Initial Setup and Core Tools (Completed ✅)
+- [x] [1.1-1.6] Node.js and TypeScript Project Setup
+- [x] [2.1-2.2] Core Analytical Tools Development
+- [x] [3.1-3.5] Server Integration
+- [x] [4.1-4.3] Initial MCP Integration and Testing
 
 ## 🔄 Phase 5: Advanced Analytical Capabilities (Current Phase)
-- [x] [5.1] Advanced Statistical Analysis Implementation
-  - [x] [5.1.1] Create advanced statistical analysis module
-  - [x] [5.1.2] Implement descriptive statistics functions
-  - [x] [5.1.3] Develop correlation analysis capabilities
-  - [x] [5.1.4] Add robust error handling and data validation
 
-### Upcoming Sub-tasks
-- [ ] [5.2] Machine Learning Integration Preparation
-- [ ] [5.3] Enhanced Data Resource Management
+### Advanced Statistical Analysis
+- [x] [5.1] Statistical Analysis Expansion
+  - [x] [5.1.1] Create advanced statistical analysis module
+  - [x] [5.1.2] Implement descriptive and correlation analysis
+  - [x] [5.1.3] Add robust error handling
+  - [x] [5.1.4] Create markdown-formatted output
+
+### Machine Learning Integration
+- [x] [5.2] ML Model Evaluation Preparation
+  - [x] [5.2.1] Research ML model evaluation techniques
+  - [x] [5.2.2] Design ML tool interfaces
+  - [x] [5.2.3] Implement ML model evaluation tool
+    - [x] Support classification metrics
+    - [x] Support regression metrics
+    - [x] Flexible metric selection
+    - [x] Markdown report generation
+
+### Data Resource Management
+- [x] [5.3] Enhance Data Handling Capabilities
+  - [x] [5.3.1] Implement dynamic data source discovery
+  - [x] [5.3.2] Add support for multiple data format imports
+    - [x] [5.3.2.1] CSV parsing
+    - [x] [5.3.2.2] Excel/XLSX support
+    - [x] [5.3.2.3] JSON/JSONL handling
+  - [x] [5.3.3] Create data transformation resources
+    - [x] Column selection
+    - [x] Filtering capabilities
+    - [x] Basic aggregation support
+
+### Advanced Data Preprocessing
+- [x] [5.4] Data Preprocessing Capabilities
+  - [x] [5.4.1] Implement missing value handling techniques
+    - [x] Mean/median/mode imputation
+    - [x] Flexible column-level processing
+  - [x] [5.4.2] Add data normalization methods
+    - [x] Min-Max scaling
+    - [x] Z-score normalization
+    - [x] Log transformation
+  - [x] [5.4.3] Develop outlier detection and handling
+    - [x] Statistical outlier identification
+    - [x] Removal and capping strategies
+  - [x] [5.4.4] Create flexible preprocessing tool
+    - [x] Support for multiple preprocessing tasks
+    - [x] Markdown-formatted reporting
+    - [x] Error handling and validation
 
 ## Total Timeline: Ongoing Development
 
@@ -61,7 +65,7 @@
 ### Post-MVP Priorities (Ongoing)
 - [ ] [6.1] Add real data integration
 - [ ] [6.2] Implement additional analytical tools
-- [ ] [6.3] Add basic resource support
+- [ ] [6.3] Add advanced resource support
 - [ ] [6.4] Improve error handling and logging
 - [ ] [6.5] Create more comprehensive documentation
 
@@ -72,4 +76,7 @@
 1. ✅ Core MCP server functionality implemented
 2. ✅ Basic analytical tools developed
 3. ✅ Advanced statistical analysis tool added
-4. 🚧 Ongoing development and feature expansion
+4. ✅ Machine learning model evaluation tool added
+5. ✅ Data resource management tool added
+6. ✅ Advanced data preprocessing tool added
+7. 🚧 Ongoing development and feature expansion

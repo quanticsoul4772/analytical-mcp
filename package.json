@@ -19,10 +19,14 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "0.6.0",
     "mathjs": "^14.3.0",
-    "zod": "^3.24.2"
+    "zod": "^3.24.2",
+    "papaparse": "^5.4.1",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@types/node": "^20.11.24",
+    "@types/papaparse": "^5.3.14",
+    "@types/xlsx": "^0.0.36",
     "typescript": "^5.3.3"
   }
 }
