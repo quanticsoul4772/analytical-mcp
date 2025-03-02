@@ -12,12 +12,33 @@ export const decisionAnalysisSchema = z.object({
     .describe('Optional weights for each criterion (must match criteria length)'),
 });
 
-// Tool implementation
+// Interface for the function parameters
+export interface DecisionAnalysisParams {
+  options: string[];
+  criteria: string[];
+  weights?: number[];
+}
+
+// Tool implementation that accepts both a parameter object and individual parameters
 export async function decisionAnalysis(
-  options: string[],
-  criteria: string[],
+  optionsOrParams: string[] | DecisionAnalysisParams,
+  criteriaOrVoid?: string[],
   weights?: number[]
 ): Promise<string> {
+  // Handle both parameter styles
+  let options: string[];
+  let criteria: string[];
+  
+  if (Array.isArray(optionsOrParams)) {
+    // Old style with separate parameters
+    options = optionsOrParams;
+    criteria = criteriaOrVoid || [];
+  } else {
+    // New style with parameter object
+    options = optionsOrParams.options;
+    criteria = optionsOrParams.criteria;
+    weights = optionsOrParams.weights;
+  }
   try {
     Logger.debug('Starting decision analysis', {
       optionsCount: options.length,
@@ -120,15 +141,23 @@ export async function decisionAnalysis(
         }, 0);
       });
 
-      // Rank options
-      const rankedOptions = options
+      // Define interfaces for clear types
+      interface RankedOption {
+        option: string;
+        score: number;
+        pros: string[];
+        cons: string[];
+      }
+
+      // Rank options with type safety
+      const rankedOptions: RankedOption[] = options
         .map((option, i) => ({
           option,
           score: weightedScores[i],
-          pros: pros[i],
-          cons: cons[i],
+          pros: pros[i] || [],
+          cons: cons[i] || [],
         }))
-        .sort((a, b) => b.score - a.score);
+        .sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
 
       // Format output
       let result = `## Decision Analysis Results\n\n`;
@@ -146,7 +175,7 @@ export async function decisionAnalysis(
 
         // Pros
         result += `**Pros:**\n`;
-        if (item.pros.length > 0) {
+        if (item.pros && item.pros.length > 0) {
           item.pros.forEach((pro) => {
             result += `- ${pro}\n`;
           });
@@ -156,7 +185,7 @@ export async function decisionAnalysis(
 
         // Cons
         result += `\n**Cons:**\n`;
-        if (item.cons.length > 0) {
+        if (item.cons && item.cons.length > 0) {
           item.cons.forEach((con) => {
             result += `- ${con}\n`;
           });
@@ -168,19 +197,24 @@ export async function decisionAnalysis(
       });
 
       // Add recommendations
-      const topOption = rankedOptions[0];
+      const topOption = rankedOptions.length > 0 ? rankedOptions[0] : null;
       result += `### Recommendation\n\n`;
-      result += `Based on the analysis, **${topOption.option}** appears to be the strongest option with a score of ${topOption.score.toFixed(2)}.\n`;
-      result += `Its key strengths include: ${topOption.pros.length > 0 ? topOption.pros.join(', ') : 'No significant pros identified'}.\n`;
+      
+      if (topOption) {
+        result += `Based on the analysis, **${topOption.option}** appears to be the strongest option with a score of ${topOption.score.toFixed(2)}.\n`;
+        result += `Its key strengths include: ${topOption.pros && topOption.pros.length > 0 ? topOption.pros.join(', ') : 'No significant pros identified'}.\n`;
 
-      if (rankedOptions.length > 1) {
-        const runnerUp = rankedOptions[1];
-        result += `\nThe second-best option is **${runnerUp.option}** with a score of ${runnerUp.score.toFixed(2)}.\n`;
+        if (rankedOptions.length > 1) {
+          const runnerUp = rankedOptions[1];
+          result += `\nThe second-best option is **${runnerUp.option}** with a score of ${runnerUp.score.toFixed(2)}.\n`;
+        }
+      } else {
+        result += `No options were available for ranking.\n`;
       }
 
       Logger.debug('Decision analysis completed successfully', {
         optionsAnalyzed: options.length,
-        topScore: rankedOptions[0].score,
+        topScore: rankedOptions.length > 0 ? rankedOptions[0].score : 0,
       });
 
       return result;

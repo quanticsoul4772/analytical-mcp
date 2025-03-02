@@ -32,13 +32,20 @@ export async function dataVisualizationGenerator(
     throw new Error('Invalid data format. Please provide an array of data objects.');
   }
 
+  // Verify that data is valid
+  if (!data.length) {
+    throw new Error('Data array is empty');
+  }
+  
   // Verify that variables exist in the data
   const sampleDataPoint = data[0];
-  for (const variable of variables) {
-    if (!(variable in sampleDataPoint)) {
-      throw new Error(
-        `Variable '${variable}' not found in data. Available variables: ${Object.keys(sampleDataPoint).join(', ')}`
-      );
+  if (sampleDataPoint) {
+    for (const variable of variables) {
+      if (!(variable in sampleDataPoint)) {
+        throw new Error(
+          `Variable '${variable}' not found in data. Available variables: ${Object.keys(sampleDataPoint).join(', ')}`
+        );
+      }
     }
   }
 
@@ -90,6 +97,11 @@ export async function dataVisualizationGenerator(
   return result;
 }
 
+// Utility function to safely handle string|undefined values
+function ensureString(value: string | undefined, defaultValue: string = ''): string {
+  return value !== undefined ? value : defaultValue;
+}
+
 // Helper function to format visualization type for display
 function formatVisualizationType(type: string): string {
   switch (type) {
@@ -128,12 +140,12 @@ function getVisualizationDetails(
 
   switch (type) {
     case 'scatter':
-      details += `This scatter plot will visualize the relationship between ${variables[0]} and ${variables[1]}`;
+      details += `This scatter plot will visualize the relationship between ${ensureString(variables[0], 'x-variable')} and ${ensureString(variables[1], 'y-variable')}`;
       if (variables.length > 2) {
-        details += `, with ${variables[2]} encoded as point size`;
+        details += `, with ${ensureString(variables[2], 'size-variable')} encoded as point size`;
       }
       if (variables.length > 3) {
-        details += ` and ${variables[3]} encoded as point color`;
+        details += ` and ${ensureString(variables[3], 'color-variable')} encoded as point color`;
       }
       details += '.\n\n';
 
@@ -245,34 +257,34 @@ function generateVisualizationSpec(
         mark: 'point',
         encoding: {
           x: {
-            field: variables[0],
+            field: ensureString(variables[0], 'x'),
             type: 'quantitative',
-            title: formatFieldName(variables[0]),
+            title: formatFieldName(ensureString(variables[0], 'x')),
             scale: { zero: false },
           },
           y: {
-            field: variables[1],
+            field: ensureString(variables[1], 'y'),
             type: 'quantitative',
-            title: formatFieldName(variables[1]),
+            title: formatFieldName(ensureString(variables[1], 'y')),
             scale: { zero: false },
           },
           ...(variables.length > 2 && {
             size: {
-              field: variables[2],
+              field: ensureString(variables[2], 'size'),
               type: 'quantitative',
-              title: formatFieldName(variables[2]),
+              title: formatFieldName(ensureString(variables[2], 'size')),
             },
           }),
           ...(variables.length > 3 && {
             color: {
-              field: variables[3],
-              type: isLikelyCategorical(variables[3], data) ? 'nominal' : 'quantitative',
-              title: formatFieldName(variables[3]),
+              field: ensureString(variables[3], 'color'),
+              type: isLikelyCategorical(ensureString(variables[3], 'color'), data) ? 'nominal' : 'quantitative',
+              title: formatFieldName(ensureString(variables[3], 'color')),
             },
           }),
           tooltip: variables.map((v) => ({
-            field: v,
-            type: isLikelyCategorical(v, data) ? 'nominal' : 'quantitative',
+            field: ensureString(v, 'variable'),
+            type: isLikelyCategorical(ensureString(v, 'variable'), data) ? 'nominal' : 'quantitative',
           })),
         },
         ...(includeTrendline && {
@@ -280,7 +292,10 @@ function generateVisualizationSpec(
             { mark: 'point' },
             {
               mark: { type: 'line', color: 'firebrick', opacity: 0.5 },
-              transform: [{ regression: variables[1], on: variables[0] }],
+              transform: [{ 
+                regression: ensureString(variables[1], 'y'), 
+                on: ensureString(variables[0], 'x') 
+              }],
             },
           ],
         }),

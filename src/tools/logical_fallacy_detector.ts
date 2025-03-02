@@ -31,6 +31,9 @@ const logicalFallacyDetectorSchemaDefinition = z.object({
   includeExamples: z.boolean().default(true),
 });
 
+// Export the schema
+export const logicalFallacyDetectorSchema = logicalFallacyDetectorSchemaDefinition;
+
 // Comprehensive list of logical fallacies
 function getFallacyDefinitions(): FallacyDefinition[] {
   return [
@@ -108,8 +111,8 @@ function getFallacyDefinitions(): FallacyDefinition[] {
   ];
 }
 
-// Logical fallacy detector function
-export async function logicalFallacyDetector(
+// Internal implementation of logical fallacy detector
+async function detectFallacies(
   text: string,
   confidenceThreshold: number = 0.5,
   categories: string[] = ['all'],
@@ -264,5 +267,36 @@ export async function logicalFallacyDetector(
   }
 }
 
-// Export the function and schema
-export const logicalFallacyDetectorSchema = logicalFallacyDetectorSchemaDefinition;
+// Export the function
+export const logicalFallacyDetector = async (
+  textOrParams: string | {
+    text: string;
+    confidenceThreshold?: number;
+    categories?: string[];
+    includeExplanations?: boolean;
+    includeExamples?: boolean;
+  },
+  confidenceThreshold: number = 0.5,
+  categories: string[] = ['all'],
+  includeExplanations: boolean = true,
+  includeExamples: boolean = true
+): Promise<string> => {
+  // Handle both parameter styles (object and individual parameters)
+  if (typeof textOrParams === 'object') {
+    return detectFallacies(
+      textOrParams.text,
+      textOrParams.confidenceThreshold ?? 0.5,
+      textOrParams.categories ?? ['all'],
+      textOrParams.includeExplanations ?? true,
+      textOrParams.includeExamples ?? true
+    );
+  } else {
+    return detectFallacies(
+      textOrParams,
+      confidenceThreshold,
+      categories,
+      includeExplanations,
+      includeExamples
+    );
+  }
+};

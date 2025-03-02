@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { exaResearch } from './exa_research.js';
+import { exaResearch } from '../utils/exa_research.js';
 import { enhancedFactExtractor } from './exa_research.js';
 import { Logger } from '../utils/logger.js';
 import { APIError, ValidationError, DataProcessingError } from '../utils/errors.js';
@@ -58,7 +58,9 @@ export class ResearchVerificationTool {
       const primaryResults = await exaResearch.search({
         query: params.query,
         numResults: params.sources,
-        includeContents: true
+        includeContents: true,
+        useWebResults: true,
+        useNewsResults: false
       });
 
       // Extract and analyze facts from primary search
@@ -93,7 +95,9 @@ export class ResearchVerificationTool {
           const verificationSearch = await exaResearch.search({
             query: verificationQuery,
             numResults: params.sources,
-            includeContents: true
+            includeContents: true,
+            useWebResults: true,
+            useNewsResults: false
           });
 
           for (const result of verificationSearch.results) {

@@ -15,6 +15,9 @@ const PerspectiveShifterSchema = z.object({
   includeActionable: z.boolean().optional().default(true),
 });
 
+// Export the schema
+export const perspectiveShifterSchema = PerspectiveShifterSchema;
+
 // Predefined perspective domains
 const PERSPECTIVE_DOMAINS: Record<string, string[]> = {
   stakeholder: ['customer', 'employee', 'investor', 'management', 'community', 'supplier'],
@@ -28,8 +31,8 @@ const PERSPECTIVE_DOMAINS: Record<string, string[]> = {
   ],
 };
 
-// Perspective shifting tool
-async function perspectiveShifter(
+// Perspective shifting - internal implementation
+async function generatePerspectives(
   problem: string,
   currentPerspective?: string,
   shiftType: string = 'stakeholder',
@@ -127,5 +130,35 @@ async function perspectiveShifter(
   }
 }
 
-// Export both the function and schema
-export { perspectiveShifter, PerspectiveShifterSchema as perspectiveShifterSchema };
+// Export the function with support for both parameter styles
+export const perspectiveShifter = async (
+  problemOrParams: string | {
+    problem: string;
+    currentPerspective?: string;
+    shiftType?: string;
+    numberOfPerspectives?: number;
+    includeActionable?: boolean;
+  },
+  currentPerspective?: string,
+  shiftType: string = 'stakeholder',
+  numberOfPerspectives: number = 3,
+  includeActionable: boolean = true
+): Promise<string> => {
+  if (typeof problemOrParams === 'object') {
+    return generatePerspectives(
+      problemOrParams.problem,
+      problemOrParams.currentPerspective,
+      problemOrParams.shiftType ?? 'stakeholder',
+      problemOrParams.numberOfPerspectives ?? 3,
+      problemOrParams.includeActionable ?? true
+    );
+  } else {
+    return generatePerspectives(
+      problemOrParams,
+      currentPerspective,
+      shiftType,
+      numberOfPerspectives,
+      includeActionable
+    );
+  }
+};
