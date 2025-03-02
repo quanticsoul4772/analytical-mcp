@@ -25,9 +25,20 @@ import {
 } from './logical_fallacy_detector.js';
 import { perspectiveShifter, perspectiveShifterSchema } from './perspective_shifter.js';
 
+// NEW: Import research-related tools
+import { exaResearch } from './exa_research.js';
+import { researchVerification } from './research_verification.js';
+
+// Schema for research verification
+const ResearchVerificationSchema = z.object({
+  query: z.string().describe('Primary research query'),
+  verificationQueries: z.array(z.string()).optional().describe('Alternate queries for verification'),
+  minConsistencyThreshold: z.number().min(0).max(1).optional().default(0.7).describe('Minimum consistency score'),
+  sources: z.number().min(1).max(10).optional().default(3).describe('Number of sources to cross-verify'),
+});
+
 /**
  * Register all tools with the server using the latest MCP SDK patterns
- * Updated to use server.capabilities.tools directly
  */
 export function registerTools(server: Server): void {
   // Define tool registration information
@@ -80,6 +91,14 @@ export function registerTools(server: Server): void {
       schema: perspectiveShifterSchema,
       handler: perspectiveShifter,
     },
+    // NEW: Research-related tools
+    {
+      name: 'verify_research',
+      description: 'Cross-verify research claims from multiple sources with confidence scoring',
+      schema: ResearchVerificationSchema,
+      handler: (input: z.infer<typeof ResearchVerificationSchema>) => 
+        researchVerification.verifyResearch(input),
+    },
   ];
 
   // Log tools that will be registered
@@ -113,6 +132,10 @@ export function registerTools(server: Server): void {
         throw error; // Re-throw to fail registration process
       }
     });
+
+    // Ensure research tools are initialized
+    exaResearch.registerTool(server);
+    researchVerification.registerTool(server);
 
     Logger.info(`Successfully registered ${toolRegistrations.length} tools`);
   } catch (error) {

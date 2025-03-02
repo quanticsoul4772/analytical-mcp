@@ -87,6 +87,24 @@ Perform statistical hypothesis testing.
 - Test results (statistics, p-value, significance)
 - Interpretation of results
 
+### verify_research
+
+Cross-verify research claims from multiple sources with confidence scoring.
+
+**Input:**
+- `query`: Primary research query
+- `verificationQueries` (optional): Alternate queries for verification
+- `minConsistencyThreshold` (optional, default: 0.7): Minimum consistency score
+- `sources` (optional, default: 3): Number of sources to cross-verify
+
+**Output:**
+- Verified research results
+- Confidence score with detailed breakdown
+  * Source consistency
+  * Number of sources
+  * Unique sources used
+  * Any conflicting claims
+
 ## Installation
 
 This server is designed to be used with the Claude Desktop App. To install:
@@ -99,8 +117,16 @@ This server is designed to be used with the Claude Desktop App. To install:
 Once installed, you can use the tools directly in Claude. For example:
 
 ```
+Use the verify_research tool to cross-validate a research claim
 Use the analyze_dataset tool to analyze this data: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
 ```
+
+## Research Integration
+
+The server now supports advanced research capabilities:
+- Multi-source fact verification
+- Confidence scoring for research insights
+- Flexible research query handling
 
 ## Development
 
