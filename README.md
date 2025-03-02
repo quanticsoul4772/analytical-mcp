@@ -36,7 +36,14 @@ A specialized Model Context Protocol (MCP) server providing advanced analytical,
    ```bash
    npm install
    ```
-3. Set up your environment variables (see `.env.example` for required variables)
+3. Set up your environment variables:
+   ```bash
+   # Copy the example environment file
+   cp .env.example .env
+   
+   # Edit .env and add your API keys
+   # You'll need an Exa API key for research functionality
+   ```
 4. Build the project:
    ```bash
    npm run build
@@ -73,10 +80,37 @@ node examples/advanced_nlp_demo.js
 
 ### Available Scripts
 - `npm run build`: Compile TypeScript
-- `npm test`: Run test suite
+- `npm test`: Run all tests
+- `npm run test:integration`: Run integration tests only
+- `npm run test:exa`: Run Exa Research API tests
+- `npm run test:research`: Run Research Verification tests
+- `npm run test:server`: Run Server Tool Registration tests
 - `npm run lint`: Check code quality
 - `npm run format`: Format code
 - `npm run nlp:demo`: Run advanced NLP demo
+
+### Test Scripts
+We provide dedicated scripts for running specific test suites:
+
+#### Unix/Linux/Mac
+```bash
+# Run all integration tests with a summary report
+./tools/run-all-integration-tests.sh
+
+# Run specific test suites
+./tools/run-exa-tests.sh
+./tools/run-research-tests.sh
+./tools/run-server-tests.sh
+./tools/run-api-key-tests.sh
+./tools/run-data-pipeline-tests.sh
+./tools/run-market-analysis-tests.sh
+```
+
+#### Windows
+```batch
+# Run all integration tests with a summary report
+.\tools\run-all-integration-tests.bat
+```
 
 ### Key Technologies
 - TypeScript
@@ -99,7 +133,14 @@ For detailed information, see the [Advanced NLP documentation](docs/advanced-nlp
 This project requires the following API key:
 - `EXA_API_KEY`: Used for research integration and advanced NLP
 
-See the `.env.example` file for configuration options.
+The `.env.example` file contains all available configuration options:
+- API keys
+- Feature flags
+- Cache settings
+- NLP configuration
+- Server configuration
+
+Copy this file to `.env` in your project root and update with your actual API keys to get started.
 
 ## Contributing
 1. Fork the repository
