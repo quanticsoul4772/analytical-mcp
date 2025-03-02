@@ -1,4 +1,6 @@
 import { z } from "zod";
+import { ValidationError, DataProcessingError } from '../utils/errors.js';
+import { Logger } from '../utils/logger.js';
 
 // Schema for the tool parameters
 export const decisionAnalysisSchema = z.object({
@@ -13,131 +15,184 @@ export async function decisionAnalysis(
   criteria: string[], 
   weights?: number[]
 ): Promise<string> {
-  // Validate inputs
-  if (options.length === 0) {
-    throw new Error("At least one option must be provided");
-  }
-  
-  if (criteria.length === 0) {
-    throw new Error("At least one criterion must be provided");
-  }
-  
-  // Use equal weights if none provided
-  const normalizedWeights = weights || criteria.map(() => 1 / criteria.length);
-  
-  // Validate weights length
-  if (normalizedWeights.length !== criteria.length) {
-    throw new Error(`Weights length (${normalizedWeights.length}) must match criteria length (${criteria.length})`);
-  }
-  
-  // Generate random scores for demo purposes
-  // In a real implementation, this would use real data or ask for user input
-  const scores: number[][] = [];
-  const pros: string[][] = [];
-  const cons: string[][] = [];
-  
-  for (let i = 0; i < options.length; i++) {
-    scores[i] = [];
-    pros[i] = [];
-    cons[i] = [];
+  try {
+    Logger.debug('Starting decision analysis', { 
+      optionsCount: options.length, 
+      criteriaCount: criteria.length,
+      weightsProvided: !!weights
+    });
     
-    for (let j = 0; j < criteria.length; j++) {
-      // Generate a random score between 1-10
-      const score = Math.floor(Math.random() * 10) + 1;
-      scores[i][j] = score;
-      
-      // Generate pros and cons based on score
-      if (score >= 7) {
-        pros[i].push(`Strong in "${criteria[j]}"`);
-      } else if (score >= 4) {
-        // No strong pro or con
-      } else {
-        cons[i].push(`Weak in "${criteria[j]}"`);
+    // Validate inputs
+    if (!options || !Array.isArray(options) || options.length === 0) {
+      throw new ValidationError("At least one option must be provided");
+    }
+    
+    if (!criteria || !Array.isArray(criteria) || criteria.length === 0) {
+      throw new ValidationError("At least one criterion must be provided");
+    }
+
+    // Check for empty strings in options
+    if (options.some(opt => typeof opt !== 'string' || opt.trim() === '')) {
+      throw new ValidationError("All options must be non-empty strings");
+    }
+
+    // Check for empty strings in criteria
+    if (criteria.some(crit => typeof crit !== 'string' || crit.trim() === '')) {
+      throw new ValidationError("All criteria must be non-empty strings");
+    }
+    
+    // Use equal weights if none provided
+    const normalizedWeights = weights || criteria.map(() => 1 / criteria.length);
+    
+    // Validate weights length
+    if (normalizedWeights.length !== criteria.length) {
+      throw new ValidationError(`Weights length (${normalizedWeights.length}) must match criteria length (${criteria.length})`);
+    }
+
+    // Validate weights are numbers and sum to approximately 1
+    if (weights) {
+      if (weights.some(w => typeof w !== 'number' || isNaN(w))) {
+        throw new ValidationError("All weights must be valid numbers");
+      }
+
+      const weightSum = weights.reduce((sum, w) => sum + w, 0);
+      if (Math.abs(weightSum - 1) > 0.001 && Math.abs(weightSum - 100) > 0.001) {
+        Logger.warn(`Weights don't sum to 1 or 100 (sum=${weightSum}). Proceeding with normalization.`);
       }
     }
-    
-    // Add a few more realistic pros and cons
-    if (Math.random() > 0.5) {
-      pros[i].push("Implementation is straightforward");
-    }
-    
-    if (Math.random() > 0.5) {
-      cons[i].push("May require additional resources");
-    }
-    
-    if (Math.random() > 0.7) {
-      pros[i].push("Aligned with organizational goals");
-    }
-    
-    if (Math.random() > 0.7) {
-      cons[i].push("Potential regulatory challenges");
-    }
-  }
   
-  // Calculate weighted scores
-  const weightedScores = options.map((option, i) => {
-    return scores[i].reduce((sum, score, j) => {
-      return sum + score * normalizedWeights[j];
-    }, 0);
-  });
-  
-  // Rank options
-  const rankedOptions = options
-    .map((option, i) => ({
-      option,
-      score: weightedScores[i],
-      pros: pros[i],
-      cons: cons[i]
-    }))
-    .sort((a, b) => b.score - a.score);
-  
-  // Format output
-  let result = `## Decision Analysis Results\n\n`;
-  
-  // Add ranked options
-  result += `### Ranked Options\n\n`;
-  rankedOptions.forEach((item, i) => {
-    result += `**${i + 1}. ${item.option}** (Score: ${item.score.toFixed(2)})\n`;
-  });
-  
-  // Add details for each option
-  result += `\n### Detailed Analysis\n\n`;
-  rankedOptions.forEach((item) => {
-    result += `#### ${item.option} (Score: ${item.score.toFixed(2)})\n\n`;
-    
-    // Pros
-    result += `**Pros:**\n`;
-    if (item.pros.length > 0) {
-      item.pros.forEach(pro => {
-        result += `- ${pro}\n`;
+    try {
+      // Generate random scores for demo purposes
+      // In a real implementation, this would use real data or ask for user input
+      const scores: number[][] = [];
+      const pros: string[][] = [];
+      const cons: string[][] = [];
+      
+      for (let i = 0; i < options.length; i++) {
+        scores[i] = [];
+        pros[i] = [];
+        cons[i] = [];
+        
+        for (let j = 0; j < criteria.length; j++) {
+          // Generate a random score between 1-10
+          const score = Math.floor(Math.random() * 10) + 1;
+          scores[i][j] = score;
+          
+          // Generate pros and cons based on score
+          if (score >= 7) {
+            pros[i].push(`Strong in "${criteria[j]}"`); 
+          } else if (score >= 4) {
+            // No strong pro or con
+          } else {
+            cons[i].push(`Weak in "${criteria[j]}"`); 
+          }
+        }
+        
+        // Add a few more realistic pros and cons
+        if (Math.random() > 0.5) {
+          pros[i].push("Implementation is straightforward");
+        }
+        
+        if (Math.random() > 0.5) {
+          cons[i].push("May require additional resources");
+        }
+        
+        if (Math.random() > 0.7) {
+          pros[i].push("Aligned with organizational goals");
+        }
+        
+        if (Math.random() > 0.7) {
+          cons[i].push("Potential regulatory challenges");
+        }
+      }
+      
+      // Calculate weighted scores
+      const weightedScores = options.map((option, i) => {
+        return scores[i].reduce((sum, score, j) => {
+          return sum + score * normalizedWeights[j];
+        }, 0);
       });
-    } else {
-      result += `- No significant advantages identified\n`;
-    }
-    
-    // Cons
-    result += `\n**Cons:**\n`;
-    if (item.cons.length > 0) {
-      item.cons.forEach(con => {
-        result += `- ${con}\n`;
+      
+      // Rank options
+      const rankedOptions = options
+        .map((option, i) => ({
+          option,
+          score: weightedScores[i],
+          pros: pros[i],
+          cons: cons[i]
+        }))
+        .sort((a, b) => b.score - a.score);
+      
+      // Format output
+      let result = `## Decision Analysis Results\n\n`;
+      
+      // Add ranked options
+      result += `### Ranked Options\n\n`;
+      rankedOptions.forEach((item, i) => {
+        result += `**${i + 1}. ${item.option}** (Score: ${item.score.toFixed(2)})\n`;
       });
-    } else {
-      result += `- No significant disadvantages identified\n`;
+      
+      // Add details for each option
+      result += `\n### Detailed Analysis\n\n`;
+      rankedOptions.forEach((item) => {
+        result += `#### ${item.option} (Score: ${item.score.toFixed(2)})\n\n`;
+        
+        // Pros
+        result += `**Pros:**\n`;
+        if (item.pros.length > 0) {
+          item.pros.forEach(pro => {
+            result += `- ${pro}\n`;
+          });
+        } else {
+          result += `- No significant advantages identified\n`;
+        }
+        
+        // Cons
+        result += `\n**Cons:**\n`;
+        if (item.cons.length > 0) {
+          item.cons.forEach(con => {
+            result += `- ${con}\n`;
+          });
+        } else {
+          result += `- No significant disadvantages identified\n`;
+        }
+        
+        result += `\n`;
+      });
+      
+      // Add recommendations
+      const topOption = rankedOptions[0];
+      result += `### Recommendation\n\n`;
+      result += `Based on the analysis, **${topOption.option}** appears to be the strongest option with a score of ${topOption.score.toFixed(2)}.\n`;
+      result += `Its key strengths include: ${topOption.pros.length > 0 ? topOption.pros.join(', ') : 'No significant pros identified'}.\n`;
+      
+      if (rankedOptions.length > 1) {
+        const runnerUp = rankedOptions[1];
+        result += `\nThe second-best option is **${runnerUp.option}** with a score of ${runnerUp.score.toFixed(2)}.\n`;
+      }
+      
+      Logger.debug('Decision analysis completed successfully', {
+        optionsAnalyzed: options.length,
+        topScore: rankedOptions[0].score
+      });
+      
+      return result;
+    } catch (error) {
+      Logger.error('Error generating decision analysis results', error);
+      throw new DataProcessingError(
+        `Failed to generate decision analysis: ${error instanceof Error ? error.message : String(error)}`
+      );
+    }
+  } catch (error) {
+    // Ensure all errors are properly logged and categorized
+    if (!(error instanceof ValidationError) && !(error instanceof DataProcessingError)) {
+      Logger.error('Unexpected error in decision analysis', error);
+      throw new DataProcessingError(
+        `Decision analysis failed: ${error instanceof Error ? error.message : String(error)}`
+      );
     }
     
-    result += `\n`;
-  });
-  
-  // Add recommendations
-  const topOption = rankedOptions[0];
-  result += `### Recommendation\n\n`;
-  result += `Based on the analysis, **${topOption.option}** appears to be the strongest option with a score of ${topOption.score.toFixed(2)}.\n`;
-  result += `Its key strengths include: ${topOption.pros.length > 0 ? topOption.pros.join(', ') : 'No significant pros identified'}.\n`;
-  
-  if (rankedOptions.length > 1) {
-    const runnerUp = rankedOptions[1];
-    result += `\nThe second-best option is **${runnerUp.option}** with a score of ${runnerUp.score.toFixed(2)}.\n`;
+    // Re-throw ValidationError and DataProcessingError
+    throw error;
   }
-  
-  return result;
 }

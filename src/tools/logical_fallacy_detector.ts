@@ -1,4 +1,6 @@
 import { z } from 'zod';
+import { ValidationError, ToolExecutionError, DataProcessingError } from '../utils/errors.js';
+import { Logger } from '../utils/logger.js';
 
 // Fallacy definition type
 interface FallacyDefinition {
@@ -123,105 +125,150 @@ export async function logicalFallacyDetector(
   includeExplanations: boolean = true,
   includeExamples: boolean = true
 ): Promise<string> {
-  // Performance optimization: early validation of input length
-  if (!text || text.trim().length === 0) {
-    return "Error: Empty or invalid text provided.";
-  }
-  
-  // Validate input
-  const validatedInput = logicalFallacyDetectorSchemaDefinition.parse({
-    text,
-    confidenceThreshold,
-    categories,
-    includeExplanations,
-    includeExamples
-  });
-
-  // Prepare report
-  let report = `# Logical Fallacy Analysis\n\n`;
-  report += `## Original Text:\n> ${text}\n\n`;
-
-  // Get fallacy definitions
-  const fallacyDefinitions = getFallacyDefinitions();
-
-  // Filter fallacies based on categories
-  const fallenciesToCheck = categories.includes('all') 
-    ? fallacyDefinitions 
-    : fallacyDefinitions.filter(f => categories.includes(f.category));
-
-  // Detected fallacies
-  const detectedFallacies: FallacyDefinition[] = [];
-
-  // Analyze text for fallacies (performance optimized version)
-  const textLower = text.toLowerCase(); // Pre-compute lowercase text once
-  
-  for (const fallacy of fallenciesToCheck) {
-    let confidence = 0;
-    let matchCount = 0;
-
-    // Check signals - exit early when match found
-    for (const signal of fallacy.signals) {
-      if (signal.test(text)) {
-        matchCount++;
-        confidence = fallacy.confidence;
-        break; // Exit signal loop once we have a match
-      }
+  try {
+    // Performance optimization: early validation of input length
+    if (!text || text.trim().length === 0) {
+      throw new ValidationError('Empty or invalid text provided for fallacy detection');
     }
-
-    // Apply confidence threshold and ensure we only add each fallacy once
-    if (matchCount > 0 && confidence >= confidenceThreshold) {
-      detectedFallacies.push({
-        ...fallacy,
-        confidence
-      });
-    }
-  }
-
-  // Report detected fallacies
-  if (detectedFallacies.length === 0) {
-    report += "**No significant logical fallacies detected.**\n\n";
-    report += "The argument appears to be logically sound based on the analysis.";
-    return report;
-  }
-
-  // Organize fallacies by category
-  const categorizedFallacies: Record<string, FallacyDefinition[]> = {};
-  detectedFallacies.forEach(fallacy => {
-    if (!categorizedFallacies[fallacy.category]) {
-      categorizedFallacies[fallacy.category] = [];
-    }
-    categorizedFallacies[fallacy.category].push(fallacy);
-  });
-
-  // Generate detailed report
-  report += `## Detected Logical Fallacies\n\n`;
-
-  Object.entries(categorizedFallacies).forEach(([category, fallacies]) => {
-    report += `### ${category.charAt(0).toUpperCase() + category.slice(1)} Fallacies\n\n`;
-
-    fallacies.forEach(fallacy => {
-      report += `#### ${fallacy.name} (${(fallacy.confidence * 100).toFixed(0)}% confidence)\n\n`;
-
-      if (includeExplanations) {
-        report += `**Description:** ${fallacy.description}\n\n`;
-      }
-
-      if (includeExamples) {
-        report += `**Example of Fallacious Reasoning:**\n> ${fallacy.examples.bad}\n\n`;
-        report += `**Improved Reasoning:**\n> ${fallacy.examples.good}\n\n`;
-      }
+    
+    Logger.debug(`Analyzing text for logical fallacies`, { 
+      textLength: text.length, 
+      confidenceThreshold,
+      categories
     });
-  });
 
-  // Add overall assessment
-  report += `## Overall Assessment\n\n`;
-  report += `**Total Fallacies Detected:** ${detectedFallacies.length}\n\n`;
-  report += `**Severity:** ${
-    detectedFallacies.length > 2 ? 'High' : 
-    detectedFallacies.length > 1 ? 'Moderate' : 'Low'
-  }\n\n`;
+    // Validate input
+    let validatedInput;
+    try {
+      validatedInput = logicalFallacyDetectorSchemaDefinition.parse({
+        text,
+        confidenceThreshold,
+        categories,
+        includeExplanations,
+        includeExamples
+      });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        Logger.error('Validation error in logical fallacy detector', error);
+        throw new ValidationError(`Invalid parameters for logical fallacy detection: ${error.message}`, {
+          issues: error.issues
+        });
+      }
+      throw error;
+    }
 
-  return report;
+    // Prepare report
+    let report = `# Logical Fallacy Analysis\n\n`;
+    report += `## Original Text:\n> ${text}\n\n`;
+
+    // Get fallacy definitions
+    const fallacyDefinitions = getFallacyDefinitions();
+
+    // Filter fallacies based on categories
+    const fallenciesToCheck = categories.includes('all') 
+      ? fallacyDefinitions 
+      : fallacyDefinitions.filter(f => categories.includes(f.category));
+
+    Logger.debug(`Checking for ${fallenciesToCheck.length} potential fallacy types`);
+
+    // Detected fallacies
+    const detectedFallacies: FallacyDefinition[] = [];
+
+    // Analyze text for fallacies (performance optimized version)
+    const textLower = text.toLowerCase(); // Pre-compute lowercase text once
+    
+    try {
+      for (const fallacy of fallenciesToCheck) {
+        let confidence = 0;
+        let matchCount = 0;
+
+        // Check signals - exit early when match found
+        for (const signal of fallacy.signals) {
+          if (signal.test(text)) {
+            matchCount++;
+            confidence = fallacy.confidence;
+            break; // Exit signal loop once we have a match
+          }
+        }
+
+        // Apply confidence threshold and ensure we only add each fallacy once
+        if (matchCount > 0 && confidence >= confidenceThreshold) {
+          detectedFallacies.push({
+            ...fallacy,
+            confidence
+          });
+        }
+      }
+    } catch (error) {
+      Logger.error('Error during fallacy pattern matching', error);
+      throw new DataProcessingError(
+        `Error analyzing text for fallacies: ${error instanceof Error ? error.message : String(error)}`,
+        { textLength: text.length }
+      );
+    }
+
+    // Report detected fallacies
+    if (detectedFallacies.length === 0) {
+      report += "**No significant logical fallacies detected.**\n\n";
+      report += "The argument appears to be logically sound based on the analysis.";
+      
+      Logger.debug('No fallacies detected in text');
+      return report;
+    }
+
+    // Organize fallacies by category
+    const categorizedFallacies: Record<string, FallacyDefinition[]> = {};
+    detectedFallacies.forEach(fallacy => {
+      if (!categorizedFallacies[fallacy.category]) {
+        categorizedFallacies[fallacy.category] = [];
+      }
+      categorizedFallacies[fallacy.category].push(fallacy);
+    });
+
+    // Generate detailed report
+    report += `## Detected Logical Fallacies\n\n`;
+
+    Object.entries(categorizedFallacies).forEach(([category, fallacies]) => {
+      report += `### ${category.charAt(0).toUpperCase() + category.slice(1)} Fallacies\n\n`;
+
+      fallacies.forEach(fallacy => {
+        report += `#### ${fallacy.name} (${(fallacy.confidence * 100).toFixed(0)}% confidence)\n\n`;
+
+        if (includeExplanations) {
+          report += `**Description:** ${fallacy.description}\n\n`;
+        }
+
+        if (includeExamples) {
+          report += `**Example of Fallacious Reasoning:**\n> ${fallacy.examples.bad}\n\n`;
+          report += `**Improved Reasoning:**\n> ${fallacy.examples.good}\n\n`;
+        }
+      });
+    });
+
+    // Add overall assessment
+    report += `## Overall Assessment\n\n`;
+    report += `**Total Fallacies Detected:** ${detectedFallacies.length}\n\n`;
+    report += `**Severity:** ${
+      detectedFallacies.length > 2 ? 'High' : 
+      detectedFallacies.length > 1 ? 'Moderate' : 'Low'
+    }\n\n`;
+
+    Logger.debug(`Detected ${detectedFallacies.length} fallacies in text`);
+    return report;
+  } catch (error) {
+    // Ensure errors are properly logged and propagated
+    if (error instanceof ValidationError || error instanceof DataProcessingError) {
+      // These errors are already logged and formatted appropriately
+      throw error;
+    }
+    
+    // For unknown errors, wrap in a DataProcessingError for consistent handling
+    Logger.error('Unexpected error in logical fallacy detector', error);
+    throw new DataProcessingError(
+      `Logical fallacy detection failed: ${error instanceof Error ? error.message : String(error)}`,
+      { textLength: text?.length }
+    );
+  }
 }
 
 // Export the function and schema

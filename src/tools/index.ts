@@ -4,6 +4,8 @@ import {
   ListToolsRequestSchema, 
   CallToolRequestSchema 
 } from "@modelcontextprotocol/sdk/types.js";
+import { Logger } from '../utils/logger.js';
+import { wrapToolHandler } from '../utils/tool-wrapper.js';
 
 // Import tools and their schemas
 import { analyzeDataset, analyzeDatasetSchema } from "./analyze_dataset.js";
@@ -104,19 +106,35 @@ export function registerTools(server: ExtendedServer) {
 
   // Attach tools to the server
   toolRegistrations.forEach(tool => {
-    console.log(`Registering tool: ${tool.name}`);
+    Logger.info(`Registering tool: ${tool.name}`);
   });
 
-  // Placeholder for actual server method calls with type-safe check
   if (server.methods?.tools) {
     toolRegistrations.forEach(tool => {
-      server.methods!.tools!.register({
-        name: tool.name,
-        description: tool.description,
-        schema: tool.schema
-      });
+      try {
+        // Wrap the handler with our error handling utility
+        const wrappedHandler = wrapToolHandler(
+          tool.handler,
+          tool.schema,
+          tool.name
+        );
+
+        server.methods!.tools!.register({
+          name: tool.name,
+          description: tool.description,
+          schema: tool.schema,
+          handler: wrappedHandler
+        });
+
+        Logger.debug(`Tool registered successfully: ${tool.name}`);
+      } catch (error) {
+        Logger.error(`Failed to register tool: ${tool.name}`, error);
+        throw error; // Re-throw to fail registration process
+      }
     });
   } else {
-    console.warn('Server methods not fully implemented');
+    const error = new Error('Server methods not fully implemented or initialized');
+    Logger.error('Tool registration failed', error);
+    throw error;
   }
 }

@@ -1,7 +1,23 @@
-import { describe, it, expect } from '@jest/globals';
+import { describe, it, expect, jest, beforeEach } from '@jest/globals';
 import { logicalFallacyDetector } from '../logical_fallacy_detector.js';
+import { ValidationError, DataProcessingError } from '../../utils/errors.js';
+
+// Mock the Logger
+jest.mock('../../utils/logger', () => ({
+  Logger: {
+    debug: jest.fn(),
+    info: jest.fn(),
+    warn: jest.fn(),
+    error: jest.fn(),
+    log: jest.fn()
+  }
+}));
 
 describe('Logical Fallacy Detector', () => {
+  // Clear mocks before each test
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
 
   it('should detect ad hominem fallacy', async () => {
     const text = "You're too young to understand climate policy, so your arguments are invalid.";
@@ -44,5 +60,40 @@ describe('Logical Fallacy Detector', () => {
     expect(relevanceResult).toContain("Ad Hominem");
     
     expect(informalResult).toContain("Ad Hominem");
+  });
+
+  // Error handling test cases
+  describe('Error Handling', () => {
+    it('should throw ValidationError for empty text', async () => {
+      await expect(logicalFallacyDetector('')).rejects.toThrow(ValidationError);
+    });
+
+    it('should throw ValidationError for null text', async () => {
+      // @ts-ignore intentionally passing null for testing
+      await expect(logicalFallacyDetector(null)).rejects.toThrow(ValidationError);
+    });
+
+    it('should throw ValidationError for invalid categories', async () => {
+      await expect(
+        // @ts-ignore intentionally passing invalid categories for testing
+        logicalFallacyDetector("Some text", 0.5, ['invalid_category'])
+      ).rejects.toThrow(ValidationError);
+    });
+
+    it('should throw ValidationError for invalid confidence threshold', async () => {
+      await expect(
+        // @ts-ignore intentionally passing invalid threshold for testing
+        logicalFallacyDetector("Some text", 1.5)
+      ).rejects.toThrow(ValidationError);
+    });
+
+    it('should handle regex pattern errors gracefully', async () => {
+      // Create a scenario that could potentially cause regex errors
+      const extremelyLongText = "a".repeat(100000); // Very long text that might cause regex issues
+      
+      // Should still work without throwing pattern matching errors
+      const result = await logicalFallacyDetector(extremelyLongText);
+      expect(result).toContain("Logical Fallacy Analysis");
+    });
   });
 });
