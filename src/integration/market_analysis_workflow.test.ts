@@ -5,6 +5,7 @@ import { logicalFallacyDetector } from '../tools/logical_fallacy_detector.js';
 import { perspectiveShifter } from '../tools/perspective_shifter.js';
 import { decisionAnalysis } from '../tools/decision_analysis.js';
 import { APIError } from '../utils/errors.js';
+import { Logger } from '../utils/logger.js';
 
 // Mock types and data
 type ExaSearchResult = {
@@ -51,7 +52,7 @@ describe('Market Analysis Workflow Integration Tests', () => {
   it('should execute a partial market analysis workflow', async () => {
     // Skip test if EXA_API_KEY is not in environment
     if (!process.env.EXA_API_KEY) {
-      console.warn('Skipping test: EXA_API_KEY not found in environment');
+      Logger.warn('Skipping test: EXA_API_KEY not found in environment');
       return;
     }
 

@@ -1,4 +1,10 @@
+// Import types
 import { z } from 'zod';
+
+/**
+ * Logical Argument Analyzer Tool
+ * Analyzes arguments for logical structure, fallacies, validity, and strength
+ */
 
 // Schema for the tool parameters
 export const logicalArgumentAnalyzerSchema = z.object({

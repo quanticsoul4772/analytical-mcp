@@ -8,6 +8,8 @@
 - Test: `npm run test` or with coverage `npm run test:coverage`
 - Test single file: `npm test -- path/to/test.ts`
 - Test specific test: `npm test -- -t "test name pattern"`
+- Debug test: `npm run test:debug`
+- API tests: `npm run test:api` or `npm run test:integration`
 - TypeCheck: `npm run typecheck` (all), `npm run typecheck:src` (source only)
 - Run server: `node build/index.js`
 - Inspect server: `npx @modelcontextprotocol/inspector build/index.js`
@@ -22,5 +24,5 @@
 - Naming: camelCase for variables/functions, descriptive of purpose
 - Documentation: JSDoc comments for complex logic
 - Architecture: Organize related functionality in modules within tools directory
-- Styling: Follow Prettier configuration and ESLint rules
+- Testing: Jest with 90s timeout for API calls, setup in src/setupTests.ts
 - Math: Use mathjs library conventions for mathematical operations

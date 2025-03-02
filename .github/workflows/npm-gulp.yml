@@ -1,4 +1,4 @@
-name: NodeJS with Gulp
+name: NodeJS CI
 
 on:
   push:
@@ -22,7 +22,21 @@ jobs:
       with:
         node-version: ${{ matrix.node-version }}
 
-    - name: Build
+    - name: Setup environment
       run: |
-        npm install
-        gulp
+        cp .env.example .env.test
+        
+    - name: Install dependencies
+      run: npm install
+      
+    - name: Build
+      run: npm run build
+      
+    - name: Type check
+      run: npm run typecheck:src
+      
+    - name: Run tests
+      run: npm run test:optimized
+      env:
+        NODE_ENV: test
+        EXA_API_KEY: ${{ secrets.EXA_API_KEY }}

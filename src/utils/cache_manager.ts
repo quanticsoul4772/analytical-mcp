@@ -8,7 +8,7 @@
 import fs from 'fs/promises';
 import path from 'path';
 import { Logger } from './logger.js';
-import { config } from './config.js';
+import { config, isFeatureEnabled } from './config.js';
 
 // Types for cache entries and options
 export interface CacheEntry<T> {
@@ -70,8 +70,11 @@ export class CacheManager {
       defaultTTL?: number;
     } = {}
   ) {
-    this.persistentCacheEnabled =
-      options.persistentCacheEnabled ?? config.CACHE_PERSISTENT === 'true';
+    // Use both direct config and feature flag system for consistency
+    const cachingEnabled = isFeatureEnabled('caching');
+    
+    this.persistentCacheEnabled = cachingEnabled && 
+      (options.persistentCacheEnabled ?? config.CACHE_PERSISTENT === 'true');
 
     this.persistentCacheDir =
       options.persistentCacheDir ?? config.CACHE_DIR ?? path.join(process.cwd(), 'cache');
@@ -80,12 +83,20 @@ export class CacheManager {
 
     // Initialize stats for default namespace
     this.stats['default'] = this.createEmptyStats();
-
-    Logger.debug(`Cache Manager initialized`, {
+    
+    Logger.debug(`Cache manager initialized`, {
+      cachingEnabled,
       persistentCacheEnabled: this.persistentCacheEnabled,
       persistentCacheDir: this.persistentCacheDir,
-      defaultTTL: this.defaultTTL,
+      defaultTTL: this.defaultTTL
     });
+    
+    // Ensure persistent cache directory exists if enabled
+    if (this.persistentCacheEnabled) {
+      this.ensureCacheDirectoryExists().catch(err => {
+        Logger.warn(`Failed to create cache directory: ${err.message}`);
+      });
+    }
 
     // Set up cleanup interval
     const cleanupInterval = parseInt(config.CACHE_CLEANUP_INTERVAL ?? '3600000', 10);
@@ -96,6 +107,11 @@ export class CacheManager {
    * Get an item from the cache
    */
   get<T>(key: string, options: CacheOptions = {}): T | null {
+    // Early return if caching is disabled via feature flag
+    if (!isFeatureEnabled('caching')) {
+      return null;
+    }
+    
     const resolvedOptions = this.resolveOptions(options);
     const cacheKey = this.getCacheKey(key, resolvedOptions.namespace!);
 
@@ -176,6 +192,10 @@ export class CacheManager {
    * Set an item in the cache
    */
   set<T>(key: string, data: T, options: CacheOptions = {}): void {
+    // Early return if caching is disabled via feature flag
+    if (!isFeatureEnabled('caching')) {
+      return;
+    }
     const resolvedOptions = this.resolveOptions(options);
     const cacheKey = this.getCacheKey(key, resolvedOptions.namespace!);
 

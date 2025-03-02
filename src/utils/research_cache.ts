@@ -7,7 +7,7 @@
 
 import { cacheManager, CacheOptions } from './cache_manager.js';
 import { Logger } from './logger.js';
-import { config } from './config.js';
+import { config, isFeatureEnabled } from './config.js';
 
 // Research-specific cache entry types
 export interface ResearchCacheEntry {
@@ -64,7 +64,8 @@ export class ResearchCache {
   private enabled: boolean;
 
   constructor() {
-    this.enabled = config.ENABLE_RESEARCH_CACHE === 'true';
+    // Use feature flag system for consistency
+    this.enabled = config.ENABLE_RESEARCH_CACHE === 'true' && isFeatureEnabled('caching');
 
     Logger.debug(`Research cache initialized`, {
       enabled: this.enabled,

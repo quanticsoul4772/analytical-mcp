@@ -16,17 +16,20 @@ export function loadTestEnv(): void {
   const testEnvPath = path.resolve(process.cwd(), '.env.test');
   const defaultEnvPath = path.resolve(process.cwd(), '.env');
 
+  // Import Logger here to avoid circular dependencies
+  const { Logger } = require('./logger.js');
+
   // First try to load test-specific environment
   if (fs.existsSync(testEnvPath)) {
     config({ path: testEnvPath });
-    console.log('Loaded test environment variables from .env.test');
+    Logger.info('Loaded test environment variables from .env.test');
   }
   // Fall back to default environment
   else if (fs.existsSync(defaultEnvPath)) {
     config({ path: defaultEnvPath });
-    console.log('Loaded default environment variables from .env');
+    Logger.info('Loaded default environment variables from .env');
   } else {
-    console.warn('No environment file found. Using process environment variables only.');
+    Logger.warn('No environment file found. Using process environment variables only.');
   }
 }
 

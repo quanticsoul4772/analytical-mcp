@@ -102,13 +102,11 @@ export function registerTools(server: Server): void {
   ];
 
   // Log tools that will be registered
-  toolRegistrations.forEach((tool) => {
-    Logger.info(`Registering tool: ${tool.name}`);
-  });
+  Logger.info(`Preparing to register ${toolRegistrations.length} tools`);
 
   try {
     // Register each tool with the server
-    toolRegistrations.forEach((tool) => {
+    for (const tool of toolRegistrations) {
       try {
         // Wrap the handler with our error handling utility
         const wrappedHandler = wrapToolHandler(tool.handler, tool.schema, tool.name);
@@ -126,19 +124,23 @@ export function registerTools(server: Server): void {
         Logger.error(`Failed to register tool: ${tool.name}`, error);
         throw error; // Re-throw to fail registration process
       }
-    });
+    }
 
-    // The research tools can be registered if needed, but we'll skip that step for now
-    // since the registerTool functionality appears to be missing
-    /*
-    if (typeof exaResearch.registerTool === 'function') {
-      exaResearch.registerTool(server);
+    // Register class-based tools if they support registerTool method
+    try {
+      if (typeof exaResearch.registerTool === 'function') {
+        exaResearch.registerTool(server);
+        Logger.debug('Registered exaResearch tool class');
+      }
+      
+      if (typeof researchVerification.registerTool === 'function') {
+        researchVerification.registerTool(server);
+        Logger.debug('Registered researchVerification tool class');
+      }
+    } catch (error) {
+      // Log but continue - these are optional registrations
+      Logger.warn('Could not register class-based tools', error);
     }
-    
-    if (typeof researchVerification.registerTool === 'function') {
-      researchVerification.registerTool(server);
-    }
-    */
 
     Logger.info(`Successfully registered ${toolRegistrations.length} tools`);
   } catch (error) {

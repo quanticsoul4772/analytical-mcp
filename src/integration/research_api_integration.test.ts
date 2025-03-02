@@ -1,12 +1,13 @@
 import { describe, it, expect } from '@jest/globals';
 import { exaResearch } from '../utils/exa_research.js';
 import { APIError } from '../utils/errors.js';
+import { Logger } from '../utils/logger.js';
 
 describe('Research API Integration', () => {
   it('should perform search and return results', async () => {
     // Skip test if EXA_API_KEY is not in environment
     if (!process.env.EXA_API_KEY) {
-      console.warn('Skipping test: EXA_API_KEY not found in environment');
+      Logger.warn('Skipping test: EXA_API_KEY not found in environment');
       return;
     }
 
@@ -30,7 +31,7 @@ describe('Research API Integration', () => {
   it('should extract key facts from search results', async () => {
     // Skip test if EXA_API_KEY is not in environment
     if (!process.env.EXA_API_KEY) {
-      console.warn('Skipping test: EXA_API_KEY not found in environment');
+      Logger.warn('Skipping test: EXA_API_KEY not found in environment');
       return;
     }
 
@@ -60,7 +61,7 @@ describe('Research API Integration', () => {
   it('should handle API errors gracefully', async () => {
     // Skip test if EXA_API_KEY is not in environment
     if (!process.env.EXA_API_KEY) {
-      console.warn('Skipping test: EXA_API_KEY not found in environment');
+      Logger.warn('Skipping test: EXA_API_KEY not found in environment');
       return;
     }
 
@@ -85,7 +86,7 @@ describe('Research API Integration', () => {
   it('should validate data using real API', async () => {
     // Skip test if EXA_API_KEY is not in environment
     if (!process.env.EXA_API_KEY) {
-      console.warn('Skipping test: EXA_API_KEY not found in environment');
+      Logger.warn('Skipping test: EXA_API_KEY not found in environment');
       return;
     }
 

@@ -55,10 +55,10 @@ A specialized Model Context Protocol (MCP) server providing advanced analytical,
 Each tool can be invoked with specific parameters. Example:
 ```typescript
 // Analyze a dataset
-const datasetAnalysis = await analyze_dataset([1, 2, 3, 4, 5]);
+const datasetAnalysis = await analyzeDataset([1, 2, 3, 4, 5], 'summary');
 
 // Verify research claims
-const researchVerification = await verify_research({
+const researchVerification = await researchVerification.verifyResearch({
   query: 'Climate change impacts',
   sources: 3
 });
