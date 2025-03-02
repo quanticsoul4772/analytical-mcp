@@ -3,8 +3,9 @@
  * Provides robust API handling capabilities for external service interaction
  */
 
-import { APIError } from './errors.js';
+import { APIError, ConfigurationError } from './errors.js';
 import { Logger } from './logger.js';
+import { config } from './config.js';
 
 /**
  * Retries a function with exponential backoff
@@ -105,6 +106,29 @@ export function isRetryableError(error: any): boolean {
   }
 
   return false;
+}
+
+/**
+ * Validates that all required API keys are present in the environment
+ * Throws ConfigurationError if any required keys are missing
+ */
+export function checkApiKeys(): void {
+  const requiredKeys = {
+    'EXA_API_KEY': config.EXA_API_KEY,
+    // Add other required API keys here as they are added to the system
+  };
+  
+  const missingKeys = Object.entries(requiredKeys)
+    .filter(([_, value]) => !value)
+    .map(([key]) => key);
+  
+  if (missingKeys.length > 0) {
+    const errorMessage = `Missing required API key(s): ${missingKeys.join(', ')}. Ensure these are set in your environment or .env file.`;
+    Logger.error(errorMessage);
+    throw new ConfigurationError(errorMessage);
+  }
+  
+  Logger.debug('All required API keys validated successfully');
 }
 
 /**

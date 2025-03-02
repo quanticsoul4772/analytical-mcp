@@ -29,9 +29,9 @@ interface LoggerConfig {
  */
 export class Logger {
   private static config: LoggerConfig = {
-    minLevel: process.env.NODE_ENV === 'production' ? LogLevel.INFO : LogLevel.DEBUG,
+    minLevel: LogLevel.INFO, // Default, will be updated after config is loaded
     includeTimestamp: true,
-    includeStack: process.env.NODE_ENV !== 'production'
+    includeStack: true // Default, will be updated after config is loaded
   };
 
   /**
@@ -40,6 +40,27 @@ export class Logger {
    */
   static configure(config: Partial<LoggerConfig>): void {
     this.config = { ...this.config, ...config };
+  }
+  
+  /**
+   * Initialize logger with environment configuration
+   * @param nodeEnv Node environment
+   * @param logLevel Log level from config
+   */
+  static initializeFromEnvironment(nodeEnv: string, logLevel: string): void {
+    // Convert string log level to enum
+    const configLogLevel = (logLevel && LogLevel[logLevel as keyof typeof LogLevel]) 
+      ? LogLevel[logLevel as keyof typeof LogLevel] 
+      : undefined;
+    
+    this.configure({
+      minLevel: configLogLevel || (nodeEnv === 'production' ? LogLevel.INFO : LogLevel.DEBUG),
+      includeStack: nodeEnv !== 'production',
+      includeTimestamp: true
+    });
+    
+    // Log initialization
+    this.debug(`Logger initialized in ${nodeEnv} environment with min level: ${this.config.minLevel}`);
   }
 
   /**

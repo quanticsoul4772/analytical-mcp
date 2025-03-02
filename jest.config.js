@@ -12,7 +12,7 @@ export default {
     ],
   },
   extensionsToTreatAsEsm: ['.ts'],
-  testRegex: '(/__tests__/.*|(\\.|/)(test|spec))\\.tsx?$',
+  testRegex: '(/__tests__/.*|/integration/.*|(\\.|/)(test|spec))\\.tsx?$',
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json', 'node'],
   moduleNameMapper: {
     '^(\\.{1,2}/.*)\\.js$': '$1',

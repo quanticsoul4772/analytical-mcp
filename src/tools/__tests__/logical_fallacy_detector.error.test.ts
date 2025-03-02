@@ -38,7 +38,7 @@ describe('Logical Fallacy Detector Error Handling', () => {
   it('should handle and propagate errors from pattern matching', async () => {
     // Create a RegExp that will throw an error when used
     const badRegExp = /a/;
-    badRegExp.test = jest.fn().mockImplementation(() => {
+    badRegExp.test = jest.fn<(string: string) => boolean>().mockImplementation(() => {
       throw new Error('Simulated RegExp error');
     });
 

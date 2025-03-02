@@ -1,5 +1,7 @@
 import { z } from 'zod';
 import { exaResearch } from '../utils/exa_research.js';
+import { Logger } from '../utils/logger.js';
+import { ValidationError, DataProcessingError, APIError } from '../utils/errors.js';
 
 // Schema for perspective shifter
 const PerspectiveShifterSchema = z.object({
@@ -39,13 +41,28 @@ async function perspectiveShifter(
   includeActionable: boolean = true
 ): Promise<string> {
   // Validate input
-  const validatedInput = PerspectiveShifterSchema.parse({
-    problem,
-    currentPerspective,
-    shiftType,
-    numberOfPerspectives,
-    includeActionable
-  });
+  try {
+    const validatedInput = PerspectiveShifterSchema.parse({
+      problem,
+      currentPerspective,
+      shiftType,
+      numberOfPerspectives,
+      includeActionable
+    });
+    Logger.debug(`Validated perspective shifting request`, { 
+      problem: problem.substring(0, 50), 
+      shiftType, 
+      numberOfPerspectives 
+    });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      Logger.error('Perspective shifter validation failed', error);
+      throw new ValidationError(`Invalid parameters for perspective shifting: ${error.message}`, {
+        issues: error.issues
+      });
+    }
+    throw error;
+  }
 
   let result = `# Perspective Shifting Analysis\n\n`;
   result += `## Original Problem: ${problem}\n\n`;
@@ -93,8 +110,24 @@ async function perspectiveShifter(
 
     return result;
   } catch (error) {
-    console.error('Perspective Shifting Error:', error);
-    throw new Error(`Perspective shifting failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    if (error instanceof APIError) {
+      Logger.error('API error during perspective shifting', error, {
+        status: error.status,
+        endpoint: error.endpoint
+      });
+      throw error; // Rethrow API errors as they are already properly formatted
+    }
+    
+    Logger.error('Perspective Shifting Error', error, {
+      problem: problem.substring(0, 50),
+      shiftType,
+      numberOfPerspectives
+    });
+    
+    throw new DataProcessingError(
+      `Perspective shifting failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      { shiftType, problemLength: problem.length }
+    );
   }
 }
 

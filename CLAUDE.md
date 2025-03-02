@@ -5,6 +5,13 @@
 - Watch mode: `npm run watch`
 - Inspect server: `npx @modelcontextprotocol/inspector build/index.js`
 - Run server: `node build/index.js`
+- TypeCheck (all files): `npm run typecheck`
+- TypeCheck (source only): `npm run typecheck:src`
+- TypeCheck (skip lib check): `npm run typecheck:test`
+- Test with TypeCheck: `npm run test:strict`
+- Integration Tests: `npm run test:integration`
+- Integration Tests with Coverage: `npm run test:integration:coverage`
+- Integration Tests without TypeCheck: `npm run test:integration:no-typecheck`
 
 ## Code Style Guidelines
 - Use TypeScript with strict typing

@@ -17,6 +17,35 @@ This MCP server provides powerful analytical tools to AI assistants:
 - **Perspective Shifting**: Generation of alternative viewpoints for creative problem-solving
 - **Research Integration**: Web research integration and cross-domain knowledge synthesis
 
+## Environment Configuration
+
+The server can be configured using environment variables. For convenience, you can create a `.env` file in the project root (copy `.env.example` as a template):
+
+```bash
+# Copy the example environment file
+cp .env.example .env
+
+# Edit the .env file with your configuration
+nano .env
+```
+
+### Available Environment Variables
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `NODE_ENV` | Environment (development, test, production) | development |
+| `PORT` | HTTP server port | 3000 |
+| `HOST` | Server host | localhost |
+| `LOG_LEVEL` | Minimum log level (DEBUG, INFO, WARN, ERROR) | INFO |
+| `EXA_API_KEY` | API key for Exa research service | - |
+| `ENABLE_RESEARCH_INTEGRATION` | Enable/disable research integration features | false |
+
+### Feature Flags
+
+The server includes several feature flags to enable/disable specific functionality:
+
+- `ENABLE_RESEARCH_INTEGRATION`: When set to `true`, enables web research integration through the Exa API. Requires a valid `EXA_API_KEY`.
+
 ## Documentation
 
 For detailed information on the project architecture and individual tools, please refer to:

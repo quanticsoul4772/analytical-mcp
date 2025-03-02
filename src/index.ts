@@ -7,17 +7,21 @@
  * problem-solving, analytical reasoning, and decision-making.
  */
 
-import { Server } from "@modelcontextprotocol/sdk/server/index.js";
-import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { registerTools } from "./tools/index.js";
-import { Logger } from "./utils/logger.js";
-import { AnalyticalError } from "./utils/errors.js";
+import { Server } from '@modelcontextprotocol/sdk/server/index.js';
+import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import { registerTools } from './tools/index.js';
+import { Logger } from './utils/logger.js';
+import { AnalyticalError } from './utils/errors.js';
+import { config } from './utils/config.js';
+
+// Initialize logger
+Logger.initializeFromEnvironment(config.NODE_ENV, config.LOG_LEVEL);
 
 // Configure global error handlers
 process.on('uncaughtException', (error) => {
   Logger.error('Uncaught exception', error);
   // Don't exit immediately in production to allow graceful shutdown
-  if (process.env.NODE_ENV !== 'production') {
+  if (config.NODE_ENV !== 'production') {
     process.exit(1);
   }
 });

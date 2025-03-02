@@ -15,11 +15,11 @@
   - [x] `zod` (for schema validation)
   - [x] `dotenv` (for environment variables)
   - [x] `papaparse` (for data processing)
-- [ ] Install development dependencies:
-  - [ ] TypeScript
-  - [ ] ESLint
-  - [ ] Prettier
-  - [ ] Jest/Vitest (for testing)
+- [x] Install development dependencies:
+  - [x] TypeScript
+  - [x] ESLint
+  - [x] Prettier
+  - [x] Jest (for testing)
 
 ## 🔧 Phase 2: Core Functionality Implementation
 ### Research Integration

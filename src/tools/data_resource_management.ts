@@ -1,6 +1,8 @@
 import { z } from 'zod';
 import { SecureFileParser } from '../utils/secure_file_parser.js';
 import Papa from 'papaparse';
+import { Logger } from '../utils/logger.js';
+import { ValidationError, DataProcessingError } from '../utils/errors.js';
 
 // Schema for data resource management
 export const dataResourceManagementSchema = z.object({
@@ -15,6 +17,23 @@ export async function dataResourceManagement(
   filePath: string, 
   options?: Record<string, any>
 ): Promise<string> {
+  // Validate inputs
+  try {
+    dataResourceManagementSchema.parse({
+      resourceType,
+      filePath,
+      options
+    });
+    Logger.debug(`Validated resource management request`, { resourceType, filePath });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      Logger.error('Resource management validation failed', error);
+      throw new ValidationError(`Invalid parameters for resource management: ${error.message}`, {
+        issues: error.issues
+      });
+    }
+    throw error;
+  }
   try {
     switch (resourceType) {
       case 'csv':
@@ -45,7 +64,13 @@ export async function dataResourceManagement(
         throw new Error(`Unsupported resource type: ${resourceType}`);
     }
   } catch (error) {
-    console.error('Data Resource Management Error:', error);
-    throw new Error(`Failed to manage resource: ${error instanceof Error ? error.message : String(error)}`);
+    Logger.error('Data Resource Management Error', error, {
+      resourceType,
+      filePath
+    });
+    throw new DataProcessingError(
+      `Failed to manage resource: ${error instanceof Error ? error.message : String(error)}`,
+      { resourceType, filePath }
+    );
   }
 }

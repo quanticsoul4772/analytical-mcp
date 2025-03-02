@@ -1,5 +1,7 @@
 import { z } from 'zod';
 import * as mathjs from 'mathjs';
+import { Logger } from '../utils/logger.js';
+import { ValidationError, DataProcessingError } from '../utils/errors.js';
 
 // Enhanced type definition for numeric types
 type MathNumericType = number | Record<string, number>;
@@ -31,10 +33,21 @@ async function advancedDataPreprocessing(
   preprocessingType: string
 ): Promise<string> {
   // Validate input
-  const validatedInput = AdvancedDataPreprocessingSchema.parse({
-    data, 
-    preprocessingType
-  });
+  try {
+    const validatedInput = AdvancedDataPreprocessingSchema.parse({
+      data, 
+      preprocessingType
+    });
+    Logger.debug(`Validated data preprocessing input`, { preprocessingType, dataLength: data.length });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      Logger.error('Data preprocessing validation failed', error);
+      throw new ValidationError(`Invalid parameters for data preprocessing: ${error.message}`, {
+        issues: error.issues
+      });
+    }
+    throw error;
+  }
 
   let result = `# Advanced Data Preprocessing Report\n\n`;
   result += `## Preprocessing Type: ${preprocessingType}\n\n`;
@@ -129,8 +142,14 @@ async function advancedDataPreprocessing(
 
     return result;
   } catch (error) {
-    console.error('Advanced Data Preprocessing Error:', error);
-    throw new Error(`Preprocessing failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    Logger.error('Advanced Data Preprocessing Error', error, { 
+      preprocessingType, 
+      dataLength: data.length 
+    });
+    throw new DataProcessingError(
+      `Preprocessing failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      { preprocessingType }
+    );
   }
 }
 

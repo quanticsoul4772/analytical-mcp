@@ -3,6 +3,7 @@ import fetch from 'node-fetch';
 import { executeApiRequest, RETRYABLE_STATUS_CODES } from './api_helpers.js';
 import { APIError, ValidationError, DataProcessingError } from './errors.js';
 import { Logger } from './logger.js';
+import { config, isFeatureEnabled } from './config.js';
 
 // Exa client configuration schema
 const ExaConfigSchema = z.object({
@@ -34,16 +35,25 @@ class ExaResearchTool {
   private apiKey: string;
   private baseUrl: string;
 
-  constructor(config?: z.infer<typeof ExaConfigSchema>) {
+  constructor(exaConfig?: z.infer<typeof ExaConfigSchema>) {
     try {
-      const parsedConfig = ExaConfigSchema.parse(config || {});
-      this.apiKey = parsedConfig.apiKey || process.env.EXA_API_KEY || '';
+      const parsedConfig = ExaConfigSchema.parse(exaConfig || {});
+      // Use validated environment config from config.js
+      this.apiKey = parsedConfig.apiKey || config.EXA_API_KEY || '';
       this.baseUrl = parsedConfig.baseUrl;
 
       if (!this.apiKey) {
-        Logger.warn("No Exa API key provided. API functionality will be limited.");
+        Logger.warn("No Exa API key provided. Research functionality will be limited.");
       } else {
-        Logger.debug("Exa research tool initialized", { baseUrl: this.baseUrl });
+        const researchEnabled = isFeatureEnabled('researchIntegration');
+        Logger.debug("Exa research tool initialized", { 
+          baseUrl: this.baseUrl,
+          researchEnabled
+        });
+        
+        if (!researchEnabled) {
+          Logger.info("Research integration is disabled in configuration.");
+        }
       }
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -57,6 +67,17 @@ class ExaResearchTool {
 
   // Perform a web search and research
   async search(query: z.infer<typeof ExaResearchQuerySchema>): Promise<{ results: ExaSearchResult[] }> {
+    // Check if research integration is enabled
+    if (!isFeatureEnabled('researchIntegration')) {
+      Logger.warn('Research integration is disabled. Enable it with ENABLE_RESEARCH_INTEGRATION=true');
+      throw new APIError(
+        'Research integration is disabled in configuration',
+        403,
+        false,
+        'exa/search'
+      );
+    }
+    
     let parsedQuery: z.infer<typeof ExaResearchQuerySchema>;
 
     try {

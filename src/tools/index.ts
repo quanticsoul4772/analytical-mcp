@@ -112,9 +112,14 @@ export function registerTools(server: ExtendedServer) {
   if (server.methods?.tools) {
     toolRegistrations.forEach(tool => {
       try {
+        // Use type assertion to safely bridge the type gap
+        // TypeScript won't understand the specific function shapes of each tool,
+        // so we need to use "as any" to bypass the typechecking just for this adapter layer
+        const genericHandler = tool.handler as (params: any) => Promise<string>;
+        
         // Wrap the handler with our error handling utility
         const wrappedHandler = wrapToolHandler(
-          tool.handler,
+          genericHandler,
           tool.schema,
           tool.name
         );

@@ -25,7 +25,15 @@
     "test:optimized": "node --max-old-space-size=4096 --expose-gc --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand",
     "test:api": "node --max-old-space-size=4096 --expose-gc --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand",
     "test:debug": "node --inspect-brk --expose-gc --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand",
-    "test:win": "set NODE_OPTIONS=--max-old-space-size=4096 && node --expose-gc --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand"
+    "test:win": "set NODE_OPTIONS=--max-old-space-size=4096 && node --expose-gc --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand",
+    "typecheck": "tsc --noEmit",
+    "typecheck:src": "tsc --project tsconfig.test.json",
+    "typecheck:test": "tsc --noEmit --skipLibCheck",
+    "test:strict": "npm run typecheck:src && npm run test",
+    "test:integration": "node --experimental-vm-modules node_modules/jest/bin/jest.js --testRegex '/integration/.*.test.tsx?$'",
+    "test:integration:coverage": "node --experimental-vm-modules node_modules/jest/bin/jest.js --testRegex '/integration/.*.test.tsx?$' --coverage",
+    "test:integration:no-typecheck": "node --experimental-vm-modules node_modules/jest/bin/jest.js --testRegex '/integration/.*.test.tsx?$' --no-typecheck",
+    "test:integration:no-api": "node --experimental-vm-modules node_modules/jest/bin/jest.js --testRegex '/integration/.*.test.tsx?$' --testPathIgnorePatterns 'research_api_integration'"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "0.6.0",
