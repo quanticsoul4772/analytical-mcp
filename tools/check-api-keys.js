@@ -8,12 +8,30 @@
 // Check if EXA_API_KEY exists in environment
 const EXA_API_KEY = process.env.EXA_API_KEY;
 
+let hasError = false;
+
+// Check EXA API key
 if (!EXA_API_KEY) {
   console.error('⚠️ ERROR: EXA_API_KEY is not set in your system environment variables!');
   console.error('');
   console.error('This key is required for many tests to pass. You must set it before running tests.');
+  console.error('The EXA_API_KEY is used for:');
+  console.error('  • Research integration features');
+  console.error('  • Advanced NLP capabilities (Named Entity Recognition, etc.)');
+  hasError = true;
+} else {
+  console.log('✅ EXA_API_KEY is correctly set in your environment variables');
+  
+  // Check key format (basic validation)
+  if (EXA_API_KEY.length < 10) {
+    console.warn('⚠️ WARNING: Your EXA_API_KEY seems too short. Verify it is correct.');
+  }
+}
+
+// Instructions for setting environment variables
+if (hasError) {
   console.error('');
-  console.error('To set this environment variable:');
+  console.error('To set environment variables:');
   console.error('');
   console.error('Windows (PowerShell):');
   console.error('   $env:EXA_API_KEY="your-api-key-here"');
@@ -30,13 +48,6 @@ if (!EXA_API_KEY) {
   console.error('');
   process.exit(1);
 } else {
-  console.log('✅ EXA_API_KEY is correctly set in your environment variables');
-  
-  // Check key format (basic validation)
-  if (EXA_API_KEY.length < 10) {
-    console.warn('⚠️ WARNING: Your EXA_API_KEY seems too short. Verify it is correct.');
-  }
-  
   console.log('');
   console.log('All required API keys are present.');
   console.log('');
