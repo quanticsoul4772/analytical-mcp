@@ -1,0 +1,74 @@
+#!/usr/bin/env node
+
+/**
+ * Analytical MCP Server
+ * 
+ * A specialized MCP server focused on enhancing AI capabilities for structured
+ * problem-solving, analytical reasoning, and decision-making.
+ * Fixed JavaScript version.
+ */
+
+import { Server } from '@modelcontextprotocol/sdk/server/index.js';
+import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import { registerTools } from './tools/index.js';
+import { Logger } from './utils/logger.js';
+
+// Initialize logger
+Logger.initializeFromEnvironment(process.env.NODE_ENV || 'production', process.env.LOG_LEVEL || 'INFO');
+
+// Configure global error handlers
+process.on('uncaughtException', (error) => {
+  Logger.error('Uncaught exception', error);
+  if (process.env.NODE_ENV !== 'production') {
+    process.exit(1);
+  }
+});
+
+process.on('unhandledRejection', (reason) => {
+  Logger.error('Unhandled rejection', reason instanceof Error ? reason : new Error(String(reason)));
+});
+
+/**
+ * Initialize the MCP server
+ */
+function initializeServer() {
+  // Log startup
+  Logger.debug('Initializing server...');
+  
+  // Create the server with tools capability
+  const server = new Server(
+    { name: 'Analytical MCP Server', version: '0.1.0' },
+    { capabilities: { tools: {} } }
+  );
+  
+  Logger.debug('Server initialized');
+  return server;
+}
+
+/**
+ * Main server startup function
+ */
+async function main() {
+  try {
+    // Initialize the server
+    const server = initializeServer();
+
+    // Register tools
+    registerTools(server);
+    Logger.info('Analytical tools registered');
+
+    // Connect using stdio transport
+    const transport = new StdioServerTransport();
+    await server.connect(transport);
+    Logger.info('Analytical MCP Server running on stdio');
+  } catch (error) {
+    Logger.error('Server initialization failed', error);
+    process.exit(1);
+  }
+}
+
+// Start the server
+main().catch((error) => {
+  Logger.error('Fatal server error', error);
+  process.exit(1);
+});

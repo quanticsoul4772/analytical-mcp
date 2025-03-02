@@ -57,17 +57,17 @@ async function multiPerspectiveProblemSolving() {
     // Extract perspectives
     const perspectives = [];
     const lines = perspectiveResult.split('\n');
-    let currentPerspective = null;
+    let currentPerspectiveObj = null;
     
     for (const line of lines) {
       if (line.match(/^###\s+Perspective \d+:/)) {
         const perspectiveName = line.split(':')[1].trim();
-        currentPerspective = { name: perspectiveName, description: '', actions: [] };
-        perspectives.push(currentPerspective);
-      } else if (line.includes("Description:") && currentPerspective) {
-        currentPerspective.description = line.split("Description:")[1].trim();
-      } else if (line.match(/^- /) && currentPerspective) {
-        currentPerspective.actions.push(line.substring(2).trim());
+        currentPerspectiveObj = { name: perspectiveName, description: '', actions: [] };
+        perspectives.push(currentPerspectiveObj);
+      } else if (line.includes("Description:") && currentPerspectiveObj) {
+        currentPerspectiveObj.description = line.split("Description:")[1].trim();
+      } else if (line.match(/^- /) && currentPerspectiveObj) {
+        currentPerspectiveObj.actions.push(line.substring(2).trim());
       }
     }
     

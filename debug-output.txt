@@ -1,0 +1,23 @@
+Creating server...
+Server instance created
+Registering test tool...
+CUSTOM REGISTER: Adding tool test_tool
+Registered Tools: [ 'test_tool' ]
+Server Capabilities: {
+  "logging": true,
+  "resources": false,
+  "sampling": false,
+  "tools": {
+    "registeredTools": [
+      {
+        "name": "test_tool",
+        "description": "A test tool",
+        "schema": {
+          "type": "object",
+          "properties": {}
+        }
+      }
+    ]
+  }
+}
+Debug complete

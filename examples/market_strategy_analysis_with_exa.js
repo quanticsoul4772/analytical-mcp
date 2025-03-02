@@ -39,8 +39,8 @@ async function performEnhancedMarketStrategyAnalysis() {
 
     // Step 4: Detect Potential Logical Fallacies
     const fallacyCheck = await logicalFallacyDetector({
-      text: "We should expand into emerging markets because they're new and untapped. 
-             This will guarantee our success and market leadership.",
+      text: `We should expand into emerging markets because they're new and untapped. 
+             This will guarantee our success and market leadership.`,
       confidenceThreshold: 0.7,
       includeExplanations: true
     });

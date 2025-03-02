@@ -1,125 +1,114 @@
 # Analytical MCP Server
 
-A specialized MCP server focused on enhancing AI capabilities for structured problem-solving, analytical reasoning, and decision-making.
+A Model Context Protocol (MCP) server that provides analytical and statistical tools for Claude.
 
 ## Features
 
-- **Data Analysis**: Statistical analysis, regression modeling, and hypothesis testing
-- **Decision Analysis**: Multi-criteria decision evaluation with uncertainty handling
-- **Logical Reasoning**: Logical argument analysis and fallacy detection 
-- **Perspective Generation**: View problems from multiple stakeholder viewpoints
-- **Research Integration**: Enhance reasoning with external knowledge (requires API key)
+This server provides the following tools:
 
-## Setup
+### analyze_dataset
 
-### Prerequisites
+Analyze a dataset with statistical methods.
 
-- Node.js 20.x or higher
-- System environment variables for required API keys
+**Input:**
+- `data`: Array of numeric data to analyze
 
-### Installation
+**Output:**
+- Summary statistics (count, sum, mean, median, range, standard deviation, variance)
+- Distribution information (quartiles, interquartile range)
+- Sample data preview
 
-```bash
-# Clone the repository
-git clone <repository-url>
-cd analytical-mcp
+### decision_analysis
 
-# Install dependencies
-npm install
+Analyze decision options based on multiple criteria.
 
-# Verify API key setup
-npm run check-api-keys
+**Input:**
+- `options`: Array of options to evaluate, each with a name and optional description
+- `criteria`: Array of criteria for evaluation, each with a name and optional weight
+
+**Output:**
+- Ranked options by score
+- Detailed analysis of each option with individual criteria scores
+
+### correlation_analysis
+
+Analyze correlation between two datasets.
+
+**Input:**
+- `x`: First dataset (X values)
+- `y`: Second dataset (Y values)
+
+**Output:**
+- Pearson correlation coefficient
+- Coefficient of determination (R²)
+- Interpretation of correlation strength
+- Sample data preview
+
+### regression_analysis
+
+Perform linear regression analysis on a dataset.
+
+**Input:**
+- `x`: Independent variable values (X)
+- `y`: Dependent variable values (Y)
+
+**Output:**
+- Regression equation (y = mx + b)
+- Model quality metrics (R-squared, standard error)
+- Interpretation of slope and intercept
+- Sample predictions
+
+### time_series_analysis
+
+Analyze time series data for trends and patterns.
+
+**Input:**
+- `data`: Time series data points
+- `interval`: Time interval between data points (e.g., 'day', 'hour', 'month')
+
+**Output:**
+- Overview (length, average value, average change)
+- Trend analysis (detected trend, first/last values, total change)
+- Volatility metrics (standard deviation, max increase/decrease)
+- Moving average (3-period)
+
+### hypothesis_testing
+
+Perform statistical hypothesis testing.
+
+**Input:**
+- `sample1`: First sample data
+- `sample2`: Second sample data (optional for some tests)
+- `test`: Type of test (e.g., 't-test', 'z-test', 'chi-square')
+- `alpha`: Significance level (default: 0.05)
+
+**Output:**
+- Test information (type, significance level, sample sizes)
+- Test results (statistics, p-value, significance)
+- Interpretation of results
+
+## Installation
+
+This server is designed to be used with the Claude Desktop App. To install:
+
+1. Make sure the server is properly configured in the Claude Desktop App settings
+2. Restart the Claude Desktop App to apply the changes
+
+## Usage
+
+Once installed, you can use the tools directly in Claude. For example:
+
 ```
-
-### Required API Keys
-
-This project requires the following API key to be set in your system environment variables:
-
-- **EXA_API_KEY**: Used for research capabilities and integration tests
-  - Register at [Exa.ai](https://exa.ai) to obtain a key
-
-To set up the API key in your environment:
-
-**Windows (PowerShell):**
-```powershell
-$env:EXA_API_KEY="your-api-key-here"
-```
-
-**Windows (Command Prompt):**
-```cmd
-set EXA_API_KEY=your-api-key-here
-```
-
-**macOS/Linux:**
-```bash
-export EXA_API_KEY="your-api-key-here"
-```
-
-For persistent configuration, add the API key to your system environment variables.
-
-## Running Tests
-
-```bash
-# Verify API keys are present before testing
-npm run check-api-keys
-
-# Run all tests
-npm test
-
-# Run optimized tests (more memory allocation)
-npm run test:optimized
-
-# Run with detection for open handles
-npm run test:handles
-
-# Run integration tests only
-npm run test:integration
-
-# Run integration tests without API-dependent tests
-npm run test:integration:no-api
+Use the analyze_dataset tool to analyze this data: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
 ```
 
 ## Development
 
-```bash
-# Start development mode with auto-compilation
-npm run watch
+This server is built using the Model Context Protocol (MCP) SDK. To modify or extend:
 
-# Lint code
-npm run lint
-
-# Format code
-npm run format
-
-# Type checking
-npm run typecheck
-```
-
-## Documentation
-
-- [Testing Strategy](./TESTING_STRATEGY.md)
-- [Architecture](./ARCHITECTURE.md)
-- [API Testing Guide](./API_TESTING_GUIDE.md)
-- [Error Handling](./ERROR_HANDLING.md)
-
-## Troubleshooting
-
-### API Key Issues
-
-If you encounter errors related to missing API keys:
-
-1. Verify your API key is correctly set in system environment variables
-2. Run `npm run check-api-keys` to validate key configuration
-3. Some tests will fail if API keys are missing - use `test:integration:no-api` to skip these tests
-
-### Open Handles in Tests
-
-If you encounter warnings about open handles:
-
-1. Use `npm run test:handles` to identify problematic tests
-2. Check for unclosed network connections or timers
-3. Ensure proper cleanup in test afterEach/afterAll hooks
+1. Edit the source code in `build/index.js`
+2. Restart the server and Claude Desktop App to apply changes
 
 ## License
 
-See [LICENSE](./LICENSE) file for details.
+MIT

@@ -1,0 +1,56 @@
+Starting test at 2025-03-02T19:30:46.333Z
+Server path: C:\project-root\analytical-mcp\build\index.js
+Starting server from: C:\project-root\analytical-mcp\build\index.js
+Server stderr: Starting Analytical MCP Server - Final Fixed Version
+
+Server stderr: Registering tool: analyze_dataset
+Registering tool: decision_analysis
+
+Server stderr: Analytical MCP Server running on stdio
+
+Sending initialize request...
+Server stderr: Received request: {"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test-client","version":"0.1.0"}}}
+
+Server stderr: Handling initialize request
+{"jsonrpc":"2.0","id":1,"result":{"protocolVersion":"2024-11-05","capabilities":{"tools":{"tools":[{"name":"analyze_dataset","description":"Analyze a dataset with statistical methods","schema":{"type":"object","properties":{"data":{"type":"array","items":{"type":"number"},"description":"Array of numeric data to analyze"}},"required":["data"]}},{"name":"decision_analysis","description":"Analyze decision options based on multiple criteria","schema":{"type":"object","properties":{"options":{"type":"array","items":{"type":"object","properties":{"name":{"type":"string"},"description":{"type":"string"}},"required":["name"]},"description":"Array of options to evaluate"},"criteria":{"type":"array","items":{"type":"object","properties":{"name":{"type":"string"},"weight":{"type":"number"}},"required":["name"]},"description":"Array of criteria for evaluation"}},"required":["options","criteria"]}}]}},"serverInfo":{"name":"analytical","version":"0.1.0"}}}
+
+Sending tools/list request...
+Server stderr: Received request: {"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}
+
+Server stderr: Handling tools/list request
+{"jsonrpc":"2.0","id":2,"result":{"tools":[{"name":"analyze_dataset","description":"Analyze a dataset with statistical methods","schema":{"type":"object","properties":{"data":{"type":"array","items":{"type":"number"},"description":"Array of numeric data to analyze"}},"required":["data"]}},{"name":"decision_analysis","description":"Analyze decision options based on multiple criteria","schema":{"type":"object","properties":{"options":{"type":"array","items":{"type":"object","properties":{"name":{"type":"string"},"description":{"type":"string"}},"required":["name"]},"description":"Array of options to evaluate"},"criteria":{"type":"array","items":{"type":"object","properties":{"name":{"type":"string"},"weight":{"type":"number"}},"required":["name"]},"description":"Array of criteria for evaluation"}},"required":["options","criteria"]}}]}}
+
+Sending analyze_dataset request...
+Server stderr: Received request: {"jsonrpc":"2.0","id":3,"method":"analyze_dataset","params":{"data":[1,2,3,4,5,6,7,8,9,10]}}
+
+Server stderr: Handling analyze_dataset request
+
+Server stderr: Analyzing dataset: {
+  data: [
+    1, 2, 3, 4,  5,
+    6, 7, 8, 9, 10
+  ]
+}
+{"jsonrpc":"2.0","id":3,"result":"\n## Dataset Analysis\n\n**Summary Statistics:**\n- Count: 10 values\n- Sum: 55\n- Mean: 5.50\n- Range: 1 to 10\n- Median: 5.50\n\n**Sample Data:**\n1, 2, 3, 4, 5, ...\n  "}
+
+Sending decision_analysis request...
+Server stderr: Received request: {"jsonrpc":"2.0","id":4,"method":"decision_analysis","params":{"options":[{"name":"Option A","description":"First option"},{"name":"Option B","description":"Second option"},{"name":"Option C","description":"Third option"}],"criteria":[{"name":"Cost","weight":2},{"name":"Quality","weight":3},{"name":"Time","weight":1}]}}
+
+Server stderr: Handling decision_analysis request
+
+Server stderr: Performing decision analysis: {
+  options: [
+    { name: 'Option A', description: 'First option' },
+    { name: 'Option B', description: 'Second option' },
+    { name: 'Option C', description: 'Third option' }
+  ],
+  criteria: [
+    { name: 'Cost', weight: 2 },
+    { name: 'Quality', weight: 3 },
+    { name: 'Time', weight: 1 }
+  ]
+}
+
+Server stderr: {"jsonrpc":"2.0","id":4,"result":"\n## Decision Analysis Results\n\n**Ranked Options:**\n1. Option C (Score: 7.11)\n2. Option B (Score: 4.44)\n3. Option A (Score: 3.10)\n\n**Detailed Analysis:**\n\n### Option C\n- Total Score: 7.11\n- Individual Criteria Scores:\n  - Cost: 6.89\n  - Quality: 9.19\n  - Time: 1.29\n\n\n### Option B\n- Total Score: 4.44\n- Individual Criteria Scores:\n  - Cost: 2.94\n  - Quality: 3.74\n  - Time: 9.57\n\n\n### Option A\n- Total Score: 3.10\n- Individual Criteria Scores:\n  - Cost: 0.05\n  - Quality: 4.17\n  - Time: 5.98\n\n  "}
+
+Test completed, closing server...
