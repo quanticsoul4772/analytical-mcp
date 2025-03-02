@@ -1,238 +1,220 @@
 import { z } from 'zod';
 import fetch from 'node-fetch';
 import { Logger } from '../utils/logger.js';
+import { nlpToolkit } from '../utils/nlp_toolkit.js';
 import { APIError, ValidationError, DataProcessingError } from '../utils/errors.js';
 import { executeApiRequest, RETRYABLE_STATUS_CODES } from '../utils/api_helpers.js';
 import { config, isFeatureEnabled } from '../utils/config.js';
+import * as mathjs from 'mathjs';
 
-// Exa client configuration schema
-const ExaConfigSchema = z.object({
-  apiKey: z.string().optional().describe('Exa API key for authentication'),
-  baseUrl: z.string().default('https://api.exa.ai').describe('Base URL for Exa API'),
-});
-
-// Research query input schema
-const ExaResearchQuerySchema = z.object({
-  query: z.string().describe('Search query for research'),
-  numResults: z.number().min(1).max(10).default(5).describe('Number of search results'),
-  timeRangeMonths: z
-    .number()
-    .min(1)
-    .max(36)
-    .optional()
-    .describe('Time range for results in months'),
-  useWebResults: z.boolean().default(true).describe('Include web search results'),
-  useNewsResults: z.boolean().default(false).describe('Include news results'),
-  includeContents: z.boolean().default(true).describe('Include full content of search results'),
-});
-
-// Precise typing for Exa search results
-interface ExaSearchResult {
-  title: string;
-  url: string;
-  publishedDate?: string;
-  contents?: string;
-  score?: number;
+// Enhanced fact extraction interfaces
+interface FactExtraction {
+  text: string;
+  facts: ExtractedFact[];
+  confidence: number;
 }
 
-interface ExaSearchResponse {
-  results: ExaSearchResult[];
+interface ExtractedFact {
+  fact: string;
+  type: 'named_entity' | 'relationship' | 'statement' | 'sentiment';
+  confidence: number;
+  entities?: string[];
+  sentiment?: {
+    score: number;
+    comparative: number;
+    positive: string[];
+    negative: string[];
+  };
 }
 
-// Exa research utility class
-export class ExaResearchTool {
-  private apiKey: string;
-  private baseUrl: string;
+export class EnhancedFactExtractor {
+  // Advanced fact extraction with multiple techniques
+  extractFacts(text: string, options: {
+    maxFacts?: number;
+    minConfidence?: number;
+  } = {}): FactExtraction {
+    const {
+      maxFacts = 10,
+      minConfidence = 0.5
+    } = options;
 
-  constructor(exaConfig?: z.infer<typeof ExaConfigSchema>) {
     try {
-      const parsedConfig = ExaConfigSchema.parse(exaConfig || {});
-      // Use validated environment config from config.js
-      this.apiKey = parsedConfig.apiKey || config.EXA_API_KEY || '';
-      this.baseUrl = parsedConfig.baseUrl;
+      // Preliminary text cleaning
+      const cleanedText = this.preprocessText(text);
 
-      if (!this.apiKey) {
-        Logger.warn('No Exa API key provided. Research functionality will be limited.');
-      } else {
-        const researchEnabled = isFeatureEnabled('researchIntegration');
-        Logger.debug('Exa research tool initialized', {
-          baseUrl: this.baseUrl,
-          researchEnabled,
-        });
+      // Multiple extraction techniques
+      const extractionTechniques = [
+        this.extractNamedEntities(cleanedText),
+        this.extractStatementFacts(cleanedText),
+        this.extractRelationshipFacts(cleanedText),
+        this.extractSentimentFacts(cleanedText)
+      ];
 
-        if (!researchEnabled) {
-          Logger.info('Research integration is disabled in configuration.');
-        }
-      }
+      // Flatten and score facts
+      const allFacts = extractionTechniques.flat()
+        .filter(fact => fact.confidence >= minConfidence)
+        .sort((a, b) => b.confidence - a.confidence)
+        .slice(0, maxFacts);
+
+      // Compute overall extraction confidence
+      const overallConfidence = this.computeExtractionConfidence(allFacts);
+
+      return {
+        text: cleanedText,
+        facts: allFacts,
+        confidence: overallConfidence
+      };
     } catch (error) {
-      if (error instanceof z.ZodError) {
-        Logger.error('Invalid Exa configuration', error);
-        throw new ValidationError(`Invalid Exa configuration: ${error.message}`, {
-          issues: error.issues,
-        });
-      }
-      throw error;
+      Logger.error('Fact extraction failed', error);
+      throw new DataProcessingError('Failed to extract facts', { 
+        originalText: text,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
     }
   }
 
-  // Perform a web search and research
-  async search(query: z.infer<typeof ExaResearchQuerySchema>): Promise<ExaSearchResponse> {
-    // Check if research integration is enabled
-    if (!isFeatureEnabled('researchIntegration')) {
-      Logger.warn(
-        'Research integration is disabled. Enable it with ENABLE_RESEARCH_INTEGRATION=true'
+  // Preprocess text to prepare for fact extraction
+  private preprocessText(text: string): string {
+    return text
+      .replace(/\s+/g, ' ')  // Normalize whitespace
+      .replace(/[^\w\s.,!?]/g, '')  // Remove special characters
+      .trim()
+      .toLowerCase();
+  }
+
+  // Named Entity Extraction using NLP Toolkit
+  private extractNamedEntities(text: string): ExtractedFact[] {
+    const entities = nlpToolkit.extractNamedEntities(text);
+    
+    return [
+      ...entities.persons.map(person => ({
+        fact: person,
+        type: 'named_entity',
+        confidence: 0.8,
+        entities: ['person']
+      })),
+      ...entities.organizations.map(org => ({
+        fact: org,
+        type: 'named_entity',
+        confidence: 0.7,
+        entities: ['organization']
+      })),
+      ...entities.locations.map(location => ({
+        fact: location,
+        type: 'named_entity',
+        confidence: 0.7,
+        entities: ['location']
+      }))
+    ];
+  }
+
+  // Statement Fact Extraction with NLP enhancements
+  private extractStatementFacts(text: string): ExtractedFact[] {
+    // Use tokenization to break text into meaningful statements
+    const tokens = nlpToolkit.tokenize(text);
+    const sentences = text.split(/[.!?]/)
+      .filter(s => 
+        s.trim().length > 30 &&  // Minimum meaningful length
+        !s.includes('disclaimer') &&
+        !s.includes('copyright')
       );
-      throw new APIError(
-        'Research integration is disabled in configuration',
-        403,
-        false,
-        'exa/search'
-      );
-    }
 
-    let parsedQuery: z.infer<typeof ExaResearchQuerySchema>;
+    return sentences.map(sentence => ({
+      fact: sentence.trim(),
+      type: 'statement',
+      confidence: this.computeSentenceConfidence(sentence),
+      entities: []
+    }));
+  }
 
-    try {
-      parsedQuery = ExaResearchQuerySchema.parse(query);
-      Logger.debug(`Executing Exa search for: "${parsedQuery.query}"`, {
-        numResults: parsedQuery.numResults,
-        useWebResults: parsedQuery.useWebResults,
-        useNewsResults: parsedQuery.useNewsResults,
-      });
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        Logger.error('Search query validation failed', error);
-        throw new ValidationError(`Invalid search query: ${error.message}`, {
-          issues: error.issues,
-          query,
-        });
-      }
-      throw error;
-    }
+  // Relationship Fact Extraction with POS tagging
+  private extractRelationshipFacts(text: string): ExtractedFact[] {
+    const posTags = nlpToolkit.getPOSTags(text);
+    
+    // Find potential relationship patterns using POS tags
+    const relationshipPatterns = [
+      { pattern: ['NN', 'VBZ', 'NN'], type: 'simple_relation' },
+      { pattern: ['NN', 'VBD', 'IN', 'NN'], type: 'complex_relation' }
+    ];
 
-    if (!this.apiKey) {
-      Logger.error('Missing API key for Exa search');
-      throw new APIError('Cannot perform search: Missing API key', 401, false, 'exa/search');
-    }
+    const facts: ExtractedFact[] = [];
 
-    try {
-      return await executeApiRequest(
-        async () => {
-          const response = await fetch(`${this.baseUrl}/search`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${this.apiKey}`,
-            },
-            body: JSON.stringify({
-              query: parsedQuery.query,
-              numResults: parsedQuery.numResults,
-              timeRange: parsedQuery.timeRangeMonths
-                ? `${parsedQuery.timeRangeMonths}m`
-                : undefined,
-              useWebResults: parsedQuery.useWebResults,
-              useNewsResults: parsedQuery.useNewsResults,
-              includeContents: parsedQuery.includeContents,
-            }),
+    for (let i = 0; i < posTags.length - 2; i++) {
+      relationshipPatterns.forEach(pattern => {
+        if (
+          posTags[i].tag === pattern.pattern[0] &&
+          posTags[i+1].tag === pattern.pattern[1] &&
+          posTags[i+2].tag === pattern.pattern[2]
+        ) {
+          facts.push({
+            fact: `${posTags[i].word} ${posTags[i+1].word} ${posTags[i+2].word}`,
+            type: 'relationship',
+            confidence: 0.6,
+            entities: [posTags[i].word, posTags[i+2].word]
           });
-
-          if (!response.ok) {
-            throw new APIError(
-              `Exa search failed: ${response.statusText}`,
-              response.status,
-              RETRYABLE_STATUS_CODES.includes(response.status),
-              'exa/search'
-            );
-          }
-
-          const data = (await response.json()) as ExaSearchResponse;
-          Logger.debug(`Exa search returned ${data.results.length} results`);
-          return data;
-        },
-        {
-          maxRetries: 3,
-          initialDelay: 500,
-          maxDelay: 10000,
-          context: `Exa search for "${parsedQuery.query}"`,
-          endpoint: 'exa/search',
         }
-      );
-    } catch (error) {
-      // Log and rethrow the error with better context
-      Logger.error('Exa search operation failed', error, {
-        query: parsedQuery.query,
-        numResults: parsedQuery.numResults,
       });
+    }
 
-      if (error instanceof APIError) {
-        throw error; // Already properly formatted
+    return facts;
+  }
+
+  // Sentiment Fact Extraction
+  private extractSentimentFacts(text: string): ExtractedFact[] {
+    const sentimentAnalysis = nlpToolkit.analyzeSentiment(text);
+
+    return [{
+      fact: text,
+      type: 'sentiment',
+      confidence: this.mapSentimentToConfidence(sentimentAnalysis.score),
+      sentiment: {
+        score: sentimentAnalysis.score,
+        comparative: sentimentAnalysis.comparative,
+        positive: sentimentAnalysis.positive,
+        negative: sentimentAnalysis.negative
       }
-
-      throw new APIError(
-        `Exa search failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        undefined,
-        false,
-        'exa/search'
-      );
-    }
+    }];
   }
 
-  // Extract key facts from search results
-  extractKeyFacts(results: ExaSearchResult[], maxFacts: number = 5): string[] {
-    try {
-      if (!results || !Array.isArray(results)) {
-        Logger.warn('Invalid search results provided to extractKeyFacts', { results });
-        return [];
-      }
+  // Compute confidence for a sentence
+  private computeSentenceConfidence(sentence: string): number {
+    // Multiple confidence factors
+    const lemmas = nlpToolkit.tokenize(sentence)
+      .map(token => nlpToolkit.lemmatize(token));
+    
+    const lengthFactor = Math.min(1, sentence.length / 100);
+    const uniqueWordFactor = new Set(lemmas).size / lemmas.length;
+    const spellCheckFactor = 1 - (nlpToolkit.spellCheck(sentence).length / lemmas.length);
 
-      const facts = results
-        .flatMap((result) => {
-          const contentFacts = result.contents ? this.findFactsInText(result.contents, 3) : [];
-          const titleFacts = this.findFactsInText(result.title, 2);
-          return [...contentFacts, ...titleFacts];
-        })
-        .slice(0, maxFacts);
-
-      Logger.debug(`Extracted ${facts.length} facts from search results`);
-      return facts;
-    } catch (error) {
-      Logger.error('Error extracting facts from search results', error);
-      throw new DataProcessingError(
-        `Failed to extract facts: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        { resultsCount: results?.length }
-      );
-    }
+    return mathjs.round(
+      (lengthFactor + uniqueWordFactor + spellCheckFactor) / 3, 
+      2
+    );
   }
 
-  // Simple fact extraction
-  private findFactsInText(text: string, maxFacts: number = 3): string[] {
-    if (!text || typeof text !== 'string') {
-      return [];
-    }
-
-    try {
-      const sentences = text
-        .split(/[.!?]/)
-        .filter(
-          (s) =>
-            s.trim().length > 30 &&
-            !s.toLowerCase().includes('disclaimer') &&
-            !s.toLowerCase().includes('copyright')
-        )
-        .slice(0, maxFacts);
-
-      return sentences.map((s) => s.trim());
-    } catch (error) {
-      Logger.warn('Error finding facts in text', { error, textLength: text.length });
-      return [];
-    }
+  // Map sentiment score to confidence
+  private mapSentimentToConfidence(sentimentScore: number): number {
+    // Convert sentiment score to confidence
+    // Sentiment score typically ranges from -5 to 5
+    return mathjs.round(
+      Math.min(1, Math.max(0, (Math.abs(sentimentScore) / 5))), 
+      2
+    );
   }
 
-  // Placeholder for MCP server registration
-  registerTool(server: any): void {
-    Logger.info('Exa Research tool registered');
+  // Compute overall extraction confidence
+  private computeExtractionConfidence(facts: ExtractedFact[]): number {
+    if (facts.length === 0) return 0;
+
+    const confidenceSum = facts.reduce((sum, fact) => sum + fact.confidence, 0);
+    const averageConfidence = confidenceSum / facts.length;
+
+    return mathjs.round(
+      Math.min(1, averageConfidence * (1 + Math.log(facts.length))), 
+      2
+    );
   }
 }
 
 // Singleton instance
-export const exaResearch = new ExaResearchTool();
+export const enhancedFactExtractor = new EnhancedFactExtractor();
