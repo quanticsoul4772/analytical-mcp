@@ -5,20 +5,11 @@ import { ValidationError, DataProcessingError } from '../utils/errors.js';
 
 // Schema for hypothesis testing
 const HypothesisTestingSchema = z.object({
-  testType: z.enum([
-    't_test_independent', 
-    't_test_paired', 
-    'correlation', 
-    'chi_square', 
-    'anova'
-  ]),
-  data: z.array(z.union([
-    z.array(z.number()),
-    z.array(z.record(z.string(), z.number()))
-  ])),
+  testType: z.enum(['t_test_independent', 't_test_paired', 'correlation', 'chi_square', 'anova']),
+  data: z.array(z.union([z.array(z.number()), z.array(z.record(z.string(), z.number()))])),
   variables: z.array(z.string()).optional(),
   alpha: z.number().min(0.01).max(0.1).default(0.05),
-  alternativeHypothesis: z.string().optional()
+  alternativeHypothesis: z.string().optional(),
 });
 
 // Type conversion utility
@@ -27,7 +18,11 @@ function toNumber(value: mathjs.MathType): number {
 }
 
 // Utility to calculate simplified p-value
-function calculateSimplifiedPValue(tStat: number, df: number, alternativeHypothesis: string): number {
+function calculateSimplifiedPValue(
+  tStat: number,
+  df: number,
+  alternativeHypothesis: string
+): number {
   // Simplified p-value calculation (mock implementation)
   return Math.abs(tStat) > 2 ? 0.05 : 0.5;
 }
@@ -55,18 +50,18 @@ async function hypothesisTesting(
       data,
       variables,
       alpha,
-      alternativeHypothesis
+      alternativeHypothesis,
     });
-    Logger.debug(`Validated hypothesis testing request`, { 
-      testType, 
-      dataLength: data.length, 
-      alpha
+    Logger.debug(`Validated hypothesis testing request`, {
+      testType,
+      dataLength: data.length,
+      alpha,
     });
   } catch (error) {
     if (error instanceof z.ZodError) {
       Logger.error('Hypothesis testing validation failed', error);
       throw new ValidationError(`Invalid parameters for hypothesis testing: ${error.message}`, {
-        issues: error.issues
+        issues: error.issues,
       });
     }
     throw error;
@@ -84,8 +79,7 @@ async function hypothesisTesting(
         const std2 = toNumber(mathjs.std(group2));
         const n1 = group1.length;
         const n2 = group2.length;
-        const tStat = (mean1 - mean2) / 
-          Math.sqrt((std1 * std1 / n1) + (std2 * std2 / n2));
+        const tStat = (mean1 - mean2) / Math.sqrt((std1 * std1) / n1 + (std2 * std2) / n2);
         const df = n1 + n2 - 2;
         const pValue = calculateSimplifiedPValue(tStat, df, alternativeHypothesis || 'two-sided');
 
@@ -103,10 +97,10 @@ async function hypothesisTesting(
         const correlationData = data as Record<string, number>[];
         const var1 = variables?.[0] || Object.keys(correlationData[0])[0];
         const var2 = variables?.[1] || Object.keys(correlationData[0])[1];
-        
-        const x = correlationData.map(row => row[var1]);
-        const y = correlationData.map(row => row[var2]);
-        
+
+        const x = correlationData.map((row) => row[var1]);
+        const y = correlationData.map((row) => row[var2]);
+
         const r = toNumber(mathjs.corr(x, y));
 
         result += `## Correlation Analysis\n\n`;
@@ -114,7 +108,7 @@ async function hypothesisTesting(
         result += `|--------|-------|\n`;
         result += `| Pearson's r | ${r.toFixed(4)} | ${interpretCorrelation(r)} |\n`;
         result += `| Interpretation | ${r > 0 ? 'Positive' : 'Negative'} correlation |\n`;
-        
+
         result += `\nThe correlation coefficient (r = ${r.toFixed(4)}) indicates a ${interpretCorrelation(r)} relationship between ${var1} and ${var2}.\n`;
         break;
 
@@ -126,7 +120,7 @@ async function hypothesisTesting(
   } catch (error) {
     Logger.error('Hypothesis Testing Error', error, {
       testType,
-      dataLength: data.length
+      dataLength: data.length,
     });
     throw new DataProcessingError(
       `Hypothesis testing failed: ${error instanceof Error ? error.message : String(error)}`,

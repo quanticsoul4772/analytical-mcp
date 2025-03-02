@@ -7,18 +7,23 @@ import { config, isFeatureEnabled } from '../utils/config.js';
 
 // Exa client configuration schema
 const ExaConfigSchema = z.object({
-  apiKey: z.string().optional().describe("Exa API key for authentication"),
-  baseUrl: z.string().default("https://api.exa.ai").describe("Base URL for Exa API")
+  apiKey: z.string().optional().describe('Exa API key for authentication'),
+  baseUrl: z.string().default('https://api.exa.ai').describe('Base URL for Exa API'),
 });
 
 // Research query input schema
 const ExaResearchQuerySchema = z.object({
-  query: z.string().describe("Search query for research"),
-  numResults: z.number().min(1).max(10).default(5).describe("Number of search results"),
-  timeRangeMonths: z.number().min(1).max(36).optional().describe("Time range for results in months"),
-  useWebResults: z.boolean().default(true).describe("Include web search results"),
-  useNewsResults: z.boolean().default(false).describe("Include news results"),
-  includeContents: z.boolean().default(true).describe("Include full content of search results")
+  query: z.string().describe('Search query for research'),
+  numResults: z.number().min(1).max(10).default(5).describe('Number of search results'),
+  timeRangeMonths: z
+    .number()
+    .min(1)
+    .max(36)
+    .optional()
+    .describe('Time range for results in months'),
+  useWebResults: z.boolean().default(true).describe('Include web search results'),
+  useNewsResults: z.boolean().default(false).describe('Include news results'),
+  includeContents: z.boolean().default(true).describe('Include full content of search results'),
 });
 
 // Precise typing for Exa search results
@@ -47,23 +52,23 @@ export class ExaResearchTool {
       this.baseUrl = parsedConfig.baseUrl;
 
       if (!this.apiKey) {
-        Logger.warn("No Exa API key provided. Research functionality will be limited.");
+        Logger.warn('No Exa API key provided. Research functionality will be limited.');
       } else {
         const researchEnabled = isFeatureEnabled('researchIntegration');
-        Logger.debug("Exa research tool initialized", { 
+        Logger.debug('Exa research tool initialized', {
           baseUrl: this.baseUrl,
-          researchEnabled
+          researchEnabled,
         });
-        
+
         if (!researchEnabled) {
-          Logger.info("Research integration is disabled in configuration.");
+          Logger.info('Research integration is disabled in configuration.');
         }
       }
     } catch (error) {
       if (error instanceof z.ZodError) {
-        Logger.error("Invalid Exa configuration", error);
+        Logger.error('Invalid Exa configuration', error);
         throw new ValidationError(`Invalid Exa configuration: ${error.message}`, {
-          issues: error.issues
+          issues: error.issues,
         });
       }
       throw error;
@@ -74,7 +79,9 @@ export class ExaResearchTool {
   async search(query: z.infer<typeof ExaResearchQuerySchema>): Promise<ExaSearchResponse> {
     // Check if research integration is enabled
     if (!isFeatureEnabled('researchIntegration')) {
-      Logger.warn('Research integration is disabled. Enable it with ENABLE_RESEARCH_INTEGRATION=true');
+      Logger.warn(
+        'Research integration is disabled. Enable it with ENABLE_RESEARCH_INTEGRATION=true'
+      );
       throw new APIError(
         'Research integration is disabled in configuration',
         403,
@@ -82,7 +89,7 @@ export class ExaResearchTool {
         'exa/search'
       );
     }
-    
+
     let parsedQuery: z.infer<typeof ExaResearchQuerySchema>;
 
     try {
@@ -90,14 +97,14 @@ export class ExaResearchTool {
       Logger.debug(`Executing Exa search for: "${parsedQuery.query}"`, {
         numResults: parsedQuery.numResults,
         useWebResults: parsedQuery.useWebResults,
-        useNewsResults: parsedQuery.useNewsResults
+        useNewsResults: parsedQuery.useNewsResults,
       });
     } catch (error) {
       if (error instanceof z.ZodError) {
         Logger.error('Search query validation failed', error);
         throw new ValidationError(`Invalid search query: ${error.message}`, {
           issues: error.issues,
-          query
+          query,
         });
       }
       throw error;
@@ -109,55 +116,58 @@ export class ExaResearchTool {
     }
 
     try {
-      return await executeApiRequest(async () => {
-        const response = await fetch(`${this.baseUrl}/search`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${this.apiKey}`
-          },
-          body: JSON.stringify({
-            query: parsedQuery.query,
-            numResults: parsedQuery.numResults,
-            timeRange: parsedQuery.timeRangeMonths 
-              ? `${parsedQuery.timeRangeMonths}m` 
-              : undefined,
-            useWebResults: parsedQuery.useWebResults,
-            useNewsResults: parsedQuery.useNewsResults,
-            includeContents: parsedQuery.includeContents
-          })
-        });
+      return await executeApiRequest(
+        async () => {
+          const response = await fetch(`${this.baseUrl}/search`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${this.apiKey}`,
+            },
+            body: JSON.stringify({
+              query: parsedQuery.query,
+              numResults: parsedQuery.numResults,
+              timeRange: parsedQuery.timeRangeMonths
+                ? `${parsedQuery.timeRangeMonths}m`
+                : undefined,
+              useWebResults: parsedQuery.useWebResults,
+              useNewsResults: parsedQuery.useNewsResults,
+              includeContents: parsedQuery.includeContents,
+            }),
+          });
 
-        if (!response.ok) {
-          throw new APIError(
-            `Exa search failed: ${response.statusText}`,
-            response.status,
-            RETRYABLE_STATUS_CODES.includes(response.status),
-            'exa/search'
-          );
+          if (!response.ok) {
+            throw new APIError(
+              `Exa search failed: ${response.statusText}`,
+              response.status,
+              RETRYABLE_STATUS_CODES.includes(response.status),
+              'exa/search'
+            );
+          }
+
+          const data = (await response.json()) as ExaSearchResponse;
+          Logger.debug(`Exa search returned ${data.results.length} results`);
+          return data;
+        },
+        {
+          maxRetries: 3,
+          initialDelay: 500,
+          maxDelay: 10000,
+          context: `Exa search for "${parsedQuery.query}"`,
+          endpoint: 'exa/search',
         }
-
-        const data = await response.json() as ExaSearchResponse;
-        Logger.debug(`Exa search returned ${data.results.length} results`);
-        return data;
-      }, {
-        maxRetries: 3,
-        initialDelay: 500,
-        maxDelay: 10000,
-        context: `Exa search for "${parsedQuery.query}"`,
-        endpoint: 'exa/search'
-      });
+      );
     } catch (error) {
       // Log and rethrow the error with better context
       Logger.error('Exa search operation failed', error, {
         query: parsedQuery.query,
-        numResults: parsedQuery.numResults
+        numResults: parsedQuery.numResults,
       });
-      
+
       if (error instanceof APIError) {
         throw error; // Already properly formatted
       }
-      
+
       throw new APIError(
         `Exa search failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
         undefined,
@@ -176,10 +186,8 @@ export class ExaResearchTool {
       }
 
       const facts = results
-        .flatMap(result => {
-          const contentFacts = result.contents 
-            ? this.findFactsInText(result.contents, 3) 
-            : [];
+        .flatMap((result) => {
+          const contentFacts = result.contents ? this.findFactsInText(result.contents, 3) : [];
           const titleFacts = this.findFactsInText(result.title, 2);
           return [...contentFacts, ...titleFacts];
         })
@@ -205,14 +213,15 @@ export class ExaResearchTool {
     try {
       const sentences = text
         .split(/[.!?]/)
-        .filter(s => 
-          s.trim().length > 30 && 
-          !s.toLowerCase().includes("disclaimer") &&
-          !s.toLowerCase().includes("copyright")
+        .filter(
+          (s) =>
+            s.trim().length > 30 &&
+            !s.toLowerCase().includes('disclaimer') &&
+            !s.toLowerCase().includes('copyright')
         )
         .slice(0, maxFacts);
 
-      return sentences.map(s => s.trim());
+      return sentences.map((s) => s.trim());
     } catch (error) {
       Logger.warn('Error finding facts in text', { error, textLength: text.length });
       return [];
@@ -221,7 +230,7 @@ export class ExaResearchTool {
 
   // Placeholder for MCP server registration
   registerTool(server: any): void {
-    Logger.info("Exa Research tool registered");
+    Logger.info('Exa Research tool registered');
   }
 }
 

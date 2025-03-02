@@ -7,29 +7,25 @@ import { ValidationError, DataProcessingError, APIError } from '../utils/errors.
 const PerspectiveShifterSchema = z.object({
   problem: z.string(),
   currentPerspective: z.string().optional().default('default'),
-  shiftType: z.enum(['stakeholder', 'discipline', 'contrarian', 'optimistic', 'pessimistic']).optional().default('stakeholder'),
+  shiftType: z
+    .enum(['stakeholder', 'discipline', 'contrarian', 'optimistic', 'pessimistic'])
+    .optional()
+    .default('stakeholder'),
   numberOfPerspectives: z.number().min(1).max(10).optional().default(3),
-  includeActionable: z.boolean().optional().default(true)
+  includeActionable: z.boolean().optional().default(true),
 });
 
 // Predefined perspective domains
 const PERSPECTIVE_DOMAINS: Record<string, string[]> = {
-  stakeholder: [
-    'customer', 
-    'employee', 
-    'investor', 
-    'management', 
-    'community', 
-    'supplier'
-  ],
+  stakeholder: ['customer', 'employee', 'investor', 'management', 'community', 'supplier'],
   discipline: [
-    'technology', 
-    'economics', 
-    'psychology', 
-    'sociology', 
-    'environmental studies', 
-    'design thinking'
-  ]
+    'technology',
+    'economics',
+    'psychology',
+    'sociology',
+    'environmental studies',
+    'design thinking',
+  ],
 };
 
 // Perspective shifting tool
@@ -47,18 +43,18 @@ async function perspectiveShifter(
       currentPerspective,
       shiftType,
       numberOfPerspectives,
-      includeActionable
+      includeActionable,
     });
-    Logger.debug(`Validated perspective shifting request`, { 
-      problem: problem.substring(0, 50), 
-      shiftType, 
-      numberOfPerspectives 
+    Logger.debug(`Validated perspective shifting request`, {
+      problem: problem.substring(0, 50),
+      shiftType,
+      numberOfPerspectives,
     });
   } catch (error) {
     if (error instanceof z.ZodError) {
       Logger.error('Perspective shifter validation failed', error);
       throw new ValidationError(`Invalid parameters for perspective shifting: ${error.message}`, {
-        issues: error.issues
+        issues: error.issues,
       });
     }
     throw error;
@@ -79,23 +75,23 @@ async function perspectiveShifter(
 
     for (const domain of domains.slice(0, numberOfPerspectives)) {
       const researchQuery = `Analyze the problem "${problem}" from the perspective of a ${domain}`;
-      
+
       // Use Exa research to get diverse perspectives
       const searchResults = await exaResearch.search({
         query: researchQuery,
         numResults: 2,
         useWebResults: true,
         useNewsResults: false,
-        includeContents: true
+        includeContents: true,
       });
 
       const perspectiveInsights = exaResearch.extractKeyFacts(searchResults.results);
-      
+
       const perspectiveSection: string[] = [
         `### ${domain.toUpperCase()} Perspective\n\n`,
-        perspectiveInsights.join('\n\n')
+        perspectiveInsights.join('\n\n'),
       ];
-      
+
       if (includeActionable) {
         perspectiveSection.push(
           `\n\n**Actionable Insights:**\n`,
@@ -113,17 +109,17 @@ async function perspectiveShifter(
     if (error instanceof APIError) {
       Logger.error('API error during perspective shifting', error, {
         status: error.status,
-        endpoint: error.endpoint
+        endpoint: error.endpoint,
       });
       throw error; // Rethrow API errors as they are already properly formatted
     }
-    
+
     Logger.error('Perspective Shifting Error', error, {
       problem: problem.substring(0, 50),
       shiftType,
-      numberOfPerspectives
+      numberOfPerspectives,
     });
-    
+
     throw new DataProcessingError(
       `Perspective shifting failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
       { shiftType, problemLength: problem.length }

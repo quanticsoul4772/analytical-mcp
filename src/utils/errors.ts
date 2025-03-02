@@ -1,6 +1,6 @@
 /**
  * Custom Error Types
- * 
+ *
  * This module provides custom error classes for the Analytical MCP Server.
  * These help with error categorization, handling, and provide better context.
  */
@@ -21,16 +21,11 @@ export class AnalyticalError extends Error {
  * Error class for API-related errors
  */
 export class APIError extends AnalyticalError {
-  public status?: number;
+  public status: number | undefined;
   public retryable: boolean;
-  public endpoint?: string;
-  
-  constructor(
-    message: string, 
-    status?: number, 
-    retryable = false,
-    endpoint?: string
-  ) {
+  public endpoint: string | undefined;
+
+  constructor(message: string, status?: number, retryable = false, endpoint?: string) {
     super(message);
     this.name = 'APIError';
     this.status = status;
@@ -44,8 +39,8 @@ export class APIError extends AnalyticalError {
  * Error class for validation errors
  */
 export class ValidationError extends AnalyticalError {
-  public details?: Record<string, any>;
-  
+  public details: Record<string, any> | undefined;
+
   constructor(message: string, details?: Record<string, any>) {
     super(message);
     this.name = 'ValidationError';
@@ -58,8 +53,8 @@ export class ValidationError extends AnalyticalError {
  * Error class for data processing errors
  */
 export class DataProcessingError extends AnalyticalError {
-  public data?: any;
-  
+  public data: any | undefined;
+
   constructor(message: string, data?: any) {
     super(message);
     this.name = 'DataProcessingError';
@@ -84,7 +79,7 @@ export class ConfigurationError extends AnalyticalError {
  */
 export class ToolExecutionError extends AnalyticalError {
   public toolName: string;
-  
+
   constructor(toolName: string, message: string) {
     super(`Error in ${toolName}: ${message}`);
     this.name = 'ToolExecutionError';
@@ -98,7 +93,7 @@ export class ToolExecutionError extends AnalyticalError {
  * This is a type-guard function to help with error handling
  */
 export function isErrorType<T extends Error>(
-  error: unknown, 
+  error: unknown,
   errorType: new (...args: any[]) => T
 ): error is T {
   return error instanceof errorType;

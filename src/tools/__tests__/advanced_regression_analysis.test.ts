@@ -65,6 +65,16 @@ describe('Advanced Regression Tests', () => {
     expect(result).toContain('Model Fit Statistics');
   });
 
+  it('should perform logistic regression analysis', async () => {
+    const result = await advancedRegressionAnalysis(sampleData, 'logistic', ['x'], 'y');
+    expect(result).toContain('Regression Analysis Results');
+    expect(result).toContain('Logistic Regression');
+    expect(result).toContain('Dependent Variable: y');
+    expect(result).toContain('Independent Variables: x');
+    expect(result).toContain('Coefficients');
+    expect(result).toContain('Model Performance');
+  });
+
   it('should handle custom options', async () => {
     const result = await advancedRegressionAnalysis(
       sampleData,

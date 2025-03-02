@@ -1,6 +1,6 @@
 /**
  * Test Environment Utilities
- * 
+ *
  * Provides functions to load and configure test-specific environment variables
  */
 
@@ -15,12 +15,12 @@ import fs from 'fs';
 export function loadTestEnv(): void {
   const testEnvPath = path.resolve(process.cwd(), '.env.test');
   const defaultEnvPath = path.resolve(process.cwd(), '.env');
-  
+
   // First try to load test-specific environment
   if (fs.existsSync(testEnvPath)) {
     config({ path: testEnvPath });
     console.log('Loaded test environment variables from .env.test');
-  } 
+  }
   // Fall back to default environment
   else if (fs.existsSync(defaultEnvPath)) {
     config({ path: defaultEnvPath });
@@ -35,15 +35,15 @@ export function loadTestEnv(): void {
  * @param requiredVars List of required environment variable names
  * @returns Object with missing variables if any
  */
-export function validateRequiredEnvVars(requiredVars: string[]): { 
-  valid: boolean; 
-  missing: string[] 
+export function validateRequiredEnvVars(requiredVars: string[]): {
+  valid: boolean;
+  missing: string[];
 } {
-  const missing = requiredVars.filter(varName => !process.env[varName]);
-  
+  const missing = requiredVars.filter((varName) => !process.env[varName]);
+
   return {
     valid: missing.length === 0,
-    missing
+    missing,
   };
 }
 
@@ -65,13 +65,13 @@ export function verifyApiTestConfiguration(): void {
   // Check for required API keys
   const requiredVars = ['EXA_API_KEY'];
   const { valid, missing } = validateRequiredEnvVars(requiredVars);
-  
+
   if (!valid) {
     const missingList = missing.join(', ');
     throw new Error(
       `Missing required environment variables for API testing: ${missingList}.\n` +
-      `Please set these variables in your .env.test file or environment.\n` +
-      `For EXA_API_KEY, get a test key from https://exa.ai`
+        `Please set these variables in your .env.test file or environment.\n` +
+        `For EXA_API_KEY, get a test key from https://exa.ai`
     );
   }
 }

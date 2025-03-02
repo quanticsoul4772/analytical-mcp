@@ -17,87 +17,78 @@ interface FallacyDefinition {
 
 // Schema for logical fallacy detector
 const logicalFallacyDetectorSchemaDefinition = z.object({
-  text: z.string().describe("Text to analyze for logical fallacies"),
-  confidenceThreshold: z.number().min(0).max(1).default(0.5).describe("Minimum confidence level to report a fallacy"),
-  categories: z.array(z.enum([
-    'informal', 
-    'formal', 
-    'relevance', 
-    'ambiguity', 
-    'all'
-  ])).default(['all']),
+  text: z.string().describe('Text to analyze for logical fallacies'),
+  confidenceThreshold: z
+    .number()
+    .min(0)
+    .max(1)
+    .default(0.5)
+    .describe('Minimum confidence level to report a fallacy'),
+  categories: z
+    .array(z.enum(['informal', 'formal', 'relevance', 'ambiguity', 'all']))
+    .default(['all']),
   includeExplanations: z.boolean().default(true),
-  includeExamples: z.boolean().default(true)
+  includeExamples: z.boolean().default(true),
 });
 
 // Comprehensive list of logical fallacies
 function getFallacyDefinitions(): FallacyDefinition[] {
   return [
     {
-      name: "Ad Hominem",
-      category: "relevance",
-      description: "Attacking the person making the argument rather than addressing the argument itself",
+      name: 'Ad Hominem',
+      category: 'relevance',
+      description:
+        'Attacking the person making the argument rather than addressing the argument itself',
       signals: [
         /\b(stupid|idiot|fool|ignorant|young)\b/i,
         /too \w+ to understand/i,
         /attack on character/i,
-        /personal insult/i
+        /personal insult/i,
       ],
       confidence: 0.7,
       examples: {
         bad: "You can't trust her climate policy because she's just a young activist.",
-        good: "Let's evaluate the climate policy based on its merits, evidence, and potential impact."
-      }
+        good: "Let's evaluate the climate policy based on its merits, evidence, and potential impact.",
+      },
     },
     {
-      name: "Straw Man",
-      category: "relevance",
+      name: 'Straw Man',
+      category: 'relevance',
       description: "Misrepresenting an opponent's argument to make it easier to attack",
-      signals: [
-        /that means you want/i,
-        /so you're saying/i,
-        /exaggerated interpretation/i
-      ],
+      signals: [/that means you want/i, /so you're saying/i, /exaggerated interpretation/i],
       confidence: 0.6,
       examples: {
-        bad: "You support gun control? So you want to completely abolish the Second Amendment!",
-        good: "Let's discuss the specific gun control measures you're proposing and their potential impacts."
-      }
+        bad: 'You support gun control? So you want to completely abolish the Second Amendment!',
+        good: "Let's discuss the specific gun control measures you're proposing and their potential impacts.",
+      },
     },
     {
-      name: "False Dichotomy",
-      category: "informal",
-      description: "Presenting only two alternatives when more exist",
-      signals: [
-        /\b(either|or)\b/i,
-        /only two choices/i,
-        /black and white/i
-      ],
+      name: 'False Dichotomy',
+      category: 'informal',
+      description: 'Presenting only two alternatives when more exist',
+      signals: [/\b(either|or)\b/i, /only two choices/i, /black and white/i],
       confidence: 0.5,
       examples: {
-        bad: "We must either cut taxes dramatically or the economy will collapse.",
-        good: "Let's explore multiple economic strategies, including targeted tax adjustments, spending reforms, and regulatory approaches."
-      }
+        bad: 'We must either cut taxes dramatically or the economy will collapse.',
+        good: "Let's explore multiple economic strategies, including targeted tax adjustments, spending reforms, and regulatory approaches.",
+      },
     },
     {
-      name: "Slippery Slope",
-      category: "informal",
-      description: "Arguing that a small first step will inevitably lead to a chain of related events",
-      signals: [
-        /will lead to/i,
-        /next thing you know/i,
-        /eventually/i
-      ],
+      name: 'Slippery Slope',
+      category: 'informal',
+      description:
+        'Arguing that a small first step will inevitably lead to a chain of related events',
+      signals: [/will lead to/i, /next thing you know/i, /eventually/i],
       confidence: 0.6,
       examples: {
-        bad: "If we legalize same-sex marriage, next people will want to marry animals!",
-        good: "Let's examine the specific legal and social implications of marriage equality based on existing marriage laws."
-      }
+        bad: 'If we legalize same-sex marriage, next people will want to marry animals!',
+        good: "Let's examine the specific legal and social implications of marriage equality based on existing marriage laws.",
+      },
     },
     {
-      name: "Appeal to Authority",
-      category: "relevance",
-      description: "Claiming something is true because an authority figure says so",
+      name: 'Appeal to Authority',
+      category: 'relevance',
+      description: 'Claiming something is true because an authority figure says so',
       signals: [
         /expert/i,
         /experts claim/i,
@@ -106,14 +97,14 @@ function getFallacyDefinitions(): FallacyDefinition[] {
         /doctor/i,
         /so it must be/i,
         /must be/i,
-        /authoritative/i
+        /authoritative/i,
       ],
-      confidence: 0.4,  // Lowered to match test case with 0.3 threshold
+      confidence: 0.4, // Lowered to match test case with 0.3 threshold
       examples: {
-        bad: "This diet must work because a celebrity doctor recommends it.",
-        good: "Let's review peer-reviewed scientific studies and medical research about this diet's effectiveness."
-      }
-    }
+        bad: 'This diet must work because a celebrity doctor recommends it.',
+        good: "Let's review peer-reviewed scientific studies and medical research about this diet's effectiveness.",
+      },
+    },
   ];
 }
 
@@ -130,11 +121,11 @@ export async function logicalFallacyDetector(
     if (!text || text.trim().length === 0) {
       throw new ValidationError('Empty or invalid text provided for fallacy detection');
     }
-    
-    Logger.debug(`Analyzing text for logical fallacies`, { 
-      textLength: text.length, 
+
+    Logger.debug(`Analyzing text for logical fallacies`, {
+      textLength: text.length,
       confidenceThreshold,
-      categories
+      categories,
     });
 
     // Validate input
@@ -145,14 +136,17 @@ export async function logicalFallacyDetector(
         confidenceThreshold,
         categories,
         includeExplanations,
-        includeExamples
+        includeExamples,
       });
     } catch (error) {
       if (error instanceof z.ZodError) {
         Logger.error('Validation error in logical fallacy detector', error);
-        throw new ValidationError(`Invalid parameters for logical fallacy detection: ${error.message}`, {
-          issues: error.issues
-        });
+        throw new ValidationError(
+          `Invalid parameters for logical fallacy detection: ${error.message}`,
+          {
+            issues: error.issues,
+          }
+        );
       }
       throw error;
     }
@@ -165,9 +159,9 @@ export async function logicalFallacyDetector(
     const fallacyDefinitions = getFallacyDefinitions();
 
     // Filter fallacies based on categories
-    const fallenciesToCheck = categories.includes('all') 
-      ? fallacyDefinitions 
-      : fallacyDefinitions.filter(f => categories.includes(f.category));
+    const fallenciesToCheck = categories.includes('all')
+      ? fallacyDefinitions
+      : fallacyDefinitions.filter((f) => categories.includes(f.category));
 
     Logger.debug(`Checking for ${fallenciesToCheck.length} potential fallacy types`);
 
@@ -176,7 +170,7 @@ export async function logicalFallacyDetector(
 
     // Analyze text for fallacies (performance optimized version)
     const textLower = text.toLowerCase(); // Pre-compute lowercase text once
-    
+
     try {
       for (const fallacy of fallenciesToCheck) {
         let confidence = 0;
@@ -195,7 +189,7 @@ export async function logicalFallacyDetector(
         if (matchCount > 0 && confidence >= confidenceThreshold) {
           detectedFallacies.push({
             ...fallacy,
-            confidence
+            confidence,
           });
         }
       }
@@ -209,20 +203,20 @@ export async function logicalFallacyDetector(
 
     // Report detected fallacies
     if (detectedFallacies.length === 0) {
-      report += "**No significant logical fallacies detected.**\n\n";
-      report += "The argument appears to be logically sound based on the analysis.";
-      
+      report += '**No significant logical fallacies detected.**\n\n';
+      report += 'The argument appears to be logically sound based on the analysis.';
+
       Logger.debug('No fallacies detected in text');
       return report;
     }
 
     // Organize fallacies by category
     const categorizedFallacies: Record<string, FallacyDefinition[]> = {};
-    detectedFallacies.forEach(fallacy => {
+    detectedFallacies.forEach((fallacy) => {
       if (!categorizedFallacies[fallacy.category]) {
         categorizedFallacies[fallacy.category] = [];
       }
-      categorizedFallacies[fallacy.category].push(fallacy);
+      categorizedFallacies[fallacy.category]!.push(fallacy);
     });
 
     // Generate detailed report
@@ -231,7 +225,7 @@ export async function logicalFallacyDetector(
     Object.entries(categorizedFallacies).forEach(([category, fallacies]) => {
       report += `### ${category.charAt(0).toUpperCase() + category.slice(1)} Fallacies\n\n`;
 
-      fallacies.forEach(fallacy => {
+      fallacies.forEach((fallacy) => {
         report += `#### ${fallacy.name} (${(fallacy.confidence * 100).toFixed(0)}% confidence)\n\n`;
 
         if (includeExplanations) {
@@ -249,8 +243,7 @@ export async function logicalFallacyDetector(
     report += `## Overall Assessment\n\n`;
     report += `**Total Fallacies Detected:** ${detectedFallacies.length}\n\n`;
     report += `**Severity:** ${
-      detectedFallacies.length > 2 ? 'High' : 
-      detectedFallacies.length > 1 ? 'Moderate' : 'Low'
+      detectedFallacies.length > 2 ? 'High' : detectedFallacies.length > 1 ? 'Moderate' : 'Low'
     }\n\n`;
 
     Logger.debug(`Detected ${detectedFallacies.length} fallacies in text`);
@@ -261,7 +254,7 @@ export async function logicalFallacyDetector(
       // These errors are already logged and formatted appropriately
       throw error;
     }
-    
+
     // For unknown errors, wrap in a DataProcessingError for consistent handling
     Logger.error('Unexpected error in logical fallacy detector', error);
     throw new DataProcessingError(

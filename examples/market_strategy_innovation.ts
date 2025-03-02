@@ -8,17 +8,17 @@ async function innovateMarketStrategy() {
     const marketOptions = [
       { strategy: 'Expand to new geographic market', risk: 0.3, potential: 0.7 },
       { strategy: 'Launch new product line', risk: 0.5, potential: 0.6 },
-      { strategy: 'Strategic partnership', risk: 0.2, potential: 0.5 }
+      { strategy: 'Strategic partnership', risk: 0.2, potential: 0.5 },
     ];
 
     // Enrich market strategy with research
     const enrichedResearch = await researchIntegration.enrichAnalyticalContext(
       marketOptions,
       'Technology market expansion strategies for 2024',
-      { 
-        numResults: 7, 
+      {
+        numResults: 7,
         timeRangeMonths: 6,
-        includeNewsResults: true 
+        includeNewsResults: true,
       }
     );
 
@@ -36,14 +36,14 @@ async function innovateMarketStrategy() {
 
     // Perform decision analysis with enriched data
     const strategyDecision = await decisionAnalysis({
-      options: enrichedResearch.enrichedData.map(opt => opt.strategy),
+      options: enrichedResearch.enrichedData.map((opt) => opt.strategy),
       criteria: [
-        'Market Potential', 
-        'Risk Mitigation', 
+        'Market Potential',
+        'Risk Mitigation',
         'Research Insight Alignment',
-        'Innovation Potential'
+        'Innovation Potential',
       ],
-      weights: [0.3, 0.2, 0.25, 0.25]
+      weights: [0.3, 0.2, 0.25, 0.25],
     });
 
     console.log('Final Strategy Recommendation:', strategyDecision);
@@ -55,11 +55,10 @@ async function innovateMarketStrategy() {
       shiftType: 'stakeholder',
       numberOfPerspectives: 3,
       includeActionable: true,
-      contextEnrichment: crossDomainInsights.potentialSolutions
+      contextEnrichment: crossDomainInsights.potentialSolutions,
     });
 
     console.log('Innovation Perspectives:', innovationPerspectives);
-
   } catch (error) {
     console.error('Market Strategy Innovation Error:', error);
   }

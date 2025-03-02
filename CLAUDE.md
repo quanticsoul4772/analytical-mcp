@@ -3,25 +3,24 @@
 ## Build & Development Commands
 - Build: `npm run build`
 - Watch mode: `npm run watch`
-- Inspect server: `npx @modelcontextprotocol/inspector build/index.js`
+- Lint: `npm run lint` or fix with `npm run lint:fix`
+- Format: `npm run format` or check with `npm run format:check`
+- Test: `npm run test` or with coverage `npm run test:coverage`
+- Test single file: `npm test -- path/to/test.ts`
+- Test specific test: `npm test -- -t "test name pattern"`
+- TypeCheck: `npm run typecheck` (all), `npm run typecheck:src` (source only)
 - Run server: `node build/index.js`
-- TypeCheck (all files): `npm run typecheck`
-- TypeCheck (source only): `npm run typecheck:src`
-- TypeCheck (skip lib check): `npm run typecheck:test`
-- Test with TypeCheck: `npm run test:strict`
-- Integration Tests: `npm run test:integration`
-- Integration Tests with Coverage: `npm run test:integration:coverage`
-- Integration Tests without TypeCheck: `npm run test:integration:no-typecheck`
+- Inspect server: `npx @modelcontextprotocol/inspector build/index.js`
+- Cache commands: `npm run cache:stats`, `npm run cache:clear`, `npm run cache:preload`
 
 ## Code Style Guidelines
-- Use TypeScript with strict typing
-- Use ES modules (import/export)
-- Error handling: Check inputs and use try/catch blocks with descriptive error messages
-- Prefer async/await pattern for asynchronous operations
-- Function names: camelCase, descriptive of operation (e.g., analyzeDataset)
-- Variable names: camelCase, clear purpose
-- Use Zod schemas for input validation
-- Follow clean code principles with descriptive variable names
-- Document functions with brief JSDoc comments for complex logic
-- Organize related functionality in separate modules within the tools directory
-- Follow mathjs library conventions for mathematical operations
+- Use TypeScript with strict typing and explicit function return types
+- Format: 100 char line length, 2-space indentation, single quotes, trailing commas
+- Imports: Use ES modules (import/export)
+- Complexity: Functions should have max 50 lines and complexity score under 10
+- Error handling: Use try/catch with descriptive messages and Zod for validation
+- Naming: camelCase for variables/functions, descriptive of purpose
+- Documentation: JSDoc comments for complex logic
+- Architecture: Organize related functionality in modules within tools directory
+- Styling: Follow Prettier configuration and ESLint rules
+- Math: Use mathjs library conventions for mathematical operations

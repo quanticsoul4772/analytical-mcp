@@ -31,7 +31,7 @@ export async function withRetry<T>(
     } catch (error) {
       // Log retry attempts
       Logger.debug(`Retry attempt ${retryCount + 1}/${maxRetries + 1} failed`, { error });
-      
+
       // If this is the last attempt, remember the error to throw later
       if (retryCount === maxRetries) {
         lastError = error instanceof Error ? error : new Error(String(error));
@@ -40,10 +40,10 @@ export async function withRetry<T>(
 
       // Calculate delay with exponential backoff and some jitter
       delay = Math.min(delay * 1.5 + Math.random() * 100, maxDelay);
-      
+
       // Wait for the calculated delay
-      await new Promise(resolve => setTimeout(resolve, delay));
-      
+      await new Promise((resolve) => setTimeout(resolve, delay));
+
       retryCount++;
     }
   }
@@ -63,7 +63,7 @@ export const RETRYABLE_STATUS_CODES = [
   500, // Internal Server Error
   502, // Bad Gateway
   503, // Service Unavailable
-  504  // Gateway Timeout
+  504, // Gateway Timeout
 ];
 
 /**
@@ -88,20 +88,22 @@ export function isRetryableError(error: any): boolean {
   }
 
   // Rate limit errors are usually retryable
-  if (error.message && (
-    error.message.toLowerCase().includes('rate limit') || 
-    error.message.toLowerCase().includes('too many requests') ||
-    error.message.toLowerCase().includes('timeout')
-  )) {
+  if (
+    error.message &&
+    (error.message.toLowerCase().includes('rate limit') ||
+      error.message.toLowerCase().includes('too many requests') ||
+      error.message.toLowerCase().includes('timeout'))
+  ) {
     return true;
   }
 
   // Connection errors are usually retryable
-  if (error.message && (
-    error.message.toLowerCase().includes('connection') ||
-    error.message.toLowerCase().includes('network') ||
-    error.message.toLowerCase().includes('socket')
-  )) {
+  if (
+    error.message &&
+    (error.message.toLowerCase().includes('connection') ||
+      error.message.toLowerCase().includes('network') ||
+      error.message.toLowerCase().includes('socket'))
+  ) {
     return true;
   }
 
@@ -111,23 +113,26 @@ export function isRetryableError(error: any): boolean {
 /**
  * Validates that all required API keys are present in the environment
  * Throws ConfigurationError if any required keys are missing
+ *
+ * Note: API keys should be set in system environment variables.
+ * .env files are only used for local development and should never contain actual API keys
  */
 export function checkApiKeys(): void {
   const requiredKeys = {
-    'EXA_API_KEY': config.EXA_API_KEY,
+    EXA_API_KEY: config.EXA_API_KEY,
     // Add other required API keys here as they are added to the system
   };
-  
+
   const missingKeys = Object.entries(requiredKeys)
     .filter(([_, value]) => !value)
     .map(([key]) => key);
-  
+
   if (missingKeys.length > 0) {
-    const errorMessage = `Missing required API key(s): ${missingKeys.join(', ')}. Ensure these are set in your environment or .env file.`;
+    const errorMessage = `Missing required API key(s): ${missingKeys.join(', ')}. Ensure these are set in your system environment variables.`;
     Logger.error(errorMessage);
     throw new ConfigurationError(errorMessage);
   }
-  
+
   Logger.debug('All required API keys validated successfully');
 }
 
@@ -154,7 +159,7 @@ export async function executeApiRequest<T>(
     maxDelay = 5000,
     retryableCheck = isRetryableError,
     context = 'API operation',
-    endpoint
+    endpoint,
   } = options;
 
   Logger.debug(`Executing API request: ${context}`, { endpoint });
@@ -166,7 +171,7 @@ export async function executeApiRequest<T>(
       } catch (error) {
         // Create a properly structured API error
         let apiError: APIError;
-        
+
         if (error instanceof APIError) {
           // Already an APIError, just update the endpoint if not set
           if (endpoint && !error.endpoint) {
@@ -183,29 +188,29 @@ export async function executeApiRequest<T>(
             isRetryable,
             endpoint
           );
-          
+
           // Copy stack trace if available
           if (error instanceof Error && error.stack) {
             apiError.stack = error.stack;
           }
         }
-        
+
         // Log the error with context
         Logger.error(`API error in ${context}`, apiError, { endpoint });
-        
+
         // Only retry if the error is determined to be retryable
         if (retryableCheck(apiError)) {
-          Logger.debug(`Error is retryable, will attempt retry`, { 
-            context, 
+          Logger.debug(`Error is retryable, will attempt retry`, {
+            context,
             endpoint,
-            errorMessage: apiError.message
+            errorMessage: apiError.message,
           });
           throw apiError; // Will trigger retry
         } else {
-          Logger.debug(`Error is not retryable, failing immediately`, { 
-            context, 
+          Logger.debug(`Error is not retryable, failing immediately`, {
+            context,
             endpoint,
-            errorMessage: apiError.message
+            errorMessage: apiError.message,
           });
           throw apiError; // Non-retryable error
         }

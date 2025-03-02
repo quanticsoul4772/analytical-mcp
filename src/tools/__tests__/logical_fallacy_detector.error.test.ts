@@ -9,8 +9,8 @@ jest.mock('../../utils/logger', () => ({
     info: jest.fn(),
     warn: jest.fn(),
     error: jest.fn(),
-    log: jest.fn()
-  }
+    log: jest.fn(),
+  },
 }));
 
 describe('Logical Fallacy Detector Error Handling', () => {
@@ -32,7 +32,9 @@ describe('Logical Fallacy Detector Error Handling', () => {
   });
 
   it('should throw ValidationError for invalid categories', async () => {
-    await expect(logicalFallacyDetector('test text', 0.5, ['invalid_category'] as any)).rejects.toThrow(ValidationError);
+    await expect(
+      logicalFallacyDetector('test text', 0.5, ['invalid_category'] as any)
+    ).rejects.toThrow(ValidationError);
   });
 
   it('should handle and propagate errors from pattern matching', async () => {
@@ -43,21 +45,27 @@ describe('Logical Fallacy Detector Error Handling', () => {
     });
 
     // Patch getFallacyDefinitions to include our bad RegExp
-    const originalGetFallacyDefinitions = (logicalFallacyDetector as any).__proto__.constructor.getFallacyDefinitions;
-    (logicalFallacyDetector as any).__proto__.constructor.getFallacyDefinitions = jest.fn().mockReturnValue([{
-      name: "Test Fallacy",
-      category: "test",
-      description: "Test description",
-      signals: [badRegExp],
-      confidence: 0.7,
-      examples: { bad: "Bad example", good: "Good example" }
-    }]);
+    const originalGetFallacyDefinitions = (logicalFallacyDetector as any).__proto__.constructor
+      .getFallacyDefinitions;
+    (logicalFallacyDetector as any).__proto__.constructor.getFallacyDefinitions = jest
+      .fn()
+      .mockReturnValue([
+        {
+          name: 'Test Fallacy',
+          category: 'test',
+          description: 'Test description',
+          signals: [badRegExp],
+          confidence: 0.7,
+          examples: { bad: 'Bad example', good: 'Good example' },
+        },
+      ]);
 
     // Run the test and verify it throws a DataProcessingError
     await expect(logicalFallacyDetector('Test text')).rejects.toThrow(DataProcessingError);
 
     // Restore the original function
-    (logicalFallacyDetector as any).__proto__.constructor.getFallacyDefinitions = originalGetFallacyDefinitions;
+    (logicalFallacyDetector as any).__proto__.constructor.getFallacyDefinitions =
+      originalGetFallacyDefinitions;
   });
 
   it('should handle and wrap unexpected errors', async () => {
@@ -65,17 +73,22 @@ describe('Logical Fallacy Detector Error Handling', () => {
     const mockZodParse = jest.fn().mockImplementation(() => {
       throw new Error('Unexpected test error');
     });
-    
+
     // Save original parse function
-    const originalParse = (logicalFallacyDetector as any).__proto__.constructor.logicalFallacyDetectorSchemaDefinition.parse;
-    
+    const originalParse = (logicalFallacyDetector as any).__proto__.constructor
+      .logicalFallacyDetectorSchemaDefinition.parse;
+
     // Replace with mock
-    (logicalFallacyDetector as any).__proto__.constructor.logicalFallacyDetectorSchemaDefinition.parse = mockZodParse;
+    (
+      logicalFallacyDetector as any
+    ).__proto__.constructor.logicalFallacyDetectorSchemaDefinition.parse = mockZodParse;
 
     // Test
     await expect(logicalFallacyDetector('Test text')).rejects.toThrow(DataProcessingError);
-    
+
     // Restore
-    (logicalFallacyDetector as any).__proto__.constructor.logicalFallacyDetectorSchemaDefinition.parse = originalParse;
+    (
+      logicalFallacyDetector as any
+    ).__proto__.constructor.logicalFallacyDetectorSchemaDefinition.parse = originalParse;
   });
 });

@@ -19,6 +19,8 @@
     "lint:fix": "eslint . --ext .ts --fix",
     "format": "prettier --write \"src/**/*.ts\"",
     "format:check": "prettier --check \"src/**/*.ts\"",
+    "check-api-keys": "node tools/check-api-keys.js",
+    "pretest": "node tools/check-api-keys.js",
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
     "test:watch": "node --experimental-vm-modules node_modules/jest/bin/jest.js --watch",
     "test:coverage": "node --experimental-vm-modules node_modules/jest/bin/jest.js --coverage",
@@ -26,6 +28,7 @@
     "test:api": "node --max-old-space-size=4096 --expose-gc --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand",
     "test:debug": "node --inspect-brk --expose-gc --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand",
     "test:win": "set NODE_OPTIONS=--max-old-space-size=4096 && node --expose-gc --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand",
+    "test:handles": "node --max-old-space-size=4096 --expose-gc --experimental-vm-modules node_modules/jest/bin/jest.js --detectOpenHandles",
     "typecheck": "tsc --noEmit",
     "typecheck:src": "tsc --project tsconfig.test.json",
     "typecheck:test": "tsc --noEmit --skipLibCheck",
@@ -33,10 +36,14 @@
     "test:integration": "node --experimental-vm-modules node_modules/jest/bin/jest.js --testRegex '/integration/.*.test.tsx?$'",
     "test:integration:coverage": "node --experimental-vm-modules node_modules/jest/bin/jest.js --testRegex '/integration/.*.test.tsx?$' --coverage",
     "test:integration:no-typecheck": "node --experimental-vm-modules node_modules/jest/bin/jest.js --testRegex '/integration/.*.test.tsx?$' --no-typecheck",
-    "test:integration:no-api": "node --experimental-vm-modules node_modules/jest/bin/jest.js --testRegex '/integration/.*.test.tsx?$' --testPathIgnorePatterns 'research_api_integration'"
+    "test:integration:no-api": "node --experimental-vm-modules node_modules/jest/bin/jest.js --testRegex '/integration/.*.test.tsx?$' --testPathIgnorePatterns 'research_api_integration'",
+    "cache:stats": "node tools/cache-manager.js stats",
+    "cache:clear": "node tools/cache-manager.js clear",
+    "cache:preload": "node tools/cache-manager.js preload",
+    "cache:demo": "node examples/cache_performance_demo.js"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "0.6.0",
+    "@modelcontextprotocol/sdk": "1.0.1",
     "dotenv": "^16.4.5",
     "mathjs": "^14.3.0",
     "node-fetch": "^3.3.2",

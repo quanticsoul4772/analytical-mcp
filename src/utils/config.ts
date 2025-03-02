@@ -1,106 +1,122 @@
 /**
- * Configuration Manager
+ * Configuration Module
  *
- * Centralized environment variable management with validation
+ * Centralizes environment-based configuration settings
  */
 
-import { z } from 'zod';
-import { Logger } from './logger.js';
-import { ConfigurationError } from './errors.js';
 import dotenv from 'dotenv';
+import { Logger } from './logger.js';
 
-// Initialize environment variables from .env file
-try {
-  const result = dotenv.config();
-  if (result.error) {
-    Logger.warn('Error loading .env file. Using system environment variables.', result.error);
-  } else {
-    Logger.debug('Loaded environment variables from .env file');
-  }
-} catch (error) {
-  Logger.warn('Failed to load .env file', error);
+// Load environment variables from .env file
+dotenv.config();
+
+// Environment-specific configuration
+export enum Environment {
+  DEVELOPMENT = 'development',
+  TEST = 'test',
+  PRODUCTION = 'production',
 }
 
-// Define schema for environment variables
-const envSchema = z.object({
-  // Node environment
-  NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
+// Environment features
+export interface FeatureFlags {
+  researchIntegration: boolean;
+  advancedStatistics: boolean;
+  perspectiveGeneration: boolean;
+  caching: boolean;
+  // Add other feature flags as needed
+}
 
-  // Server configuration
-  PORT: z
-    .string()
-    .transform((val) => parseInt(val, 10))
-    .pipe(z.number().positive())
-    .optional()
-    .default('3000'),
-  HOST: z.string().optional().default('localhost'),
-  LOG_LEVEL: z.enum(['DEBUG', 'INFO', 'WARN', 'ERROR']).optional().default('INFO'),
+// Default feature flags based on environment
+const DEFAULT_FEATURE_FLAGS: Record<Environment, FeatureFlags> = {
+  [Environment.DEVELOPMENT]: {
+    researchIntegration: true,
+    advancedStatistics: true,
+    perspectiveGeneration: true,
+    caching: true,
+  },
+  [Environment.TEST]: {
+    researchIntegration: false, // Disabled by default in tests
+    advancedStatistics: true,
+    perspectiveGeneration: true,
+    caching: false, // Disabled for tests to ensure consistent results
+  },
+  [Environment.PRODUCTION]: {
+    researchIntegration: false, // Disabled by default in production
+    advancedStatistics: true,
+    perspectiveGeneration: true,
+    caching: true,
+  },
+};
 
-  // API Keys
-  EXA_API_KEY: z.string().optional(),
+// Configuration object
+export const config = {
+  // Core settings
+  NODE_ENV: process.env.NODE_ENV || 'development',
+  PORT: process.env.PORT || '3000',
+  HOST: process.env.HOST || 'localhost',
+  LOG_LEVEL: process.env.LOG_LEVEL || 'info',
 
-  // Feature flags
-  ENABLE_RESEARCH_INTEGRATION: z
-    .string()
-    .transform((val) => val.toLowerCase() === 'true')
-    .pipe(z.boolean())
-    .optional()
-    .default('false'),
+  // API Keys - Expected to be in system environment variables
+  EXA_API_KEY: process.env.EXA_API_KEY || '',
+
+  // Feature flags from environment variables
+  ENABLE_RESEARCH_INTEGRATION: process.env.ENABLE_RESEARCH_INTEGRATION || 'false',
+  ENABLE_ADVANCED_STATISTICS: process.env.ENABLE_ADVANCED_STATISTICS || 'true',
+  ENABLE_PERSPECTIVE_GENERATION: process.env.ENABLE_PERSPECTIVE_GENERATION || 'true',
+  ENABLE_RESEARCH_CACHE: process.env.ENABLE_RESEARCH_CACHE || 'false',
+
+  // Cache configuration
+  CACHE_PERSISTENT: process.env.CACHE_PERSISTENT || 'true',
+  CACHE_DIR: process.env.CACHE_DIR || './cache',
+  CACHE_DEFAULT_TTL: process.env.CACHE_DEFAULT_TTL || '86400000', // 24 hours
+  CACHE_CLEANUP_INTERVAL: process.env.CACHE_CLEANUP_INTERVAL || '3600000', // 1 hour
+
+  // Feature-specific cache TTLs
+  CACHE_TTL_SEARCH: process.env.CACHE_TTL_SEARCH || '3600000', // 1 hour
+  CACHE_TTL_FACTS: process.env.CACHE_TTL_FACTS || '86400000', // 24 hours
+  CACHE_TTL_VALIDATION: process.env.CACHE_TTL_VALIDATION || '43200000', // 12 hours
+  CACHE_TTL_CROSS_DOMAIN: process.env.CACHE_TTL_CROSS_DOMAIN || '604800000', // 7 days
+};
+
+/**
+ * Check if a specific feature is enabled
+ */
+export function isFeatureEnabled(feature: keyof FeatureFlags): boolean {
+  const environment = (config.NODE_ENV as Environment) || Environment.DEVELOPMENT;
+
+  // Environment variable overrides take precedence
+  if (feature === 'researchIntegration') {
+    return config.ENABLE_RESEARCH_INTEGRATION === 'true';
+  }
+
+  if (feature === 'advancedStatistics') {
+    return config.ENABLE_ADVANCED_STATISTICS === 'true';
+  }
+
+  if (feature === 'perspectiveGeneration') {
+    return config.ENABLE_PERSPECTIVE_GENERATION === 'true';
+  }
+
+  if (feature === 'caching') {
+    return config.ENABLE_RESEARCH_CACHE === 'true';
+  }
+
+  // Fallback to defaults
+  return DEFAULT_FEATURE_FLAGS[environment][feature] || false;
+}
+
+// Log configuration on startup
+Logger.debug('Configuration loaded', {
+  environment: config.NODE_ENV,
+  features: {
+    researchIntegration: isFeatureEnabled('researchIntegration'),
+    advancedStatistics: isFeatureEnabled('advancedStatistics'),
+    perspectiveGeneration: isFeatureEnabled('perspectiveGeneration'),
+    caching: isFeatureEnabled('caching'),
+  },
+  cacheSettings: {
+    persistent: config.CACHE_PERSISTENT,
+    directory: config.CACHE_DIR,
+    defaultTTL: config.CACHE_DEFAULT_TTL,
+  },
 });
-
-// Export environment configuration type
-export type EnvConfig = z.infer<typeof envSchema>;
-
-// Validate and load environment variables
-function loadConfig(): EnvConfig {
-  try {
-    // Validate environment variables
-    const config = envSchema.parse(process.env);
-
-    // Log missing optional values at debug level
-    if (!config.EXA_API_KEY) {
-      Logger.debug('EXA_API_KEY is not set. Research integration features will be limited.');
-    }
-
-    // Log active configuration (without sensitive values)
-    Logger.debug('Environment configuration loaded', {
-      NODE_ENV: config.NODE_ENV,
-      PORT: config.PORT,
-      HOST: config.HOST,
-      LOG_LEVEL: config.LOG_LEVEL,
-      ENABLE_RESEARCH_INTEGRATION: config.ENABLE_RESEARCH_INTEGRATION,
-      // Don't log API keys!
-      EXA_API_KEY: config.EXA_API_KEY ? '[CONFIGURED]' : '[NOT SET]',
-    });
-
-    return config;
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      Logger.error('Environment configuration validation failed', error, {
-        issues: error.issues,
-      });
-      throw new ConfigurationError(`Invalid environment configuration: ${error.message}`);
-    }
-
-    Logger.error('Failed to load environment configuration', error);
-    throw new ConfigurationError('Failed to load environment configuration');
-  }
-}
-
-// Create and export singleton configuration
-export const config = loadConfig();
-
-// Helper function to get configuration value with type checking
-export function getConfig<K extends keyof EnvConfig>(key: K): EnvConfig[K] {
-  return config[key];
-}
-
-// Helper to check if a feature is enabled
-export function isFeatureEnabled(feature: 'researchIntegration'): boolean {
-  switch (feature) {
-    case 'researchIntegration':
-      return config.ENABLE_RESEARCH_INTEGRATION && !!config.EXA_API_KEY;
-    default:
-      return false;
-  }
-}

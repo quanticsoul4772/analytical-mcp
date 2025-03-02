@@ -1,6 +1,6 @@
 /**
  * Logger Utility
- * 
+ *
  * Provides centralized logging capabilities for the Analytical MCP Server.
  * In a production environment, this would be connected to a proper logging service.
  */
@@ -12,7 +12,7 @@ export enum LogLevel {
   DEBUG = 'DEBUG',
   INFO = 'INFO',
   WARN = 'WARN',
-  ERROR = 'ERROR'
+  ERROR = 'ERROR',
 }
 
 /**
@@ -31,7 +31,7 @@ export class Logger {
   private static config: LoggerConfig = {
     minLevel: LogLevel.INFO, // Default, will be updated after config is loaded
     includeTimestamp: true,
-    includeStack: true // Default, will be updated after config is loaded
+    includeStack: true, // Default, will be updated after config is loaded
   };
 
   /**
@@ -41,7 +41,7 @@ export class Logger {
   static configure(config: Partial<LoggerConfig>): void {
     this.config = { ...this.config, ...config };
   }
-  
+
   /**
    * Initialize logger with environment configuration
    * @param nodeEnv Node environment
@@ -49,18 +49,21 @@ export class Logger {
    */
   static initializeFromEnvironment(nodeEnv: string, logLevel: string): void {
     // Convert string log level to enum
-    const configLogLevel = (logLevel && LogLevel[logLevel as keyof typeof LogLevel]) 
-      ? LogLevel[logLevel as keyof typeof LogLevel] 
-      : undefined;
-    
+    const configLogLevel =
+      logLevel && LogLevel[logLevel as keyof typeof LogLevel]
+        ? LogLevel[logLevel as keyof typeof LogLevel]
+        : undefined;
+
     this.configure({
       minLevel: configLogLevel || (nodeEnv === 'production' ? LogLevel.INFO : LogLevel.DEBUG),
       includeStack: nodeEnv !== 'production',
-      includeTimestamp: true
+      includeTimestamp: true,
     });
-    
+
     // Log initialization
-    this.debug(`Logger initialized in ${nodeEnv} environment with min level: ${this.config.minLevel}`);
+    this.debug(
+      `Logger initialized in ${nodeEnv} environment with min level: ${this.config.minLevel}`
+    );
   }
 
   /**
@@ -77,7 +80,7 @@ export class Logger {
 
     const timestamp = this.config.includeTimestamp ? new Date().toISOString() : '';
     const prefix = timestamp ? `[${timestamp}] ${level}:` : `${level}:`;
-    
+
     // Format metadata
     let metaStr = '';
     if (meta) {
@@ -96,7 +99,7 @@ export class Logger {
         }
       }
     }
-    
+
     // In production, use proper logging service instead of console
     if (level === LogLevel.ERROR) {
       console.error(`${prefix} ${message}${metaStr}`);
@@ -142,16 +145,18 @@ export class Logger {
    */
   static error(message: string, error?: Error | unknown, meta?: any): void {
     const errorObj = error instanceof Error ? error : error ? new Error(String(error)) : undefined;
-    
+
     const combinedMeta = {
       ...(meta || {}),
-      ...(errorObj ? {
-        errorName: errorObj.name,
-        errorMessage: errorObj.message,
-        stack: errorObj.stack
-      } : {})
+      ...(errorObj
+        ? {
+            errorName: errorObj.name,
+            errorMessage: errorObj.message,
+            stack: errorObj.stack,
+          }
+        : {}),
     };
-    
+
     this.log(LogLevel.ERROR, message, combinedMeta);
   }
 
@@ -162,11 +167,16 @@ export class Logger {
    */
   private static getLogLevelPriority(level: LogLevel): number {
     switch (level) {
-      case LogLevel.DEBUG: return 0;
-      case LogLevel.INFO: return 1;
-      case LogLevel.WARN: return 2;
-      case LogLevel.ERROR: return 3;
-      default: return 1;
+      case LogLevel.DEBUG:
+        return 0;
+      case LogLevel.INFO:
+        return 1;
+      case LogLevel.WARN:
+        return 2;
+      case LogLevel.ERROR:
+        return 3;
+      default:
+        return 1;
     }
   }
 }
