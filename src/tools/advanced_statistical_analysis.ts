@@ -51,7 +51,10 @@ export function calculateCorrelation(x: number[], y: number[]): number {
   const meanX = Number(mathjs.mean(x));
   const meanY = Number(mathjs.mean(y));
 
-  const numerator = x.reduce((sum, xi, i) => sum + (xi - meanX) * (y[i] - meanY), 0);
+  const numerator = x.reduce((sum, xi, i) => {
+    const yValue = y[i];
+    return sum + (xi - meanX) * (yValue !== undefined ? yValue - meanY : 0);
+  }, 0);
 
   const denominatorX = Math.sqrt(x.reduce((sum, xi) => sum + Math.pow(xi - meanX, 2), 0));
 
@@ -77,7 +80,7 @@ export async function advancedAnalyzeDataset(
 
   // Extract numeric columns for analysis
   const firstItem = data[0];
-  const numericColumns = Object.keys(firstItem).filter((key) => typeof firstItem[key] === 'number');
+  const numericColumns = firstItem ? Object.keys(firstItem).filter((key) => typeof firstItem[key] === 'number') : [];
 
   if (numericColumns.length === 0) {
     throw new Error('No numeric columns found in the dataset for analysis.');
@@ -105,8 +108,10 @@ export async function advancedAnalyzeDataset(
     // Compute correlation between all numeric column pairs
     for (let i = 0; i < numericColumns.length; i++) {
       for (let j = i + 1; j < numericColumns.length; j++) {
-        const col1 = numericColumns[i];
-        const col2 = numericColumns[j];
+        const col1 = numericColumns[i] || '';
+        const col2 = numericColumns[j] || '';
+        
+        if (!col1 || !col2) continue;
 
         const x = data.map((item) => Number(item[col1]));
         const y = data.map((item) => Number(item[col2]));

@@ -40,7 +40,7 @@ JSON.stringify = function(value, replacer, space) {
   const seen = new WeakSet();
   
   // Custom replacer function to handle circular references
-  const circularReplacer = (key, val) => {
+  const circularReplacer = (key: string, val: any) => {
     if (typeof val === 'object' && val !== null) {
       if (seen.has(val)) {
         return '[Circular]';
@@ -73,7 +73,7 @@ JSON.stringify = function(value, replacer, space) {
   
   // Combine user replacer with our circular replacer
   const finalReplacer = replacer 
-    ? (key, val) => circularReplacer(key, typeof replacer === 'function' 
+    ? (key: string, val: any) => circularReplacer(key, typeof replacer === 'function' 
         ? replacer(key, val) 
         : val)
     : circularReplacer;

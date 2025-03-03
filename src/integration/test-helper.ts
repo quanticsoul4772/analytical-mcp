@@ -2,11 +2,11 @@
  * Test helper functions for integration tests
  */
 
-import { exaResearch } from '../__mocks__/exa-research';
-import { researchVerification } from '../__mocks__/research-verification-mock';
-import { mockExaSearchResponse, mockExtractionResults } from '../__mocks__/exa-research-mock';
+import { exaResearch } from '../__mocks__/exa-research.js';
+import { researchVerification } from '../__mocks__/research-verification-mock.js';
+import { mockExaSearchResponse, mockExtractionResults } from '../__mocks__/exa-research-mock.js';
 import fetch from 'node-fetch';
-import { config, isFeatureEnabled } from '../utils/config';
+import { config, isFeatureEnabled } from '../utils/config.js';
 
 /**
  * Sets up mock responses for Exa API tests
