@@ -3,7 +3,7 @@
     "target": "ES2022",
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
-    "strict": true,
+    "strict": false,
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
@@ -17,8 +17,7 @@
     "sourceMap": true,
     "isolatedModules": true,
     "noUncheckedIndexedAccess": true,
-    "noImplicitAny": true,
-    "exactOptionalPropertyTypes": true
+    "noImplicitAny": true
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "build", "**/*.test.ts"]

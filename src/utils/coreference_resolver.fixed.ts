@@ -120,6 +120,16 @@ export class CoreferenceResolver {
     'the', 'a', 'an', 'this', 'that', 'these', 'those', 'my', 'your', 'his', 'her', 'its', 'our', 'their'
   ];
 
+  // Store chains for lookup
+  private chains: CoreferenceChain[] = [];
+
+  /**
+   * Get a coreference chain by ID
+   */
+  getChainById(chainId: string): CoreferenceChain | null {
+    return this.chains.find(chain => chain.id === chainId) || null;
+  }
+
   /**
    * Resolve coreferences in text
    */
@@ -133,6 +143,7 @@ export class CoreferenceResolver {
       
       // 2. Cluster mentions into coreference chains
       const chains = this.clusterMentions(mentions, text);
+      this.chains = chains; // Store for later lookup
       Logger.debug('Created coreference chains', { count: chains.length });
       
       // 3. Generate resolved text

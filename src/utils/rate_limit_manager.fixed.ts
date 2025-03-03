@@ -115,13 +115,14 @@ export class RateLimitManager {
     // Apply endpoint throttling if configured
     const throttleInfo = this.endpointThrottles.get(endpoint);
     if (throttleInfo) {
-      await this.applyThrottling({
+      const throttleInfoCopy: ThrottleInfo = {
         lastRequest: throttleInfo.lastRequest,
         minInterval: throttleInfo.minInterval,
         requestsPerInterval: throttleInfo.requestsPerInterval,
         intervalStartTime: throttleInfo.intervalStartTime,
         requestCount: throttleInfo.requestCount
-      });
+      };
+      await this.applyThrottling(throttleInfoCopy);
     }
 
     // Track attempts and current delay

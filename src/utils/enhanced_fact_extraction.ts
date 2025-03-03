@@ -9,7 +9,7 @@ import { Logger } from './logger.js';
 import { DataProcessingError } from './errors.js';
 import { advancedNER, RecognizedEntity, EntityType } from './advanced_ner.js';
 import { coreferenceResolver, CoreferenceChain } from './coreference_resolver.js';
-import { relationshipExtractor, Relationship, RelationshipType } from './relationship_extractor.js';
+import { relationshipExtractor, Relationship, RelationshipType, RelationshipSubtype } from './relationship_extractor.js';
 import * as mathjs from 'mathjs';
 
 /**
@@ -37,11 +37,11 @@ export interface ExtractedFact {
   endIndex: number;                // End position in original text
   
   // Type-specific properties
-  entityType?: EntityType;         // For ENTITY facts
-  relationship?: Relationship;     // For RELATIONSHIP facts
-  coreference?: CoreferenceChain;  // For COREFERENCE facts
-  entities?: RecognizedEntity[];   // Related entities
-  attributes?: Record<string, any>; // Additional attributes
+  entityType?: EntityType | undefined;         // For ENTITY facts
+  relationship?: Relationship | undefined;     // For RELATIONSHIP facts
+  coreference?: CoreferenceChain | undefined;  // For COREFERENCE facts
+  entities?: RecognizedEntity[] | undefined;   // Related entities
+  attributes?: Record<string, any> | undefined; // Additional attributes
 }
 
 /**
