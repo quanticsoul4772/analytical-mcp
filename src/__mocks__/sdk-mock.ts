@@ -3,13 +3,17 @@
  */
 
 export class ServerMock {
-  constructor(info, options) {
+  info: any;
+  options: any;
+  registeredTools: any[];
+
+  constructor(info: any, options: any) {
     this.info = info;
     this.options = options;
     this.registeredTools = [];
   }
 
-  registerTool(toolDefinition) {
+  registerTool(toolDefinition: any) {
     this.registeredTools.push(toolDefinition);
     return this;
   }
@@ -28,7 +32,7 @@ export const Server = ServerMock;
 export class StdioServerTransportMock {
   constructor() {}
   
-  attach(server) {
+  attach(server: any) {
     return this;
   }
 }

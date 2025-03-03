@@ -2,16 +2,16 @@
  * Complete mock for the Exa Research module
  */
 
-import { mockExaSearchResponse, mockExtractionResults } from './exa-research-mock';
+import { mockExaSearchResponse, mockExtractionResults } from './exa-research-mock.js';
 
 class ExaResearchToolMock {
   search = jest.fn().mockResolvedValue(mockExaSearchResponse);
   
-  extractKeyFacts = jest.fn().mockImplementation((results) => {
+  extractKeyFacts = jest.fn().mockImplementation((results: any[]) => {
     return results.map(result => `Key fact from ${result.title}: ${result.contents.substring(0, 50)}...`);
   });
   
-  extractEntities = jest.fn().mockImplementation((text) => {
+  extractEntities = jest.fn().mockImplementation((text: string) => {
     return [
       { entity: 'Example Entity', type: 'ORGANIZATION', confidence: 0.9 },
       { entity: 'John Doe', type: 'PERSON', confidence: 0.85 }
