@@ -9,12 +9,34 @@ A Model Context Protocol (MCP) server that provides statistical analysis, decisi
 - EXA_API_KEY environment variable (for research features)
 
 ### Installation
+
+#### Option 1: Direct Installation
 ```bash
 npm install
 npm run build
 ```
 
+#### Option 2: Docker (Recommended for Glama)
+```bash
+# Build the Docker image
+docker build -t analytical-mcp .
+
+# Run with environment variables
+docker run -d \
+  --name analytical-mcp \
+  -e EXA_API_KEY=your_api_key_here \
+  -v $(pwd)/cache:/app/cache \
+  analytical-mcp
+
+# Or use docker-compose
+cp .env.example .env
+# Edit .env with your API key
+docker-compose up -d
+```
+
 ### Configuration
+
+#### Direct Installation Configuration
 1. Copy `.env.example` to `.env`
 2. Add your EXA_API_KEY to `.env`
 3. Add to Claude Desktop configuration:
@@ -28,6 +50,27 @@ npm run build
       "env": {
         "EXA_API_KEY": "your-exa-api-key-here"
       }
+    }
+  }
+}
+```
+
+#### Docker Configuration
+1. Copy `.env.example` to `.env`
+2. Add your EXA_API_KEY to `.env`
+3. Add to Claude Desktop configuration:
+
+```json
+{
+  "mcpServers": {
+    "analytical": {
+      "command": "docker",
+      "args": [
+        "run", "--rm", "-i",
+        "--env-file", ".env",
+        "-v", "$(pwd)/cache:/app/cache",
+        "analytical-mcp"
+      ]
     }
   }
 }

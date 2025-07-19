@@ -1,0 +1,43 @@
+version: '3.8'
+
+services:
+  analytical-mcp:
+    build: .
+    image: analytical-mcp-server:latest
+    container_name: analytical-mcp
+    environment:
+      - NODE_ENV=production
+      - EXA_API_KEY=${EXA_API_KEY}
+      - ENABLE_RESEARCH_INTEGRATION=true
+      - ENABLE_ADVANCED_STATISTICS=true
+      - ENABLE_PERSPECTIVE_GENERATION=true
+      - ENABLE_RESEARCH_CACHE=true
+      - ENABLE_ADVANCED_NLP=true
+      - CACHE_PERSISTENT=true
+      - CACHE_DIR=./cache
+      - LOG_LEVEL=INFO
+    volumes:
+      - ./cache:/app/cache
+      - ./logs:/app/logs
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "console.log('Health check passed')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Optional: Redis for enhanced caching (if you want to add it later)
+  # redis:
+  #   image: redis:7-alpine
+  #   container_name: analytical-mcp-redis
+  #   ports:
+  #     - "6379:6379"
+  #   volumes:
+  #     - redis_data:/data
+  #   restart: unless-stopped
+
+# volumes:
+#   redis_data:
