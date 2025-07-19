@@ -100,13 +100,13 @@ export class Logger {
       }
     }
 
-    // In production, use proper logging service instead of console
+    // MCP servers use stdout for protocol communication, so all logging must go to stderr
     if (level === LogLevel.ERROR) {
       console.error(`${prefix} ${message}${metaStr}`);
     } else if (level === LogLevel.WARN) {
-      console.warn(`${prefix} ${message}${metaStr}`);
+      console.error(`${prefix} ${message}${metaStr}`);
     } else {
-      console.log(`${prefix} ${message}${metaStr}`);
+      console.error(`${prefix} ${message}${metaStr}`);
     }
   }
 

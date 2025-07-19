@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { exaResearch } from './exa_research.js';
+import type { ExtractedFact } from './advanced_fact_extraction.js';
 import { Logger } from './logger.js';
 import { ValidationError, DataProcessingError, APIError } from './errors.js';
 import { factExtractor } from './advanced_fact_extraction.js';
@@ -86,7 +87,7 @@ export class ResearchIntegrationTool {
 
           if (enhancedExtraction) {
             // Extract and combine facts from all content
-            const allExtractedFacts = [];
+            const allExtractedFacts: ExtractedFact[] = [];
 
             for (const result of searchResults.results) {
               if (result.contents) {
@@ -300,7 +301,7 @@ export class ResearchIntegrationTool {
 
               if (enhancedExtraction) {
                 // Extract high-quality facts using advanced extraction
-                const allExtractedFacts = [];
+                const allExtractedFacts: ExtractedFact[] = [];
 
                 for (const result of domainResults.results) {
                   if (result.contents) {

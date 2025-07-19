@@ -8,7 +8,7 @@
  * Updated to use latest MCP SDK patterns
  */
 
-import { Server } from '@modelcontextprotocol/sdk/server/index.js';
+import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { registerTools } from './tools/index.js';
 import { Logger } from './utils/logger.js';
@@ -36,9 +36,9 @@ process.on('unhandledRejection', (reason) => {
 /**
  * Initialize the MCP server with appropriate capabilities
  */
-function initializeServer(): Server {
+function initializeServer(): McpServer {
   // Create the server with tools capability
-  const server = new Server(
+  const server = new McpServer(
     {
       name: 'Analytical MCP Server',
       version: '0.1.0',

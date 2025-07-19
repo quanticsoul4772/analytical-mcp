@@ -14,11 +14,12 @@ interface FactExtraction {
   confidence: number;
 }
 
-interface ExtractedFact {
+export interface ExtractedFact {
   fact: string;
   type: 'named_entity' | 'relationship' | 'statement' | 'sentiment';
   confidence: number;
   entities?: string[];
+  publishedDate?: string;
   sentiment?: {
     score: number;
     comparative: number;
@@ -89,19 +90,19 @@ export class EnhancedFactExtractor {
     return [
       ...entities.persons.map(person => ({
         fact: person,
-        type: 'named_entity',
+        type: 'named_entity' as const,
         confidence: 0.8,
         entities: ['person']
       })),
       ...entities.organizations.map(org => ({
         fact: org,
-        type: 'named_entity',
+        type: 'named_entity' as const,
         confidence: 0.7,
         entities: ['organization']
       })),
       ...entities.locations.map(location => ({
         fact: location,
-        type: 'named_entity',
+        type: 'named_entity' as const,
         confidence: 0.7,
         entities: ['location']
       }))
@@ -121,7 +122,7 @@ export class EnhancedFactExtractor {
 
     return sentences.map(sentence => ({
       fact: sentence.trim(),
-      type: 'statement',
+      type: 'statement' as const,
       confidence: this.computeSentenceConfidence(sentence),
       entities: []
     }));
@@ -148,7 +149,7 @@ export class EnhancedFactExtractor {
         ) {
           facts.push({
             fact: `${posTags[i].word} ${posTags[i+1].word} ${posTags[i+2].word}`,
-            type: 'relationship',
+            type: 'relationship' as const,
             confidence: 0.6,
             entities: [posTags[i].word, posTags[i+2].word]
           });
@@ -165,7 +166,7 @@ export class EnhancedFactExtractor {
 
     return [{
       fact: text,
-      type: 'sentiment',
+      type: 'sentiment' as const,
       confidence: this.mapSentimentToConfidence(sentimentAnalysis.score),
       sentiment: {
         score: sentimentAnalysis.score,

@@ -53,11 +53,11 @@ interface ExaEntityExtractionResult {
  */
 export class AdvancedNER {
   private tokenizer = new natural.WordTokenizer();
-  private ner = natural.NER ? new natural.NER() : null;
+  private ner: any = null; // Natural.js NER is not available
   private nerModelLoaded = false;
   
   constructor() {
-    // Initialize natural.js NER model if available
+    // Natural.js NER is not available in current version
     if (this.ner) {
       try {
         // Load the built-in model asynchronously

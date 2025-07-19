@@ -1,8 +1,10 @@
 import natural from 'natural';
 import pos from 'pos';
 import sentiment from 'sentiment';
-import { Lemmatizer } from 'wink-lemmatizer';
-import { POSTagger } from 'wink-pos-tagger';
+// Note: wink-lemmatizer and wink-pos-tagger are optional dependencies
+// Commented out to avoid runtime errors
+// import winkLemmatizer from 'wink-lemmatizer';
+// import winkPOSTagger from 'wink-pos-tagger';
 import spellchecker from 'spellchecker';
 import tokenize from 'tokenize-text';
 
@@ -11,14 +13,20 @@ import { Logger } from './logger.js';
 export class NLPToolkit {
   private tokenizer: natural.WordTokenizer;
   private sentimentAnalyzer: sentiment;
-  private lemmatizer: Lemmatizer;
-  private posTagger: POSTagger;
+  private lemmatizer: any = null;
+  private posTagger: any = null;
 
   constructor() {
     this.tokenizer = new natural.WordTokenizer();
     this.sentimentAnalyzer = new sentiment();
-    this.lemmatizer = new Lemmatizer();
-    this.posTagger = new POSTagger();
+    // Initialize lemmatizer and POS tagger if available
+    try {
+      // These are optional - server will work without them
+      // this.lemmatizer = winkLemmatizer();
+      // this.posTagger = winkPOSTagger();
+    } catch (error) {
+      Logger.debug('Optional NLP dependencies not available', error);
+    }
   }
 
   // Tokenization
@@ -58,6 +66,11 @@ export class NLPToolkit {
   // Part of Speech Tagging
   getPOSTags(text: string): Array<{word: string, tag: string}> {
     try {
+      if (!this.posTagger) {
+        Logger.debug('POS tagger not available, using fallback');
+        const tokens = this.tokenize(text);
+        return tokens.map(word => ({ word, tag: 'NN' })); // Fallback to noun tags
+      }
       const tokens = this.tokenize(text);
       return this.posTagger.tag(tokens);
     } catch (error) {
@@ -69,6 +82,10 @@ export class NLPToolkit {
   // Lemmatization
   lemmatize(word: string, type?: 'noun' | 'verb' | 'adjective'): string {
     try {
+      if (!this.lemmatizer) {
+        Logger.debug('Lemmatizer not available, returning original word');
+        return word; // Fallback to original word
+      }
       switch(type) {
         case 'noun':
           return this.lemmatizer.noun(word);

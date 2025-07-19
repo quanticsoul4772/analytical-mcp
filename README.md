@@ -1,153 +1,180 @@
 # Analytical MCP Server
 
-A specialized Model Context Protocol (MCP) server providing advanced analytical, research, and natural language processing capabilities.
+A Model Context Protocol (MCP) server that provides statistical analysis, decision-making, and logical reasoning tools.
 
-## Key Features
-
-### Analytical Tools
-- Dataset Analysis
-- Decision Analysis
-- Correlation Analysis
-- Regression Analysis
-- Time Series Analysis
-- Hypothesis Testing
-
-### Advanced NLP Capabilities
-- Enhanced Fact Extraction
-- Named Entity Recognition
-- Coreference Resolution
-- Relationship Extraction
-- Sentiment Analysis
-- Text Similarity
-- Part of Speech Tagging
-- Lemmatization
-- Spell Checking
-
-## Installation
+## Setup
 
 ### Prerequisites
-- Node.js (v20+)
-- npm
-- Exa API key (for research and advanced NLP capabilities)
+- Node.js >= 20.0.0
+- EXA_API_KEY environment variable (for research features)
 
-### Setup
-1. Clone the repository
-2. Install dependencies:
-   ```bash
-   npm install
-   ```
-3. Set up your environment variables:
-   ```bash
-   # Copy the example environment file
-   cp .env.example .env
-   
-   # Edit .env and add your API keys
-   # You'll need an Exa API key for research functionality
-   ```
-4. Build the project:
-   ```bash
-   npm run build
-   ```
-
-## Usage
-
-### Running Tools
-Each tool can be invoked with specific parameters. Example:
-```typescript
-// Analyze a dataset
-const datasetAnalysis = await analyzeDataset([1, 2, 3, 4, 5], 'summary');
-
-// Verify research claims
-const researchVerification = await researchVerification.verifyResearch({
-  query: 'Climate change impacts',
-  sources: 3
-});
-
-// Extract entities from text
-const entities = await advancedNER.recognizeEntities(
-  "Apple Inc. is planning to open a new headquarters in Austin, Texas."
-);
+### Installation
+```bash
+npm install
+npm run build
 ```
 
-### Advanced NLP Demo
-You can run the included NLP demo to see the advanced capabilities in action:
-```bash
-npm run build
-node examples/advanced_nlp_demo.js
+### Configuration
+1. Copy `.env.example` to `.env`
+2. Add your EXA_API_KEY to `.env`
+3. Add to Claude Desktop configuration:
+
+```json
+{
+  "mcpServers": {
+    "analytical": {
+      "command": "node",
+      "args": ["/path/to/analytical-mcp/build/index.js"],
+      "env": {
+        "EXA_API_KEY": "your-exa-api-key-here"
+      }
+    }
+  }
+}
+```
+
+## Available Tools
+
+### Statistical Analysis
+- **`analytical:analyze_dataset`** - Statistical analysis of datasets
+- **`analytical:advanced_regression_analysis`** - Linear, polynomial, and logistic regression
+- **`analytical:hypothesis_testing`** - Statistical hypothesis testing (t-tests, chi-square, ANOVA)
+- **`analytical:data_visualization_generator`** - Generate data visualization specifications
+
+### Decision Analysis
+- **`analytical:decision_analysis`** - Multi-criteria decision analysis with weighted scoring
+
+### Logical Reasoning
+- **`analytical:logical_argument_analyzer`** - Analyze argument structure and validity
+- **`analytical:logical_fallacy_detector`** - Detect logical fallacies in text
+- **`analytical:perspective_shifter`** - Generate alternative perspectives on problems
+
+### Research Verification
+- **`analytical:verify_research`** - Cross-verify research claims from multiple sources
+
+## Usage Examples
+
+### Dataset Analysis
+```javascript
+{
+  "data": [23, 45, 67, 12, 89, 34, 56, 78],
+  "analysisType": "stats"
+}
+```
+
+### Decision Analysis
+```javascript
+{
+  "options": ["Option A", "Option B", "Option C"],
+  "criteria": ["Cost", "Quality", "Speed"],
+  "weights": [0.4, 0.4, 0.2]
+}
+```
+
+### Logical Analysis
+```javascript
+{
+  "argument": "All birds can fly. Penguins are birds. Therefore, penguins can fly.",
+  "analysisDepth": "comprehensive"
+}
 ```
 
 ## Development
 
-### Available Scripts
-- `npm run build`: Compile TypeScript
-- `npm test`: Run all tests
-- `npm run test:integration`: Run integration tests only
-- `npm run test:exa`: Run Exa Research API tests
-- `npm run test:research`: Run Research Verification tests
-- `npm run test:server`: Run Server Tool Registration tests
-- `npm run lint`: Check code quality
-- `npm run format`: Format code
-- `npm run nlp:demo`: Run advanced NLP demo
-
-### Test Scripts
-We provide dedicated scripts for running specific test suites:
-
-#### Unix/Linux/Mac
+### Testing
 ```bash
-# Run all integration tests with a summary report
-./tools/run-all-integration-tests.sh
+# Run all tests
+./tools/test-runner.sh
 
-# Run specific test suites
-./tools/run-exa-tests.sh
-./tools/run-research-tests.sh
-./tools/run-server-tests.sh
-./tools/run-api-key-tests.sh
-./tools/run-data-pipeline-tests.sh
-./tools/run-market-analysis-tests.sh
+# Run specific test suite
+./tools/test-runner.sh integration
+
+# Available test suites: api-keys, server, integration, research, data-pipeline
 ```
 
-#### Windows
-```batch
-# Run all integration tests with a summary report
-.\tools\run-all-integration-tests.bat
+### Scripts
+- `npm run build` - Build TypeScript to JavaScript
+- `npm run watch` - Watch for changes and rebuild
+- `npm run test` - Run Jest tests
+- `npm run inspector` - Start MCP inspector for debugging
+
+### Project Structure
+```
+analytical-mcp/
+├── src/
+│   ├── tools/           # MCP tool implementations
+│   ├── utils/           # Utility functions
+│   └── index.ts         # Main server entry point
+├── docs/                # Documentation
+├── tools/               # Development and testing scripts
+└── examples/            # Usage examples
 ```
 
-### Key Technologies
-- TypeScript
-- Model Context Protocol SDK
-- Exa API for Research and NLP
-- Natural Language Processing libraries
-- Jest for Testing
+## Tool Categories
 
-## Advanced NLP Implementation
-The Analytical MCP Server implements advanced NLP features using:
-- Exa research API for context-aware entity recognition
-- Natural language toolkit for basic NLP operations
-- Custom rule-based fallback mechanisms for offline capabilities
-- Enhanced fact extraction with confidence scoring
-- Relationship extraction between entities
+### Statistical Analysis
+- Descriptive statistics (mean, median, standard deviation, quartiles)
+- Correlation analysis
+- Regression analysis (linear, polynomial, logistic)
+- Hypothesis testing (t-tests, chi-square, ANOVA)
 
-For detailed information, see the [Advanced NLP documentation](docs/advanced-nlp.md).
+### Decision Support
+- Multi-criteria decision analysis
+- Weighted scoring systems
+- Trade-off analysis
+- Risk assessment
 
-## Required API Keys
-This project requires the following API key:
-- `EXA_API_KEY`: Used for research integration and advanced NLP
+### Logical Reasoning
+- Argument structure analysis
+- Fallacy detection
+- Perspective generation
+- Critical thinking support
 
-The `.env.example` file contains all available configuration options:
-- API keys
-- Feature flags
-- Cache settings
-- NLP configuration
-- Server configuration
+### Research Integration
+- Multi-source verification
+- Fact extraction
+- Consistency checking
+- Research validation
 
-Copy this file to `.env` in your project root and update with your actual API keys to get started.
+## Security & Privacy
 
-## Contributing
-1. Fork the repository
-2. Create a feature branch
-3. Commit your changes
-4. Push to the branch
-5. Create a Pull Request
+- Processing is done locally
+- Research features use Exa API (optional)
+- No data is stored permanently
+- Configurable caching with local-only storage
 
 ## License
-MIT License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## Contributing
+
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/feature-name`)
+3. Commit your changes (`git commit -m 'Add feature description'`)
+4. Push to the branch (`git push origin feature/feature-name`)
+5. Open a Pull Request
+
+For detailed contribution guidelines, see [docs/DEVELOPMENT.md](./docs/DEVELOPMENT.md).
+
+## Troubleshooting
+
+### Common Issues
+
+**JSON parsing errors**: Ensure all logging goes to stderr, not stdout. The MCP protocol uses stdout for communication.
+
+**Tools not appearing**: Verify the server is properly configured in Claude Desktop and restart the application.
+
+**Research features disabled**: Check that EXA_API_KEY is set in your environment configuration.
+
+### Debug Mode
+Start the server with the MCP inspector:
+```bash
+npm run inspector
+```
+
+## Links
+
+- [Model Context Protocol Documentation](https://modelcontextprotocol.io/)
+- [Exa API Documentation](https://docs.exa.ai/)
+- [Claude Desktop](https://claude.ai/desktop)

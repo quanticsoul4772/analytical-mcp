@@ -93,7 +93,7 @@ export class CacheManager {
     
     // Ensure persistent cache directory exists if enabled
     if (this.persistentCacheEnabled) {
-      this.ensureCacheDirectoryExists().catch(err => {
+      this.ensureCacheDirectoryExists().catch((err: any) => {
         Logger.warn(`Failed to create cache directory: ${err.message}`);
       });
     }
@@ -531,6 +531,18 @@ export class CacheManager {
       return JSON.parse(content);
     } catch (error) {
       return null;
+    }
+  }
+
+  /**
+   * Ensure cache directory exists
+   */
+  private async ensureCacheDirectoryExists(): Promise<void> {
+    try {
+      await fs.mkdir(this.persistentCacheDir, { recursive: true });
+    } catch (error) {
+      Logger.error('Failed to create cache directory', error);
+      throw error;
     }
   }
 

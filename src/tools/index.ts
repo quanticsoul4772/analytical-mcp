@@ -1,7 +1,6 @@
 import { z } from 'zod';
-import { Server } from '@modelcontextprotocol/sdk/server/index.js';
+import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { Logger } from '../utils/logger.js';
-import { wrapToolHandler } from '../utils/tool-wrapper.js';
 
 // Import tools and their schemas
 import { analyzeDataset, analyzeDatasetSchema } from './analyze_dataset.js';
@@ -40,63 +39,71 @@ const ResearchVerificationSchema = z.object({
 /**
  * Register all tools with the server using the latest MCP SDK patterns
  */
-export function registerTools(server: Server): void {
-  // Define tool registration information
+export function registerTools(server: McpServer): void {
+  // Define tool registration information with proper wrapper functions
   const toolRegistrations = [
     {
       name: 'analyze_dataset',
       description: 'Analyze a dataset with statistical methods',
       schema: analyzeDatasetSchema,
-      handler: analyzeDataset,
+      handler: async ({ data, analysisType }: { data: any[], analysisType?: string }) => 
+        analyzeDataset(data, analysisType || 'summary'),
     },
     {
       name: 'decision_analysis',
       description: 'Analyze decision options based on multiple criteria',
       schema: decisionAnalysisSchema,
-      handler: decisionAnalysis,
+      handler: async (params: { options: string[], criteria: string[], weights?: number[] }) => 
+        decisionAnalysis(params),
     },
     {
       name: 'advanced_regression_analysis',
       description: 'Perform advanced regression analysis on datasets',
       schema: advancedRegressionAnalysisSchema,
-      handler: advancedRegressionAnalysis,
+      handler: async ({ data, regressionType, independentVariables, dependentVariable }: { data: any[], regressionType: string, independentVariables: string[], dependentVariable: string }) => 
+        advancedRegressionAnalysis(data, regressionType, independentVariables, dependentVariable),
     },
     {
       name: 'hypothesis_testing',
       description: 'Perform statistical hypothesis tests on datasets',
       schema: hypothesisTestingSchema,
-      handler: hypothesisTesting,
+      handler: async ({ testType, data, variables, alpha, alternativeHypothesis }: { testType: string, data: any[], variables?: string[], alpha?: number, alternativeHypothesis?: string }) => 
+        hypothesisTesting(testType, data, variables, alpha || 0.05, alternativeHypothesis),
     },
     {
       name: 'data_visualization_generator',
       description: 'Generate specifications for data visualizations',
       schema: dataVisualizationGeneratorSchema,
-      handler: dataVisualizationGenerator,
+      handler: async ({ data, chartType, options }: { data: any[], chartType: string, options?: any }) => 
+        dataVisualizationGenerator(data, chartType, options),
     },
     {
       name: 'logical_argument_analyzer',
       description: 'Analyze logical arguments for structure, fallacies, validity, and strength',
       schema: logicalArgumentAnalyzerSchema,
-      handler: logicalArgumentAnalyzer,
+      handler: async ({ argument, analysisDepth }: { argument: string, analysisDepth?: string }) => 
+        logicalArgumentAnalyzer(argument, analysisDepth || 'standard'),
     },
     {
       name: 'logical_fallacy_detector',
       description: 'Detect and explain logical fallacies in text with confidence scoring',
       schema: logicalFallacyDetectorSchema,
-      handler: logicalFallacyDetector,
+      handler: async ({ text, confidenceThreshold }: { text: string, confidenceThreshold?: number }) => 
+        logicalFallacyDetector(text, confidenceThreshold || 0.7),
     },
     {
       name: 'perspective_shifter',
       description: 'Generate alternative perspectives on a problem or situation',
       schema: perspectiveShifterSchema,
-      handler: perspectiveShifter,
+      handler: async (params: { problem: string, currentPerspective?: string, shiftType?: string, numberOfPerspectives?: number }) => 
+        perspectiveShifter(params),
     },
     // NEW: Research-related tools
     {
       name: 'verify_research',
       description: 'Cross-verify research claims from multiple sources with confidence scoring',
       schema: ResearchVerificationSchema,
-      handler: (input: z.infer<typeof ResearchVerificationSchema>) => 
+      handler: async (input: z.infer<typeof ResearchVerificationSchema>) => 
         researchVerification.verifyResearch({
           ...input,
           factExtractionOptions: {
@@ -108,14 +115,47 @@ export function registerTools(server: Server): void {
   ];
 
   // Log tools that will be registered
-  Logger.info(`Preparing to register ${toolRegistrations.length} tools`);
+  Logger.info(`Registering ${toolRegistrations.length} tools`);
 
-  // Log that we're skipping tool registration due to compatibility issues
-  Logger.info(`Skipping tool registration due to SDK compatibility issues`);
-  
-  // In a real implementation, we would register tools with the server
-  // but for now we'll just log the tools that would be registered
+  // Register each tool with the server using the new MCP SDK pattern
   for (const tool of toolRegistrations) {
-    Logger.debug(`Would register tool: ${tool.name}`);
+    try {
+      server.tool(
+        tool.name,
+        tool.description,
+'shape' in tool.schema ? tool.schema.shape : tool.schema,
+async (args: any, extra: any) => {
+          try {
+            // All handlers now expect the args object directly
+            const result = await tool.handler(args);
+            
+            return {
+              content: [
+                {
+                  type: 'text' as const,
+                  text: typeof result === 'string' ? result : JSON.stringify(result, null, 2)
+                }
+              ]
+            };
+          } catch (error) {
+            Logger.error(`Error executing tool ${tool.name}`, error);
+            return {
+              content: [
+                {
+                  type: 'text' as const,
+                  text: `Error: ${error instanceof Error ? error.message : 'Unknown error'}`
+                }
+              ]
+            };
+          }
+        }
+      );
+      
+      Logger.debug(`Registered tool: ${tool.name}`);
+    } catch (error) {
+      Logger.error(`Failed to register tool ${tool.name}`, error);
+    }
   }
+
+  Logger.info('All tools registered successfully');
 }

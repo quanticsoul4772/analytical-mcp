@@ -1,6 +1,0 @@
-Starting verification at 2025-03-02T19:18:33.771Z
-Creating server instance...
-Server created successfully!
-Server capabilities: undefined
-Tools capability is NOT available
-Verification completed successfully

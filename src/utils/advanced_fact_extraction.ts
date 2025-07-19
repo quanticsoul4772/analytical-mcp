@@ -12,6 +12,7 @@ export interface ExtractedFact {
   score: number;
   entities?: string[];
   source?: string;
+  publishedDate?: string;
 }
 
 export interface FactExtractionOptions {

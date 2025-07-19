@@ -33,7 +33,7 @@ export const mockExaSearchResponse = {
     }
   ],
   hits: 3,
-  next_page_token: null
+  next_page_token: null as any
 };
 
 export const mockExaErrorResponse = {

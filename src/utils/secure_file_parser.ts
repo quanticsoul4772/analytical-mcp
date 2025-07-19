@@ -21,10 +21,10 @@ export class SecureFileParser {
 
       Papa.parse(file, {
         ...mergedOptions,
-        complete: (results) => {
+        complete: (results: any) => {
           try {
             // Validate each row against the provided schema
-            const validatedData = results.data.map((row) => {
+            const validatedData = results.data.map((row: any) => {
               // Freeze the row to prevent prototype pollution
               const frozenRow = Object.freeze({ ...row });
               return schema.parse(frozenRow);
@@ -39,7 +39,7 @@ export class SecureFileParser {
             );
           }
         },
-        error: (error) => {
+        error: (error: any) => {
           reject(new Error(`CSV Parsing Error: ${error.message}`));
         },
       });
