@@ -149,7 +149,7 @@ export class EnhancedFactExtractor {
               confidence: chain.confidence,
               startIndex: chain.representativeMention.startIndex,
               endIndex: chain.representativeMention.endIndex,
-              entityType: chain.entityType,
+              entityType: chain.entityType as EntityType,
               coreference: chain,
               entities: relatedEntities
             });
@@ -181,14 +181,14 @@ export class EnhancedFactExtractor {
         for (const relationship of relationshipResult.relationships) {
           if (relationship.confidence >= minConfidence) {
             const relatedEntities = [
-              relationship.source.entity,
-              relationship.target.entity
+              relationship.sourceEntity,
+              relationship.targetEntity
             ];
             
             facts.push({
               factId: `rel_${facts.length}`,
               text: relationship.evidence || 
-                    `${relationship.source.entity.text} ${relationship.type} ${relationship.target.entity.text}`,
+                    `${relationship.sourceEntity.text} ${relationship.type} ${relationship.targetEntity.text}`,
               type: FactType.RELATIONSHIP,
               confidence: relationship.confidence,
               startIndex: relationship.startIndex,

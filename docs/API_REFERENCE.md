@@ -162,3 +162,27 @@ Research tools using external APIs:
 - Built-in retry logic with exponential backoff
 - Configurable timeout settings
 - Graceful degradation when limits are reached
+
+## Logging System
+
+### Logger Implementation
+- Centralized Logger class in src/utils/logger.ts
+- MCP protocol compliance (stderr for logs, stdout for protocol communication)
+- Singleton pattern for consistent instance usage
+- Log levels: info, warn, error
+
+### Usage Pattern
+```typescript
+import { Logger } from './utils/logger.js';
+const logger = Logger.getInstance();
+
+logger.info('Information message');
+logger.warn('Warning message');
+logger.error('Error message');
+```
+
+### Utility Script Integration
+- tools/cache-manager.js: Cache management with Logger integration
+- tools/check-api-keys.js: API key validation with Logger integration
+- All utility scripts use Logger instead of console statements
+- Examples directory preserves console output for demonstration clarity

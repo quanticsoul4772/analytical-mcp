@@ -8,15 +8,18 @@ import { decisionAnalysis, decisionAnalysisSchema } from './decision_analysis.js
 import {
   advancedRegressionAnalysis,
   advancedRegressionAnalysisSchema,
+  RegressionAnalysisOptions,
 } from './advanced_regression_analysis.js';
 import { hypothesisTesting, hypothesisTestingSchema } from './hypothesis_testing.js';
 import {
   dataVisualizationGenerator,
   dataVisualizationGeneratorSchema,
+  VisualizationOptions,
 } from './data_visualization_generator.js';
 import {
   logicalArgumentAnalyzer,
   logicalArgumentAnalyzerSchema,
+  AnalysisOptions,
 } from './logical_argument_analyzer.js';
 import {
   logicalFallacyDetector,
@@ -60,8 +63,8 @@ export function registerTools(server: McpServer): void {
       name: 'advanced_regression_analysis',
       description: 'Perform advanced regression analysis on datasets',
       schema: advancedRegressionAnalysisSchema,
-      handler: async ({ data, regressionType, independentVariables, dependentVariable }: { data: any[], regressionType: string, independentVariables: string[], dependentVariable: string }) => 
-        advancedRegressionAnalysis(data, regressionType, independentVariables, dependentVariable),
+      handler: async (params: RegressionAnalysisOptions) => 
+        advancedRegressionAnalysis(params),
     },
     {
       name: 'hypothesis_testing',
@@ -74,15 +77,15 @@ export function registerTools(server: McpServer): void {
       name: 'data_visualization_generator',
       description: 'Generate specifications for data visualizations',
       schema: dataVisualizationGeneratorSchema,
-      handler: async ({ data, chartType, options }: { data: any[], chartType: string, options?: any }) => 
-        dataVisualizationGenerator(data, chartType, options),
+      handler: async (params: VisualizationOptions) => 
+        dataVisualizationGenerator(params),
     },
     {
       name: 'logical_argument_analyzer',
       description: 'Analyze logical arguments for structure, fallacies, validity, and strength',
       schema: logicalArgumentAnalyzerSchema,
-      handler: async ({ argument, analysisDepth }: { argument: string, analysisDepth?: string }) => 
-        logicalArgumentAnalyzer(argument, analysisDepth || 'standard'),
+      handler: async (params: AnalysisOptions) => 
+        logicalArgumentAnalyzer(params),
     },
     {
       name: 'logical_fallacy_detector',

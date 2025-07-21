@@ -38,6 +38,13 @@ interface ExaSearchResult {
   score?: number;
 }
 
+// Data validation options
+interface DataValidationOptions {
+  originalData: any[];
+  context: string;
+  fieldsToValidate?: string[];
+}
+
 // Exa research utility class
 class ExaResearchTool {
   private apiKey: string;
@@ -340,13 +347,12 @@ class ExaResearchTool {
 
   // Validate or supplement data with research
   async validateData(
-    originalData: any[],
-    context: string,
-    fieldsToValidate?: string[]
+    options: DataValidationOptions
   ): Promise<{
     validatedData: any[];
     researchContext: string[];
   }> {
+    const { originalData, context, fieldsToValidate } = options;
     Logger.debug(`Validating data with research context: ${context}`, {
       dataLength: originalData?.length,
       fieldsToValidate,

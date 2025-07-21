@@ -40,18 +40,14 @@ describe('Data Processing Pipeline Integration Tests', () => {
     expect(preprocessedData).toContain('Normalized Data');
 
     // Step 2: Run regression analysis
-    const regressionResults = await advancedRegressionAnalysis(
-      SAMPLE_DATASET,
-      'linear',
-      ['year', 'expenses', 'customers'],
-      'revenue',
-      undefined,
-      false,
-      false,
-      false,
-      true,
-      true
-    );
+    const regressionResults = await advancedRegressionAnalysis({
+      data: SAMPLE_DATASET,
+      regressionType: 'linear',
+      independentVariables: ['year', 'expenses', 'customers'],
+      dependentVariable: 'revenue',
+      includeMetrics: true,
+      includeCoefficients: true
+    });
 
     expect(regressionResults).toContain('Regression Analysis Results');
     expect(regressionResults).toContain('Model Formula');
@@ -59,13 +55,13 @@ describe('Data Processing Pipeline Integration Tests', () => {
     expect(regressionResults).toContain('revenue =');
 
     // Step 3: Generate visualization specifications
-    const visualizationSpec = await dataVisualizationGenerator(
-      SAMPLE_DATASET,
-      'line',
-      ['year', 'revenue', 'expenses'],
-      'Revenue and Expenses Trends (2019-2023)',
-      true
-    );
+    const visualizationSpec = await dataVisualizationGenerator({
+      data: SAMPLE_DATASET,
+      visualizationType: 'line',
+      variables: ['year', 'revenue', 'expenses'],
+      title: 'Revenue and Expenses Trends (2019-2023)',
+      includeTrendline: true
+    });
 
     expect(visualizationSpec).toContain('Visualization Specification');
     expect(visualizationSpec).toContain('Chart Type: Line Chart');
@@ -94,28 +90,22 @@ describe('Data Processing Pipeline Integration Tests', () => {
 
     // Test with invalid regression inputs
     await expect(
-      advancedRegressionAnalysis(
-        SAMPLE_DATASET,
-        'invalid-type' as any, // Invalid regression type
-        ['year'],
-        'revenue',
-        undefined,
-        false,
-        false,
-        false,
-        true,
-        true
-      )
+      advancedRegressionAnalysis({
+        data: SAMPLE_DATASET,
+        regressionType: 'invalid-type' as any, // Invalid regression type
+        independentVariables: ['year'],
+        dependentVariable: 'revenue'
+      })
     ).rejects.toThrow(ValidationError);
 
     // Test with invalid visualization inputs
     await expect(
-      dataVisualizationGenerator(
-        SAMPLE_DATASET,
-        'invalid-chart', // Invalid visualization type
-        ['year', 'revenue'],
-        'Test Chart'
-      )
+      dataVisualizationGenerator({
+        data: SAMPLE_DATASET,
+        visualizationType: 'invalid-chart' as any, // Invalid visualization type
+        variables: ['year', 'revenue'],
+        title: 'Test Chart'
+      })
     ).rejects.toThrow(Error);
 
     // Test with invalid hypothesis test inputs

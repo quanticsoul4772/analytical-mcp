@@ -1,5 +1,5 @@
 import { describe, it, expect, jest, beforeAll, afterAll } from '@jest/globals';
-import { logicalArgumentAnalyzer } from '../tools/logical_argument_analyzer.js';
+import { logicalArgumentAnalyzer, AnalysisOptions } from '../tools/logical_argument_analyzer.js';
 import { logicalFallacyDetector } from '../tools/logical_fallacy_detector.js';
 import { perspectiveShifter } from '../tools/perspective_shifter.js';
 
@@ -16,7 +16,11 @@ describe('Logical Reasoning Tools Integration Test', () => {
 
   it('should analyze a policy argument and identify its structure', async () => {
     // Step 1: Analyze the logical structure of the argument
-    const argumentAnalysis = await logicalArgumentAnalyzer(policyArgument, 'comprehensive', true);
+    const argumentAnalysis = await logicalArgumentAnalyzer({
+      argument: policyArgument,
+      analysisType: 'comprehensive',
+      includeRecommendations: true
+    });
 
     // Verify argument structure was identified
     expect(argumentAnalysis).toContain('Argument Analysis');
@@ -118,7 +122,11 @@ describe('Logical Reasoning Tools Integration Test', () => {
     `;
 
     // Step 1: Analyze argument structure
-    const argumentAnalysis = await logicalArgumentAnalyzer(mixedArgument, 'structure', true);
+    const argumentAnalysis = await logicalArgumentAnalyzer({
+      argument: mixedArgument,
+      analysisType: 'structure',
+      includeRecommendations: true
+    });
 
     // Step 2: Check for fallacies in the same argument
     const fallacyResults = await logicalFallacyDetector(mixedArgument, 0.5);
@@ -141,7 +149,10 @@ describe('Logical Reasoning Tools Integration Test', () => {
 
   it('should generate useful perspectives based on argument analysis', async () => {
     // First analyze the argument
-    const argumentAnalysis = await logicalArgumentAnalyzer(policyArgument, 'comprehensive');
+    const argumentAnalysis = await logicalArgumentAnalyzer({
+      argument: policyArgument,
+      analysisType: 'comprehensive'
+    });
 
     // Extract key elements from argument analysis to construct problem statement
     // (in a real integration, this would parse the analysis results)

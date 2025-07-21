@@ -1,17 +1,6 @@
-import { describe, it, expect, jest, beforeEach } from '@jest/globals';
-import { advancedRegressionAnalysis } from '../advanced_regression_analysis.js';
+import { describe, it, expect, beforeEach } from '@jest/globals';
+import { advancedRegressionAnalysis, RegressionAnalysisOptions } from '../advanced_regression_analysis.js';
 import { ValidationError } from '../../utils/errors.js';
-
-// Mock the Logger
-jest.mock('../../utils/logger.js', () => ({
-  Logger: {
-    debug: jest.fn(),
-    info: jest.fn(),
-    warn: jest.fn(),
-    error: jest.fn(),
-    log: jest.fn(),
-  },
-}));
 
 // Sample data for testing - moved outside to reduce arrow function size
 const sampleData = [
@@ -22,19 +11,19 @@ const sampleData = [
   { x: 5, y: 5, z: 11 },
 ];
 
-// Main test suite
-describe('Advanced Regression Analysis', () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-  });
-});
+// Main test suite - removed empty describe block
 
 // Basic regression tests - moved outside to reduce arrow function size
 describe('Basic Regression Tests', () => {
   it('should perform linear regression analysis', async () => {
-    const result = await advancedRegressionAnalysis(sampleData, 'linear', ['x'], 'y');
-    expect(result).toContain('Regression Analysis Results');
-    expect(result).toContain('Linear Regression');
+    const result = await advancedRegressionAnalysis({
+      data: sampleData,
+      regressionType: 'linear',
+      independentVariables: ['x'],
+      dependentVariable: 'y'
+    });
+    expect(result).toContain('Linear Equation:');
+    expect(result).toContain('linear regression');
     expect(result).toContain('Dependent Variable: y');
     expect(result).toContain('Independent Variables: x');
     expect(result).toContain('Coefficients');
@@ -42,8 +31,13 @@ describe('Basic Regression Tests', () => {
   });
 
   it('should perform multiple regression analysis', async () => {
-    const result = await advancedRegressionAnalysis(sampleData, 'linear', ['x', 'z'], 'y');
-    expect(result).toContain('Regression Analysis Results');
+    const result = await advancedRegressionAnalysis({
+      data: sampleData,
+      regressionType: 'linear',
+      independentVariables: ['x', 'z'],
+      dependentVariable: 'y'
+    });
+    expect(result).toContain('Linear Equation:');
     expect(result).toContain('Multiple Linear Regression');
     expect(result).toContain('Dependent Variable: y');
     expect(result).toContain('Independent Variables: x, z');
@@ -55,8 +49,14 @@ describe('Basic Regression Tests', () => {
 // Advanced regression tests - moved outside to reduce arrow function size
 describe('Advanced Regression Tests', () => {
   it('should perform polynomial regression analysis', async () => {
-    const result = await advancedRegressionAnalysis(sampleData, 'polynomial', ['x'], 'y', 2);
-    expect(result).toContain('Regression Analysis Results');
+    const result = await advancedRegressionAnalysis({
+      data: sampleData,
+      regressionType: 'polynomial',
+      independentVariables: ['x'],
+      dependentVariable: 'y',
+      polynomialDegree: 2
+    });
+    expect(result).toContain('Linear Equation:');
     expect(result).toContain('Polynomial Regression');
     expect(result).toContain('Dependent Variable: y');
     expect(result).toContain('Independent Variables: x');
@@ -66,8 +66,13 @@ describe('Advanced Regression Tests', () => {
   });
 
   it('should perform logistic regression analysis', async () => {
-    const result = await advancedRegressionAnalysis(sampleData, 'logistic', ['x'], 'y');
-    expect(result).toContain('Regression Analysis Results');
+    const result = await advancedRegressionAnalysis({
+      data: sampleData,
+      regressionType: 'logistic',
+      independentVariables: ['x'],
+      dependentVariable: 'y'
+    });
+    expect(result).toContain('Linear Equation:');
     expect(result).toContain('Logistic Regression');
     expect(result).toContain('Dependent Variable: y');
     expect(result).toContain('Independent Variables: x');
@@ -76,16 +81,16 @@ describe('Advanced Regression Tests', () => {
   });
 
   it('should handle custom options', async () => {
-    const result = await advancedRegressionAnalysis(
-      sampleData,
-      'linear',
-      ['x'],
-      'y',
-      undefined,
-      true,
-      true
-    );
-    expect(result).toContain('Regression Analysis Results');
+    const result = await advancedRegressionAnalysis({
+      data: sampleData,
+      regressionType: 'linear',
+      independentVariables: ['x'],
+      dependentVariable: 'y',
+      standardizeVariables: true,
+      useConfidenceInterval: true,
+      useTestSplit: true
+    });
+    expect(result).toContain('Linear Equation:');
     expect(result).toContain('Standardized Variables: Yes');
     expect(result).toContain('Confidence Level: 90%');
     expect(result).toContain('Test Size: 30%');
@@ -95,53 +100,82 @@ describe('Advanced Regression Tests', () => {
 // Data validation errors - moved outside to reduce arrow function size
 describe('Data Validation Errors', () => {
   it('should throw ValidationError for empty data', async () => {
-    await expect(advancedRegressionAnalysis([], 'linear', ['x'], 'y')).rejects.toThrow(
-      ValidationError
-    );
+    await expect(advancedRegressionAnalysis({
+      data: [],
+      regressionType: 'linear',
+      independentVariables: ['x'],
+      dependentVariable: 'y'
+    })).rejects.toThrow(ValidationError);
   });
 
   it('should throw ValidationError for invalid dependent variable', async () => {
-    await expect(
-      advancedRegressionAnalysis(sampleData, 'linear', ['x'], 'invalid')
-    ).rejects.toThrow(ValidationError);
+    await expect(advancedRegressionAnalysis({
+      data: sampleData,
+      regressionType: 'linear',
+      independentVariables: ['x'],
+      dependentVariable: 'invalid'
+    })).rejects.toThrow(ValidationError);
   });
 
   it('should throw ValidationError for invalid independent variables', async () => {
-    await expect(
-      advancedRegressionAnalysis(sampleData, 'linear', ['invalid'], 'y')
-    ).rejects.toThrow(ValidationError);
+    await expect(advancedRegressionAnalysis({
+      data: sampleData,
+      regressionType: 'linear',
+      independentVariables: ['invalid'],
+      dependentVariable: 'y'
+    })).rejects.toThrow(ValidationError);
   });
 
   it('should throw ValidationError for empty independent variables', async () => {
-    await expect(advancedRegressionAnalysis(sampleData, 'linear', [], 'y')).rejects.toThrow(
-      ValidationError
-    );
+    await expect(advancedRegressionAnalysis({
+      data: sampleData,
+      regressionType: 'linear',
+      independentVariables: [],
+      dependentVariable: 'y'
+    })).rejects.toThrow(ValidationError);
   });
 });
 
 // Parameter validation errors - moved outside to reduce arrow function size
 describe('Parameter Validation Errors', () => {
   it('should throw ValidationError for invalid regression type', async () => {
-    await expect(
-      advancedRegressionAnalysis(sampleData, 'invalid' as unknown as string, ['x'], 'y')
-    ).rejects.toThrow(ValidationError);
+    await expect(advancedRegressionAnalysis({
+      data: sampleData,
+      regressionType: 'invalid' as any,
+      independentVariables: ['x'],
+      dependentVariable: 'y'
+    })).rejects.toThrow(ValidationError);
   });
 
   it('should throw ValidationError for invalid polynomial degree', async () => {
-    await expect(
-      advancedRegressionAnalysis(sampleData, 'polynomial', ['x'], 'y', 0)
-    ).rejects.toThrow(ValidationError);
+    await expect(advancedRegressionAnalysis({
+      data: sampleData,
+      regressionType: 'polynomial',
+      independentVariables: ['x'],
+      dependentVariable: 'y',
+      polynomialDegree: 0
+    })).rejects.toThrow(ValidationError);
   });
 
   it('should throw ValidationError for invalid confidence level', async () => {
-    await expect(
-      advancedRegressionAnalysis(sampleData, 'linear', ['x'], 'y', undefined, true, false)
-    ).rejects.toThrow(ValidationError);
+    await expect(advancedRegressionAnalysis({
+      data: sampleData,
+      regressionType: 'linear',
+      independentVariables: ['x'],
+      dependentVariable: 'y',
+      useConfidenceInterval: true,
+      useTestSplit: false
+    })).rejects.toThrow(ValidationError);
   });
 
   it('should throw ValidationError for invalid test size', async () => {
-    await expect(
-      advancedRegressionAnalysis(sampleData, 'linear', ['x'], 'y', undefined, false, true)
-    ).rejects.toThrow(ValidationError);
+    await expect(advancedRegressionAnalysis({
+      data: sampleData,
+      regressionType: 'linear',
+      independentVariables: ['x'],
+      dependentVariable: 'y',
+      useConfidenceInterval: false,
+      useTestSplit: true
+    })).rejects.toThrow(ValidationError);
   });
 });

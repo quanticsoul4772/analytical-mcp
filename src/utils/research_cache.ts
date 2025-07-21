@@ -8,6 +8,7 @@
 import { cacheManager, CacheOptions } from './cache_manager.js';
 import { Logger } from './logger.js';
 import { config, isFeatureEnabled } from './config.js';
+import { ValidationHelpers } from './validation_helpers.js';
 
 // Research-specific cache entry types
 export interface ResearchCacheEntry {
@@ -77,6 +78,9 @@ export class ResearchCache {
    * Get search results from cache
    */
   getSearchResults(query: string, options: any): any | null {
+    // Early validation using ValidationHelpers
+    ValidationHelpers.throwIfInvalid(ValidationHelpers.validateNonEmptyString(query));
+    
     if (!this.enabled) return null;
 
     // Create cache key based on query and options
@@ -93,6 +97,9 @@ export class ResearchCache {
    * Set search results in cache
    */
   setSearchResults(query: string, options: any, results: any): void {
+    // Early validation using ValidationHelpers
+    ValidationHelpers.throwIfInvalid(ValidationHelpers.validateNonEmptyString(query));
+    
     if (!this.enabled) return;
 
     // Create cache key based on query and options
@@ -121,6 +128,9 @@ export class ResearchCache {
    * Get extracted facts from cache
    */
   getExtractedFacts(text: string, maxFacts: number = 5): any[] | null {
+    // Early validation using ValidationHelpers
+    ValidationHelpers.throwIfInvalid(ValidationHelpers.validateNonEmptyString(text));
+    
     if (!this.enabled) return null;
 
     // Create a consistent cache key for the text content
@@ -137,6 +147,9 @@ export class ResearchCache {
    * Set extracted facts in cache
    */
   setExtractedFacts(text: string, maxFacts: number = 5, facts: any[]): void {
+    // Early validation using ValidationHelpers
+    ValidationHelpers.throwIfInvalid(ValidationHelpers.validateNonEmptyString(text));
+    
     if (!this.enabled) return;
 
     // Create a consistent cache key for the text content
@@ -164,6 +177,9 @@ export class ResearchCache {
    * Get validation results from cache
    */
   getValidationResults(context: string, data: any[]): any | null {
+    // Early validation using ValidationHelpers
+    ValidationHelpers.throwIfInvalid(ValidationHelpers.validateNonEmptyString(context));
+    
     if (!this.enabled) return null;
 
     // Create a cache key based on context and data
@@ -180,6 +196,9 @@ export class ResearchCache {
    * Set validation results in cache
    */
   setValidationResults(context: string, data: any[], results: any): void {
+    // Early validation using ValidationHelpers
+    ValidationHelpers.throwIfInvalid(ValidationHelpers.validateNonEmptyString(context));
+    
     if (!this.enabled) return;
 
     // Create a cache key based on context and data
@@ -339,16 +358,8 @@ export class ResearchCache {
     // Normalize the query by trimming and converting to lowercase
     const normalizedQuery = query.trim().toLowerCase();
 
-    // Extract and sort relevant options to ensure consistent keys
-    const relevantOptions = {
-      numResults: options.numResults,
-      timeRangeMonths: options.timeRangeMonths,
-      useWebResults: options.useWebResults,
-      useNewsResults: options.useNewsResults,
-    };
-
-    // Create a deterministic string representation of the options
-    const optionsStr = JSON.stringify(relevantOptions, Object.keys(relevantOptions).sort());
+    // Extract and sort relevant options using helper method
+    const optionsStr = this.normalizeSearchOptions(options);
 
     // Combine query and options for the key
     return `${this.hashString(normalizedQuery)}_${this.hashString(optionsStr)}`;
@@ -405,18 +416,8 @@ export class ResearchCache {
     // Create a hash of the data
     const dataHash = this.hashString(JSON.stringify(data));
 
-    // Extract and sort relevant options
-    const relevantOptions = {
-      numResults: options.numResults,
-      timeRangeMonths: options.timeRangeMonths,
-      includeNewsResults: options.includeNewsResults,
-      enhancedExtraction: options.enhancedExtraction,
-    };
-
-    // Create a hash of the options
-    const optionsHash = this.hashString(
-      JSON.stringify(relevantOptions, Object.keys(relevantOptions).sort())
-    );
+    // Extract and sort relevant options using helper method
+    const optionsHash = this.hashString(this.normalizeEnrichmentOptions(options));
 
     return `${this.hashString(normalizedContext)}_${dataHash.substring(0, 8)}_${optionsHash.substring(0, 8)}`;
   }
@@ -433,6 +434,38 @@ export class ResearchCache {
     }
     // Convert to hex string and ensure positive
     return (hash >>> 0).toString(16);
+  }
+  
+  /**
+   * Helper method to normalize search options for consistent cache keys
+   */
+  private normalizeSearchOptions(options: any): string {
+    // Extract and sort relevant options to ensure consistent keys
+    const relevantOptions = {
+      numResults: options.numResults,
+      timeRangeMonths: options.timeRangeMonths,
+      useWebResults: options.useWebResults,
+      useNewsResults: options.useNewsResults,
+    };
+
+    // Create a deterministic string representation of the options
+    return JSON.stringify(relevantOptions, Object.keys(relevantOptions).sort());
+  }
+  
+  /**
+   * Helper method to normalize enrichment options for consistent cache keys
+   */
+  private normalizeEnrichmentOptions(options: any): string {
+    // Extract and sort relevant options to ensure consistent keys
+    const relevantOptions = {
+      numResults: options.numResults,
+      timeRangeMonths: options.timeRangeMonths,
+      includeNewsResults: options.includeNewsResults,
+      enhancedExtraction: options.enhancedExtraction,
+    };
+
+    // Create a deterministic string representation of the options
+    return JSON.stringify(relevantOptions, Object.keys(relevantOptions).sort());
   }
 }
 

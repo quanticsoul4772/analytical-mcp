@@ -16,7 +16,7 @@ npm install
 npm run build
 ```
 
-#### Option 2: Docker (Recommended for Glama)
+#### Option 2: Docker
 ```bash
 # Build the Docker image
 docker build -t analytical-mcp .
@@ -209,6 +209,8 @@ For detailed contribution guidelines, see [docs/DEVELOPMENT.md](./docs/DEVELOPME
 **Tools not appearing**: Verify the server is properly configured in Claude Desktop and restart the application.
 
 **Research features disabled**: Check that EXA_API_KEY is set in your environment configuration.
+
+**Console output issues**: The project uses a Logger class for all output. Utility scripts in the tools/ directory integrate with the Logger system for consistent formatting.
 
 ### Debug Mode
 Start the server with the MCP inspector:

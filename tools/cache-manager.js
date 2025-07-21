@@ -19,12 +19,19 @@ import dotenv from 'dotenv';
 import { cacheManager } from '../build/utils/cache_manager.js';
 import { researchCache, ResearchCacheNamespace } from '../build/utils/research_cache.js';
 import { config } from '../build/utils/config.js';
+import { Logger } from '../build/utils/logger.js';
 import readline from 'readline';
 import fs from 'fs';
 import path from 'path';
 
 // Load environment variables
 dotenv.config();
+
+// Initialize Logger for CLI usage
+Logger.configure({
+  includeTimestamp: false, // CLI tools don't need timestamps
+  includeStack: false,     // CLI tools don't need stack traces
+});
 
 // Parse command line arguments
 const args = process.argv.slice(2);
@@ -113,8 +120,8 @@ async function listCacheFiles() {
 // Check if caching is enabled
 function checkCachingEnabled() {
   if (config.ENABLE_RESEARCH_CACHE !== 'true') {
-    console.warn("\n⚠️ Warning: Research caching is disabled in the environment.");
-    console.log("To enable caching, set ENABLE_RESEARCH_CACHE=true in your .env file.");
+    Logger.warn("\n⚠️ Warning: Research caching is disabled in the environment.");
+    Logger.info("To enable caching, set ENABLE_RESEARCH_CACHE=true in your .env file.");
     return false;
   }
   return true;
@@ -122,7 +129,7 @@ function checkCachingEnabled() {
 
 // Show cache statistics
 async function showStats() {
-  console.log("\n=== CACHE STATISTICS ===\n");
+  Logger.info("\n=== CACHE STATISTICS ===\n");
   
   if (!checkCachingEnabled()) {
     return;
@@ -137,56 +144,56 @@ async function showStats() {
   
   // Print cache files if requested
   if (options.includes('--files')) {
-    console.log(`Cache Files (${fileCount}):`);
-    console.log("┌───────────────────────────────────┬──────────┬─────────────────────────┐");
-    console.log("│ Filename                          │ Size     │ Last Modified           │");
-    console.log("├───────────────────────────────────┼──────────┼─────────────────────────┤");
+    Logger.info(`Cache Files (${fileCount}):`);
+    Logger.info("┌───────────────────────────────────┬──────────┬─────────────────────────┐");
+    Logger.info("│ Filename                          │ Size     │ Last Modified           │");
+    Logger.info("├───────────────────────────────────┼──────────┼─────────────────────────┤");
     
     for (const file of cacheFiles.slice(0, 20)) { // Limit to 20 files for display
       const fileName = file.name.length > 30 ? file.name.substring(0, 27) + "..." : file.name.padEnd(35);
-      console.log(`│ ${fileName} │ ${formatBytes(file.size).padEnd(8)} │ ${formatTime(file.modified)} │`);
+      Logger.info(`│ ${fileName} │ ${formatBytes(file.size).padEnd(8)} │ ${formatTime(file.modified)} │`);
     }
     
     if (cacheFiles.length > 20) {
-      console.log(`│ ... and ${cacheFiles.length - 20} more files             │          │                         │`);
+      Logger.info(`│ ... and ${cacheFiles.length - 20} more files             │          │                         │`);
     }
     
-    console.log("└───────────────────────────────────┴──────────┴─────────────────────────┘");
-    console.log();
+    Logger.info("└───────────────────────────────────┴──────────┴─────────────────────────┘");
+    Logger.info("");
   }
   
   // Get namespaces statistics
   const stats = researchCache.getStats();
   
-  console.log("Cache Namespaces:");
-  console.log("┌───────────────────────┬──────┬──────┬──────┬──────────┬───────────────────┐");
-  console.log("│ Namespace             │ Size │ Hits │ Miss │ Evictions│ Last Hit          │");
-  console.log("├───────────────────────┼──────┼──────┼──────┼──────────┼───────────────────┤");
+  Logger.info("Cache Namespaces:");
+  Logger.info("┌───────────────────────┬──────┬──────┬──────┬──────────┬───────────────────┐");
+  Logger.info("│ Namespace             │ Size │ Hits │ Miss │ Evictions│ Last Hit          │");
+  Logger.info("├───────────────────────┼──────┼──────┼──────┼──────────┼───────────────────┤");
   
   for (const namespace of namespaces) {
     const ns = namespace.replace('research:', '').padEnd(21);
     const stat = stats[namespace] || { size: 0, hits: 0, misses: 0, evictions: 0, newestEntry: null };
     
-    console.log(`│ ${ns} │ ${String(stat.size).padEnd(4)} │ ${String(stat.hits).padEnd(4)} │ ${String(stat.misses).padEnd(4)} │ ${String(stat.evictions).padEnd(8)} │ ${formatTime(stat.newestEntry).padEnd(17)} │`);
+    Logger.info(`│ ${ns} │ ${String(stat.size).padEnd(4)} │ ${String(stat.hits).padEnd(4)} │ ${String(stat.misses).padEnd(4)} │ ${String(stat.evictions).padEnd(8)} │ ${formatTime(stat.newestEntry).padEnd(17)} │`);
   }
   
-  console.log("└───────────────────────┴──────┴──────┴──────┴──────────┴───────────────────┘");
+  Logger.info("└───────────────────────┴──────┴──────┴──────┴──────────┴───────────────────┘");
   
   // Print summary
-  console.log("\nCache Summary:");
-  console.log(`  Total Memory Cache Entries: ${cacheManager.size()}`);
-  console.log(`  Total Disk Cache Files: ${fileCount}`);
-  console.log(`  Total Disk Cache Size: ${formatBytes(diskSize)}`);
-  console.log(`  Cache Directory: ${path.resolve(config.CACHE_DIR)}`);
-  console.log(`  Persistent Cache: ${config.CACHE_PERSISTENT === 'true' ? 'Enabled' : 'Disabled'}`);
+  Logger.info("\nCache Summary:");
+  Logger.info(`  Total Memory Cache Entries: ${cacheManager.size()}`);
+  Logger.info(`  Total Disk Cache Files: ${fileCount}`);
+  Logger.info(`  Total Disk Cache Size: ${formatBytes(diskSize)}`);
+  Logger.info(`  Cache Directory: ${path.resolve(config.CACHE_DIR)}`);
+  Logger.info(`  Persistent Cache: ${config.CACHE_PERSISTENT === 'true' ? 'Enabled' : 'Disabled'}`);
   
   // Print TTL settings
-  console.log("\nCache TTL Settings:");
-  console.log(`  Default TTL: ${formatTime(Date.now() - parseInt(config.CACHE_DEFAULT_TTL))} to ${formatTime(Date.now())}`);
-  console.log(`  Search TTL: ${(parseInt(config.CACHE_TTL_SEARCH) / 3600000).toFixed(1)} hours`);
-  console.log(`  Facts TTL: ${(parseInt(config.CACHE_TTL_FACTS) / 3600000).toFixed(1)} hours`);
-  console.log(`  Validation TTL: ${(parseInt(config.CACHE_TTL_VALIDATION) / 3600000).toFixed(1)} hours`);
-  console.log(`  Cross-Domain TTL: ${(parseInt(config.CACHE_TTL_CROSS_DOMAIN) / 3600000).toFixed(1)} hours`);
+  Logger.info("\nCache TTL Settings:");
+  Logger.info(`  Default TTL: ${formatTime(Date.now() - parseInt(config.CACHE_DEFAULT_TTL))} to ${formatTime(Date.now())}`);
+  Logger.info(`  Search TTL: ${(parseInt(config.CACHE_TTL_SEARCH) / 3600000).toFixed(1)} hours`);
+  Logger.info(`  Facts TTL: ${(parseInt(config.CACHE_TTL_FACTS) / 3600000).toFixed(1)} hours`);
+  Logger.info(`  Validation TTL: ${(parseInt(config.CACHE_TTL_VALIDATION) / 3600000).toFixed(1)} hours`);
+  Logger.info(`  Cross-Domain TTL: ${(parseInt(config.CACHE_TTL_CROSS_DOMAIN) / 3600000).toFixed(1)} hours`);
 }
 
 // Clear cache
@@ -202,7 +209,7 @@ function clearCache() {
     rl.question("\n⚠️ Are you sure you want to clear ALL caches? This cannot be undone. (y/N): ", async (answer) => {
       if (answer.toLowerCase() === 'y') {
         researchCache.clearAll();
-        console.log("✅ All caches cleared successfully.");
+        Logger.info("✅ All caches cleared successfully.");
         
         // Also clear disk cache if requested
         if (options.includes('--disk')) {
@@ -211,13 +218,13 @@ function clearCache() {
             for (const file of cacheFiles) {
               await fs.promises.unlink(path.join(config.CACHE_DIR, file.name));
             }
-            console.log(`✅ Removed ${cacheFiles.length} cache files from disk.`);
+            Logger.info(`✅ Removed ${cacheFiles.length} cache files from disk.`);
           } catch (error) {
-            console.error(`❌ Error clearing disk cache: ${error.message}`);
+            Logger.error(`❌ Error clearing disk cache: ${error.message}`);
           }
         }
       } else {
-        console.log("❌ Operation cancelled.");
+        Logger.info("❌ Operation cancelled.");
       }
       rl.close();
     });
@@ -226,8 +233,8 @@ function clearCache() {
     const namespace = targetNamespace.toLowerCase();
     
     if (!availableNamespaces.includes(namespace)) {
-      console.error(`❌ Invalid namespace: ${namespace}`);
-      console.log(`Available namespaces: ${availableNamespaces.join(', ')}`);
+      Logger.error(`❌ Invalid namespace: ${namespace}`);
+      Logger.info(`Available namespaces: ${availableNamespaces.join(', ')}`);
       rl.close();
       return;
     }
@@ -237,9 +244,9 @@ function clearCache() {
     rl.question(`\n⚠️ Are you sure you want to clear the "${namespace}" cache? (y/N): `, (answer) => {
       if (answer.toLowerCase() === 'y') {
         researchCache.clear(fullNamespace);
-        console.log(`✅ Cache namespace "${namespace}" cleared successfully.`);
+        Logger.info(`✅ Cache namespace "${namespace}" cleared successfully.`);
       } else {
-        console.log("❌ Operation cancelled.");
+        Logger.info("❌ Operation cancelled.");
       }
       rl.close();
     });
@@ -253,16 +260,16 @@ async function preloadCache() {
     return;
   }
   
-  console.log("\n🔄 Preloading cache from disk...");
+  Logger.info("\n🔄 Preloading cache from disk...");
   
   try {
     const loadedEntries = await cacheManager.preload();
-    console.log(`✅ Loaded ${loadedEntries} cache entries from disk.`);
+    Logger.info(`✅ Loaded ${loadedEntries} cache entries from disk.`);
     
     // Show stats after preloading
     await showStats();
   } catch (error) {
-    console.error(`❌ Error preloading cache: ${error.message}`);
+    Logger.error(`❌ Error preloading cache: ${error.message}`);
   }
   
   rl.close();
@@ -270,7 +277,7 @@ async function preloadCache() {
 
 // Show help
 function showHelp() {
-  console.log(`
+  Logger.info(`
 Cache Manager Utility
 =====================
 

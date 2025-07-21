@@ -30,6 +30,11 @@
 - **Clear cache**: `npm run cache:clear`
 - **Preload cache**: `npm run cache:preload`
 
+### Utility Scripts
+- **API key validation**: `node tools/check-api-keys.js`
+- **Cache management**: `node tools/cache-manager.js`
+- All utility scripts use Logger integration for output formatting
+
 ## Code Style Guidelines
 
 ### TypeScript Standards
@@ -50,6 +55,8 @@
 - CamelCase naming for variables/functions
 - JSDoc comments for complex logic
 - Error handling with try/catch and error messages
+- Use Logger class for all output (no console.log statements)
+- Utility scripts integrate with Logger system for consistent formatting
 
 ### Testing Standards
 - Jest with 90s timeout for API calls

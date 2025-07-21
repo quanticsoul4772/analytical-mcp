@@ -14,7 +14,7 @@
 **Solutions:**
 1. Check server logs: `npm run inspector`
 2. Verify environment variables are set
-3. Ensure no console.log statements write to stdout
+3. Verify Logger class is used for all output (no console statements)
 4. Restart Claude Desktop
 
 #### JSON Parsing Errors
@@ -22,14 +22,16 @@
 **Cause:** Server writes non-JSON content to stdout
 
 **Solution:**
-Ensure all logging uses `console.error()` instead of `console.log()`. MCP protocol requires clean stdout.
+The project uses a centralized Logger class for all output. No direct console statements should be used.
 
 ```typescript
 // ❌ Wrong - corrupts MCP communication
 console.log('Debug message');
 
-// ✅ Correct - uses stderr 
-console.error('Debug message');
+// ✅ Correct - uses Logger system
+import { Logger } from './utils/logger.js';
+const logger = Logger.getInstance();
+logger.info('Debug message');
 ```
 
 ### Tool Execution Issues
@@ -141,12 +143,30 @@ npm run inspector
 This starts a web interface at `localhost:6277` for testing tools.
 
 ### Logging Configuration
-Adjust logging levels in `.env`:
+The project uses a centralized Logger class. Adjust logging levels in `.env`:
 
 ```bash
 LOG_LEVEL=DEBUG
 NODE_ENV=development
 ```
+
+### Logger Usage
+All code uses the Logger class instead of console statements:
+
+```typescript
+import { Logger } from './utils/logger.js';
+const logger = Logger.getInstance();
+
+logger.info('Information message');
+logger.warn('Warning message'); 
+logger.error('Error message');
+```
+
+### Utility Scripts
+Utility scripts integrate with Logger:
+- tools/cache-manager.js: Cache management with Logger
+- tools/check-api-keys.js: API validation with Logger
+- All output uses Logger formatting
 
 ### Tool Testing
 Test individual tools:

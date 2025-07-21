@@ -1,19 +1,23 @@
 /**
- * Advanced Named Entity Recognition
+ * Advanced Named Entity Recognition - Coordinator
  * 
- * This module provides enhanced named entity recognition capabilities using 
- * a combination of Exa research integration and rule-based approaches.
+ * Orchestrates multiple NER providers using ValidationHelpers + mapping patterns.
+ * Focused responsibility: NER coordination and orchestration.
  */
 
-import natural from 'natural';
 import { Logger } from './logger.js';
-import { nlpToolkit } from './nlp_toolkit.js';
-import { exaResearch } from './exa_research.js';
-import { factExtractor } from './advanced_fact_extraction.js';
+import { ValidationHelpers } from './validation_helpers.js';
 import { config, isFeatureEnabled } from './config.js';
 import { APIError, DataProcessingError } from './errors.js';
 
-// Entity types supported
+// Import provider classes
+import { ExaNERProvider } from './exa_ner_provider.js';
+import { NaturalNERProvider } from './natural_ner_provider.js';
+import { RuleBasedNERProvider } from './rule_based_ner_provider.js';
+import { EntityExtractor } from './entity_extractor.js';
+import { TextProcessor } from './text_processor.js';
+
+// Entity types supported (kept for backward compatibility)
 export enum EntityType {
   PERSON = 'PERSON',
   ORGANIZATION = 'ORGANIZATION',
@@ -28,10 +32,15 @@ export enum EntityType {
   LAW = 'LAW',
   LANGUAGE = 'LANGUAGE',
   WORK_OF_ART = 'WORK_OF_ART',
+  URL = 'URL',
+  EMAIL = 'EMAIL',
+  PHONE = 'PHONE',
+  COORDINATES = 'COORDINATES',
+  MEASUREMENT = 'MEASUREMENT',
   UNKNOWN = 'UNKNOWN'
 }
 
-// Recognized entity
+// Recognized entity interface (kept for backward compatibility)
 export interface RecognizedEntity {
   text: string;
   type: EntityType;
@@ -41,78 +50,51 @@ export interface RecognizedEntity {
   metadata?: Record<string, any>;
 }
 
-// Exa search result with extracted entities
-interface ExaEntityExtractionResult {
+// Provider strategy type
+type ProviderStrategy = 'exa' | 'natural' | 'rule_based' | 'specialized' | 'text_processing';
+
+// Provider result interface
+interface ProviderResult {
   entities: RecognizedEntity[];
+  providerName: string;
   confidence: number;
+  processingTime: number;
 }
 
 /**
- * Advanced Named Entity Recognition class
- * Combines multiple techniques for robust entity recognition
+ * Advanced Named Entity Recognition - Coordinator Class
+ * Orchestrates multiple focused NER providers using mapping patterns
  */
 export class AdvancedNER {
-  private tokenizer = new natural.WordTokenizer();
-  private ner: any = null; // Natural.js NER is not available
-  private nerModelLoaded = false;
+  private exaNERProvider: ExaNERProvider;
+  private naturalNERProvider: NaturalNERProvider;
+  private ruleBasedNERProvider: RuleBasedNERProvider;
+  private entityExtractor: EntityExtractor;
+  private textProcessor: TextProcessor;
   
   constructor() {
-    // Natural.js NER is not available in current version
-    if (this.ner) {
-      try {
-        // Load the built-in model asynchronously
-        this.loadNerModel().catch(err => {
-          Logger.error('Failed to load NER model', err);
-        });
-      } catch (error) {
-        Logger.error('Error initializing natural.js NER', error);
-      }
-    }
-  }
-  
-  /**
-   * Load the natural.js NER model asynchronously
-   */
-  private async loadNerModel(): Promise<void> {
-    if (this.ner && !this.nerModelLoaded) {
-      try {
-        await this.ner.load();
-        this.nerModelLoaded = true;
-        Logger.debug('Natural.js NER model loaded successfully');
-      } catch (error) {
-        Logger.error('Failed to load natural.js NER model', error);
-        throw error;
-      }
-    }
+    // Initialize all provider instances
+    this.exaNERProvider = new ExaNERProvider();
+    this.naturalNERProvider = new NaturalNERProvider();
+    this.ruleBasedNERProvider = new RuleBasedNERProvider();
+    this.entityExtractor = new EntityExtractor();
+    this.textProcessor = new TextProcessor();
   }
 
   /**
    * Recognize entities in text using the best available method
    */
   async recognizeEntities(text: string): Promise<RecognizedEntity[]> {
+    const textValidation = ValidationHelpers.validateNonEmptyString(text);
+    if (!textValidation.isValid) {
+      throw new DataProcessingError('Invalid input text for entity recognition', { text });
+    }
+
     try {
-      // Try Exa-based NER first if research integration is enabled
-      if (isFeatureEnabled('researchIntegration') && config.NLP_USE_EXA === 'true') {
-        try {
-          return await this.recognizeWithExa(text);
-        } catch (error) {
-          Logger.warn('Exa-based NER failed, falling back to alternative methods', error);
-          // Fall through to alternative methods
-        }
-      }
-      
-      // Try natural.js NER if model is loaded
-      if (this.ner && this.nerModelLoaded) {
-        try {
-          return this.recognizeWithNaturalNER(text);
-        } catch (error) {
-          Logger.warn('Natural.js NER failed, falling back to rule-based approach', error);
-          // Fall through to rule-based approach
-        }
-      }
-      
-      // Fall back to rule-based approach
-      return this.recognizeWithRules(text);
+      const preprocessedText = this.preprocessText(text);
+      const providerResults = await this.executeProviderStrategy(preprocessedText);
+      const mergedEntities = this.mergeProviderResults(providerResults);
+      return this.postProcessEntities(mergedEntities, text);
     } catch (error) {
       Logger.error('Entity recognition failed', error);
       throw new DataProcessingError(
@@ -121,808 +103,404 @@ export class AdvancedNER {
       );
     }
   }
-  
+
   /**
-   * Recognize entities using Exa search and research capabilities
+   * Preprocess text using TextProcessor
    */
-  private async recognizeWithExa(text: string): Promise<RecognizedEntity[]> {
+  private preprocessText(text: string): string {
     try {
-      Logger.debug('Using Exa-based entity recognition for text', { textLength: text.length });
-      
-      // Extract some context to help focus the search query
-      const contextSummary = this.generateContextSummary(text);
-      
-      // Create a search query focused on entity recognition
-      const searchQuery = `Identify entities in: "${contextSummary}"`;
-      
-      // Use Exa search to get relevant information
-      const searchResults = await exaResearch.search({
-        query: searchQuery,
-        numResults: config.NLP_EXA_SEARCH_PARAMS.numResults,
-        useWebResults: config.NLP_EXA_SEARCH_PARAMS.useWebResults,
-        useNewsResults: config.NLP_EXA_SEARCH_PARAMS.useNewsResults,
-        includeContents: true
-      });
-      
-      // Process search results to extract entities
-      const extractionResult = this.processExaSearchResults(searchResults, text);
-      
-      // Combine with direct text analysis for more accurate results
-      const directEntities = this.extractDirectEntities(text);
-      
-      // Merge results, removing duplicates and combining confidence scores
-      const mergedEntities = this.mergeEntityResults(extractionResult.entities, directEntities);
-      
-      Logger.debug('Exa-based entity recognition complete', { 
-        entityCount: mergedEntities.length
-      });
-      
-      return mergedEntities;
+      return this.textProcessor.preprocessForNER(text);
     } catch (error) {
-      Logger.error('Exa-based entity recognition failed', error);
-      
-      if (error instanceof APIError) {
-        throw error; // Rethrow API errors for proper handling
-      }
-      
-      throw new DataProcessingError(
-        'Failed to recognize entities with Exa',
-        { originalText: text, error: error instanceof Error ? error.message : String(error) }
-      );
-    }
-  }
-  
-  /**
-   * Generate a shortened context summary for search
-   */
-  private generateContextSummary(text: string): string {
-    // Extract the first few sentences or a limited character count
-    const maxChars = 200;
-    if (text.length <= maxChars) {
+      Logger.warn('Text preprocessing failed, using original text', error);
       return text;
     }
-    
-    // Try to find a sentence boundary
-    const sentenceMatch = text.substring(0, maxChars).match(/^(.*?[.!?])\s/);
-    if (sentenceMatch) {
-      return sentenceMatch[1];
-    }
-    
-    // Fall back to character truncation
-    return text.substring(0, maxChars) + '...';
   }
-  
+
   /**
-   * Process Exa search results to extract entities
+   * Execute provider strategy using mapping patterns
    */
-  private processExaSearchResults(
-    searchResults: any, 
-    originalText: string
-  ): ExaEntityExtractionResult {
-    const allEntities: RecognizedEntity[] = [];
-    let totalConfidence = 0;
-    
-    // Process each search result
-    if (searchResults && searchResults.results && Array.isArray(searchResults.results)) {
-      for (const result of searchResults.results) {
-        if (result.contents) {
-          // Extract entities from the content using our fact extractor
-          const facts = factExtractor.extractFacts(result.contents, {
-            maxFacts: 10,
-            requireEntities: true,
-            filterBoilerplate: true
-          });
+  private async executeProviderStrategy(text: string): Promise<ProviderResult[]> {
+    const providerMapping = this.createProviderExecutionMapping();
+    const results: ProviderResult[] = [];
+
+    for (const [providerName, executor] of providerMapping) {
+      try {
+        if (this.shouldUseProvider(providerName)) {
+          const startTime = Date.now();
+          const entities = await executor(text);
+          const processingTime = Date.now() - startTime;
           
-          // Process extracted facts into entities
-          for (const fact of facts) {
-            const extractedEntities = this.identifyEntitiesInFact(fact, originalText);
-            allEntities.push(...extractedEntities);
-          }
+          results.push({
+            entities,
+            providerName,
+            confidence: this.calculateProviderConfidence(providerName, entities),
+            processingTime
+          });
         }
+      } catch (error) {
+        Logger.warn(`Provider ${providerName} failed`, error);
       }
     }
-    
-    // Attempt to locate entities in the original text
-    const matchedEntities = this.matchEntitiesToOriginalText(allEntities, originalText);
-    
-    // Calculate overall confidence
-    const confidence = matchedEntities.length > 0 ? 
-      matchedEntities.reduce((sum, entity) => sum + entity.confidence, 0) / matchedEntities.length :
-      0;
-    
-    return {
-      entities: matchedEntities,
-      confidence
-    };
+
+    return results;
   }
-  
+
   /**
-   * Identify entities in an extracted fact
+   * Create provider execution mapping
    */
-  private identifyEntitiesInFact(fact: any, originalText: string): RecognizedEntity[] {
-    const entities: RecognizedEntity[] = [];
-    
-    // Check if the fact has explicit entities
-    if (fact.entities && Array.isArray(fact.entities)) {
-      for (const entity of fact.entities) {
-        // Skip very short entities
-        if (typeof entity !== 'string' || entity.length < 2) {
-          continue;
-        }
-        
-        // Try to determine entity type
-        const entityType = this.inferEntityTypeFromContext(entity, fact.text);
-        
-        entities.push({
-          text: entity,
-          type: entityType,
-          startIndex: -1, // Will be filled in by matchEntitiesToOriginalText
-          endIndex: -1,   // Will be filled in by matchEntitiesToOriginalText
-          confidence: fact.score || 0.6 // Use fact score if available, otherwise default
-        });
-      }
-    }
-    
-    // If no explicit entities, try to extract entities from the fact text
-    if (entities.length === 0 && fact.text) {
-      // Use rule-based extraction as a fallback
-      const extractedEntities = this.extractEntitiesWithRules(fact.text);
-      
-      for (const entity of extractedEntities) {
-        entities.push({
-          text: entity.text,
-          type: entity.type,
-          startIndex: -1, // Will be filled in by matchEntitiesToOriginalText
-          endIndex: -1,   // Will be filled in by matchEntitiesToOriginalText
-          confidence: 0.5 // Lower confidence for rule-based extraction from facts
-        });
-      }
-    }
-    
-    return entities;
+  private createProviderExecutionMapping(): Map<ProviderStrategy, (text: string) => Promise<RecognizedEntity[]>> {
+    return new Map([
+      ['exa', this.executeExaProvider.bind(this)],
+      ['natural', this.executeNaturalProvider.bind(this)],
+      ['rule_based', this.executeRuleBasedProvider.bind(this)],
+      ['specialized', this.executeSpecializedProvider.bind(this)],
+      ['text_processing', this.executeTextProcessingProvider.bind(this)]
+    ]);
   }
-  
+
   /**
-   * Match extracted entities to positions in the original text
+   * Execute Exa provider
    */
-  private matchEntitiesToOriginalText(
-    entities: RecognizedEntity[], 
-    originalText: string
-  ): RecognizedEntity[] {
-    const matchedEntities: RecognizedEntity[] = [];
-    
-    for (const entity of entities) {
-      // Skip entities that already have positions
-      if (entity.startIndex !== -1 && entity.endIndex !== -1) {
-        matchedEntities.push(entity);
-        continue;
-      }
-      
-      // Try to find the entity in the original text
-      const entityIndex = originalText.indexOf(entity.text);
-      if (entityIndex !== -1) {
-        matchedEntities.push({
-          ...entity,
-          startIndex: entityIndex,
-          endIndex: entityIndex + entity.text.length
-        });
-      }
-    }
-    
-    return matchedEntities;
+  private async executeExaProvider(text: string): Promise<RecognizedEntity[]> {
+    return await this.exaNERProvider.recognizeEntities(text);
   }
-  
+
   /**
-   * Extract entities directly from the text
+   * Execute Natural provider
    */
-  private extractDirectEntities(text: string): RecognizedEntity[] {
-    // Use a combination of NLP toolkit and rule-based extraction
-    const entities: RecognizedEntity[] = [];
-    
-    // Extract named entities using NLP toolkit
-    const namedEntities = nlpToolkit.extractNamedEntities(text);
-    
-    // Convert to our entity format
-    for (const person of namedEntities.persons) {
-      const index = text.indexOf(person);
-      if (index !== -1) {
-        entities.push({
-          text: person,
-          type: EntityType.PERSON,
-          startIndex: index,
-          endIndex: index + person.length,
-          confidence: 0.7
-        });
-      }
-    }
-    
-    for (const org of namedEntities.organizations) {
-      const index = text.indexOf(org);
-      if (index !== -1) {
-        entities.push({
-          text: org,
-          type: EntityType.ORGANIZATION,
-          startIndex: index,
-          endIndex: index + org.length,
-          confidence: 0.6
-        });
-      }
-    }
-    
-    for (const location of namedEntities.locations) {
-      const index = text.indexOf(location);
-      if (index !== -1) {
-        entities.push({
-          text: location,
-          type: EntityType.LOCATION,
-          startIndex: index,
-          endIndex: index + location.length,
-          confidence: 0.6
-        });
-      }
-    }
-    
-    // Add rule-based entities
-    const ruleEntities = this.extractEntitiesWithRules(text);
-    
-    // Convert to our format with positions
-    for (const entity of ruleEntities) {
-      const index = text.indexOf(entity.text);
-      if (index !== -1) {
-        entities.push({
-          ...entity,
-          startIndex: index,
-          endIndex: index + entity.text.length
-        });
-      }
-    }
-    
-    return entities;
+  private async executeNaturalProvider(text: string): Promise<RecognizedEntity[]> {
+    return this.naturalNERProvider.recognizeEntities(text);
   }
-  
+
   /**
-   * Extract entities using rule-based patterns
+   * Execute rule-based provider
    */
-  private extractEntitiesWithRules(text: string): RecognizedEntity[] {
-    const entities: RecognizedEntity[] = [];
-    
-    // Define patterns for different entity types
-    const patterns = [
-      // Date patterns
-      { 
-        regex: /\b(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2}(?:st|nd|rd|th)?,\s+\d{4}\b/gi,
-        type: EntityType.DATE,
-        confidence: 0.8
-      },
-      { 
-        regex: /\b\d{1,2}\/\d{1,2}\/\d{2,4}\b/g,
-        type: EntityType.DATE,
-        confidence: 0.7
-      },
-      
-      // Money patterns
-      { 
-        regex: /\$\d+(?:\.\d+)?(?:\s+(?:million|billion|trillion))?\b/g,
-        type: EntityType.MONEY,
-        confidence: 0.8
-      },
-      { 
-        regex: /\b\d+(?:\.\d+)?\s+(?:dollars|euros|pounds|yen)\b/gi,
-        type: EntityType.MONEY,
-        confidence: 0.7
-      },
-      
-      // Percentage patterns
-      { 
-        regex: /\b\d+(?:\.\d+)?%\b/g,
-        type: EntityType.PERCENT,
-        confidence: 0.8
-      },
-      { 
-        regex: /\b\d+(?:\.\d+)?\s+percent\b/gi,
-        type: EntityType.PERCENT,
-        confidence: 0.8
-      },
-      
-      // Organization patterns (simplified)
-      { 
-        regex: /\b[A-Z][a-z]*(?:\s+[A-Z][a-z]*)+\s+(?:Inc\.|Corp\.|LLC|Ltd\.|Company|Association|University|College|School|Foundation)\b/g,
-        type: EntityType.ORGANIZATION,
-        confidence: 0.7
-      },
-      
-      // Location patterns (simplified)
-      { 
-        regex: /\b[A-Z][a-z]*(?:\s+[A-Z][a-z]*)*\s+(?:Street|Avenue|Road|Lane|Boulevard|City|County|State|Country)\b/g,
-        type: EntityType.LOCATION,
-        confidence: 0.7
-      }
-    ];
-    
-    // Apply each pattern
-    for (const pattern of patterns) {
-      const matches = text.match(pattern.regex) || [];
-      
-      for (const match of matches) {
-        entities.push({
-          text: match,
-          type: pattern.type,
-          startIndex: -1, // Position not determined at this stage
-          endIndex: -1,   // Position not determined at this stage
-          confidence: pattern.confidence
-        });
-      }
-    }
-    
-    return entities;
+  private async executeRuleBasedProvider(text: string): Promise<RecognizedEntity[]> {
+    return this.ruleBasedNERProvider.recognizeEntities(text);
   }
-  
+
   /**
-   * Infer entity type from context
+   * Execute specialized entity extractor
    */
-  private inferEntityTypeFromContext(entity: string, context: string): EntityType {
-    const entityLower = entity.toLowerCase();
-    const contextLower = context.toLowerCase();
-    
-    // Check for organization indicators
-    if (
-      entityLower.includes(' inc') || 
-      entityLower.includes(' corp') || 
-      entityLower.includes(' llc') ||
-      entityLower.includes(' ltd') ||
-      entityLower.includes(' company') ||
-      entityLower.includes(' association') ||
-      entityLower.includes(' university') ||
-      entityLower.includes(' college') ||
-      entityLower.includes(' school') ||
-      entityLower.includes(' foundation') ||
-      // Context indicators
-      contextLower.includes(`${entityLower} announced`) ||
-      contextLower.includes(`${entityLower} reported`) ||
-      contextLower.includes(`${entityLower} said`)
-    ) {
-      return EntityType.ORGANIZATION;
-    }
-    
-    // Check for location indicators
-    if (
-      entityLower.includes(' street') || 
-      entityLower.includes(' avenue') || 
-      entityLower.includes(' road') ||
-      entityLower.includes(' lane') ||
-      entityLower.includes(' boulevard') ||
-      entityLower.includes(' city') ||
-      entityLower.includes(' county') ||
-      entityLower.includes(' state') ||
-      entityLower.includes(' country') ||
-      // Context indicators
-      contextLower.includes(`in ${entityLower}`) ||
-      contextLower.includes(`at ${entityLower}`) ||
-      contextLower.includes(`to ${entityLower}`) ||
-      contextLower.includes(`from ${entityLower}`)
-    ) {
-      return EntityType.LOCATION;
-    }
-    
-    // Check for person indicators in context
-    if (
-      contextLower.includes(`mr. ${entityLower}`) ||
-      contextLower.includes(`ms. ${entityLower}`) ||
-      contextLower.includes(`mrs. ${entityLower}`) ||
-      contextLower.includes(`dr. ${entityLower}`) ||
-      contextLower.includes(`${entityLower} says`) ||
-      contextLower.includes(`${entityLower} said`)
-    ) {
-      return EntityType.PERSON;
-    }
-    
-    // Default to person if we can't determine
-    // This is a simplistic approach and would need improvement
-    return EntityType.PERSON;
+  private async executeSpecializedProvider(text: string): Promise<RecognizedEntity[]> {
+    return this.entityExtractor.extractEntities(text);
   }
-  
+
   /**
-   * Merge entity results from different sources
+   * Execute text processing provider
    */
-  private mergeEntityResults(
-    exaEntities: RecognizedEntity[], 
-    directEntities: RecognizedEntity[]
-  ): RecognizedEntity[] {
-    const mergedEntities: RecognizedEntity[] = [];
+  private async executeTextProcessingProvider(text: string): Promise<RecognizedEntity[]> {
+    return this.textProcessor.processProperNouns(text);
+  }
+
+  /**
+   * Check if provider should be used
+   */
+  private shouldUseProvider(providerName: ProviderStrategy): boolean {
+    const providerAvailabilityMapping = this.createProviderAvailabilityMapping();
+    const checker = providerAvailabilityMapping.get(providerName);
+    return checker ? checker() : false;
+  }
+
+  /**
+   * Create provider availability mapping
+   */
+  private createProviderAvailabilityMapping(): Map<ProviderStrategy, () => boolean> {
+    return new Map([
+      ['exa', () => this.shouldUseExaNER()],
+      ['natural', () => this.shouldUseNaturalNER()],
+      ['rule_based', () => true], // Always available
+      ['specialized', () => true], // Always available
+      ['text_processing', () => true] // Always available
+    ]);
+  }
+
+  /**
+   * Check if Exa-based NER should be used
+   */
+  private shouldUseExaNER(): boolean {
+    return isFeatureEnabled('researchIntegration') && config.NLP_USE_EXA === 'true';
+  }
+
+  /**
+   * Check if Natural.js NER should be used
+   */
+  private shouldUseNaturalNER(): boolean {
+    return this.naturalNERProvider.isAvailable();
+  }
+
+  /**
+   * Calculate provider confidence score
+   */
+  private calculateProviderConfidence(providerName: ProviderStrategy, entities: RecognizedEntity[]): number {
+    if (entities.length === 0) return 0;
+    
+    const confidenceMapping = this.createProviderConfidenceMapping();
+    const baseConfidence = confidenceMapping.get(providerName) || 0.5;
+    const entityConfidenceAvg = entities.reduce((sum, entity) => sum + entity.confidence, 0) / entities.length;
+    
+    return (baseConfidence + entityConfidenceAvg) / 2;
+  }
+
+  /**
+   * Create provider confidence mapping
+   */
+  private createProviderConfidenceMapping(): Map<ProviderStrategy, number> {
+    return new Map([
+      ['exa', 0.9],           // Highest confidence - research-based
+      ['specialized', 0.85],   // High confidence - pattern-based
+      ['natural', 0.7],       // Medium confidence - ML-based
+      ['rule_based', 0.6],    // Medium confidence - rule-based
+      ['text_processing', 0.5] // Lowest confidence - heuristic-based
+    ]);
+  }
+
+  /**
+   * Merge provider results using priority and confidence
+   */
+  private mergeProviderResults(results: ProviderResult[]): RecognizedEntity[] {
+    if (results.length === 0) return [];
+    
+    // Sort results by confidence and priority
+    const sortedResults = results.sort((a, b) => b.confidence - a.confidence);
+    
+    // Create entity map for deduplication
     const entityMap = new Map<string, RecognizedEntity>();
     
-    // Process Exa entities first (they generally have higher confidence)
-    for (const entity of exaEntities) {
-      const key = `${entity.text}|${entity.type}|${entity.startIndex}|${entity.endIndex}`;
-      entityMap.set(key, entity);
-    }
-    
-    // Add or update with direct entities
-    for (const entity of directEntities) {
-      const key = `${entity.text}|${entity.type}|${entity.startIndex}|${entity.endIndex}`;
-      
-      if (entityMap.has(key)) {
-        // Entity exists, update confidence
-        const existingEntity = entityMap.get(key)!;
-        const newConfidence = (existingEntity.confidence + entity.confidence) / 2;
-        entityMap.set(key, {
-          ...existingEntity,
-          confidence: newConfidence
-        });
-      } else {
-        // New entity
-        entityMap.set(key, entity);
-      }
-    }
-    
-    // Convert map back to array
-    for (const entity of entityMap.values()) {
-      mergedEntities.push(entity);
-    }
-    
-    return mergedEntities;
-  }
-  
-  /**
-   * Recognize entities using natural.js NER
-   */
-  private recognizeWithNaturalNER(text: string): RecognizedEntity[] {
-    if (!this.ner || !this.nerModelLoaded) {
-      throw new Error('Natural.js NER not initialized or model not loaded');
-    }
-    
-    try {
-      // Tokenize the text
-      const tokens = this.tokenizer.tokenize(text);
-      
-      // Get entity tags
-      const tags = this.ner.getEntities(tokens);
-      
-      // Process natural.js NER results
-      const entities: RecognizedEntity[] = [];
-      let currentEntity: {
-        type: string;
-        words: string[];
-        startIndex: number;
-      } | null = null;
-      
-      let currentIndex = 0;
-      
-      // Find the start index of each token in the original text
-      const tokenPositions: number[] = [];
-      let searchIndex = 0;
-      
-      for (const token of tokens) {
-        const tokenIndex = text.indexOf(token, searchIndex);
-        if (tokenIndex !== -1) {
-          tokenPositions.push(tokenIndex);
-          searchIndex = tokenIndex + token.length;
-        } else {
-          // Fallback if token not found
-          tokenPositions.push(searchIndex);
-        }
-      }
-      
-      // Process tags
-      for (let i = 0; i < tags.length; i++) {
-        const tag = tags[i];
-        const token = tokens[i];
-        const startIndex = tokenPositions[i];
+    for (const result of sortedResults) {
+      for (const entity of result.entities) {
+        const entityKey = this.createEntityKey(entity);
+        const existingEntity = entityMap.get(entityKey);
         
-        if (tag !== 'O') {
-          if (!currentEntity || currentEntity.type !== tag) {
-            if (currentEntity) {
-              const entityText = currentEntity.words.join(' ');
-              const startIndex = currentEntity.startIndex;
-              const endIndex = text.indexOf(entityText, startIndex) + entityText.length;
-              
-              entities.push({
-                text: entityText,
-                type: this.mapNaturalEntityType(currentEntity.type),
-                startIndex,
-                endIndex,
-                confidence: 0.7 // Default confidence for natural.js
-              });
+        if (!existingEntity || entity.confidence > existingEntity.confidence) {
+          entityMap.set(entityKey, {
+            ...entity,
+            metadata: {
+              ...entity.metadata,
+              provider: result.providerName,
+              processingTime: result.processingTime
             }
-            
-            currentEntity = {
-              type: tag,
-              words: [token],
-              startIndex
-            };
-          } else {
-            currentEntity.words.push(token);
-          }
-        } else if (currentEntity) {
-          const entityText = currentEntity.words.join(' ');
-          const startIndex = currentEntity.startIndex;
-          const endIndex = startIndex + entityText.length;
-          
-          entities.push({
-            text: entityText,
-            type: this.mapNaturalEntityType(currentEntity.type),
-            startIndex,
-            endIndex,
-            confidence: 0.7 // Default confidence for natural.js
           });
-          
-          currentEntity = null;
         }
       }
-      
-      // Add the last entity if any
-      if (currentEntity) {
-        const entityText = currentEntity.words.join(' ');
-        const startIndex = currentEntity.startIndex;
-        const endIndex = startIndex + entityText.length;
-        
-        entities.push({
-          text: entityText,
-          type: this.mapNaturalEntityType(currentEntity.type),
-          startIndex,
-          endIndex,
-          confidence: 0.7 // Default confidence for natural.js
-        });
+    }
+
+    return Array.from(entityMap.values()).sort((a, b) => a.startIndex - b.startIndex);
+  }
+
+  /**
+   * Create unique entity key for deduplication
+   */
+  private createEntityKey(entity: RecognizedEntity): string {
+    return `${entity.text.toLowerCase()}_${entity.type}_${entity.startIndex}_${entity.endIndex}`;
+  }
+
+  /**
+   * Post-process entities for quality and consistency
+   */
+  private postProcessEntities(entities: RecognizedEntity[], originalText: string): RecognizedEntity[] {
+    const postProcessingSteps = this.createPostProcessingMapping();
+    let processedEntities = entities;
+
+    for (const [stepName, processor] of postProcessingSteps) {
+      try {
+        processedEntities = processor(processedEntities, originalText);
+      } catch (error) {
+        Logger.warn(`Post-processing step ${stepName} failed`, error);
+      }
+    }
+
+    return processedEntities;
+  }
+
+  /**
+   * Create post-processing mapping
+   */
+  private createPostProcessingMapping(): Map<string, (entities: RecognizedEntity[], text: string) => RecognizedEntity[]> {
+    return new Map([
+      ['validate_positions', this.validateEntityPositions.bind(this)],
+      ['resolve_overlaps', this.resolveEntityOverlaps.bind(this)],
+      ['enhance_confidence', this.enhanceEntityConfidence.bind(this)],
+      ['filter_low_quality', this.filterLowQualityEntities.bind(this)]
+    ]);
+  }
+
+  /**
+   * Validate entity positions against original text
+   */
+  private validateEntityPositions(entities: RecognizedEntity[], originalText: string): RecognizedEntity[] {
+    return entities.filter(entity => {
+      if (entity.startIndex < 0 || entity.endIndex > originalText.length) {
+        return false;
       }
       
-      return entities;
-    } catch (error) {
-      Logger.error('Natural.js NER failed', error);
-      throw new DataProcessingError(
-        'Failed to recognize entities with natural.js',
-        { originalText: text, error: error instanceof Error ? error.message : String(error) }
-      );
-    }
-  }
-  
-  /**
-   * Map natural.js entity types to our system
-   */
-  private mapNaturalEntityType(naturalType: string): EntityType {
-    switch (naturalType) {
-      case 'person':
-        return EntityType.PERSON;
-      case 'organization':
-        return EntityType.ORGANIZATION;
-      case 'location':
-        return EntityType.LOCATION;
-      case 'date':
-        return EntityType.DATE;
-      case 'time':
-        return EntityType.TIME;
-      case 'money':
-        return EntityType.MONEY;
-      case 'percent':
-        return EntityType.PERCENT;
-      default:
-        return EntityType.UNKNOWN;
-    }
-  }
-  
-  /**
-   * Recognize entities using rule-based approach
-   */
-  private recognizeWithRules(text: string): RecognizedEntity[] {
-    try {
-      const entities: RecognizedEntity[] = [];
-      
-      // Use POS tagging from NLP toolkit
-      const posTags = nlpToolkit.getPOSTags(text);
-      
-      // Find proper nouns (potential entities)
-      let currentEntity: {
-        words: string[];
-        type: EntityType;
-        startIndex: number;
-      } | null = null;
-      
-      // Find all tokens in original text
-      let currentIndex = 0;
-      for (let i = 0; i < posTags.length; i++) {
-        const { word, tag } = posTags[i];
-        
-        // Find the word in the original text
-        const wordIndex = text.indexOf(word, currentIndex);
-        const startIndex = wordIndex !== -1 ? wordIndex : currentIndex;
-        currentIndex = startIndex + word.length;
-        
-        // Handle proper nouns
-        if (tag === 'NNP' || tag === 'NNPS') {
-          if (!currentEntity) {
-            currentEntity = {
-              words: [word],
-              type: EntityType.UNKNOWN,
-              startIndex
-            };
-          } else {
-            currentEntity.words.push(word);
-          }
-        } else if (currentEntity) {
-          // End of a named entity - try to classify it
-          this.classifyRuleBasedEntity(currentEntity, entities, text);
-          currentEntity = null;
-        }
-        
-        // Look for specific patterns
-        this.extractDateEntities(text, posTags, i, entities);
-        this.extractMoneyEntities(text, posTags, i, entities);
-      }
-      
-      // Add the last entity if any
-      if (currentEntity) {
-        this.classifyRuleBasedEntity(currentEntity, entities, text);
-      }
-      
-      return entities;
-    } catch (error) {
-      Logger.error('Rule-based entity recognition failed', error);
-      throw new DataProcessingError(
-        'Failed to recognize entities with rule-based approach',
-        { originalText: text, error: error instanceof Error ? error.message : String(error) }
-      );
-    }
-  }
-  
-  /**
-   * Classify an entity based on rules and add it to the entities array
-   */
-  private classifyRuleBasedEntity(
-    currentEntity: { words: string[]; type: EntityType; startIndex: number },
-    entities: RecognizedEntity[],
-    text: string
-  ): void {
-    const entityText = currentEntity.words.join(' ');
-    const startIndex = currentEntity.startIndex;
-    const endIndex = startIndex + entityText.length;
-    
-    // Try to classify the entity type
-    const entityType = this.determineEntityType(entityText);
-    
-    entities.push({
-      text: entityText,
-      type: entityType,
-      startIndex,
-      endIndex,
-      confidence: 0.6 // Default confidence for rule-based approach
+      const extractedText = originalText.substring(entity.startIndex, entity.endIndex);
+      return extractedText === entity.text;
     });
   }
-  
+
   /**
-   * Determine the entity type based on patterns and rules
+   * Resolve overlapping entities by keeping highest confidence
    */
-  private determineEntityType(text: string): EntityType {
-    // Check for organization indicators
-    if (
-      text.includes(' Inc') || 
-      text.includes(' Corp') || 
-      text.includes(' LLC') ||
-      text.includes(' Ltd') ||
-      text.includes(' Company') ||
-      text.includes(' Association') ||
-      text.includes(' University') ||
-      text.includes(' College') ||
-      text.includes(' School') ||
-      text.includes(' Foundation')
-    ) {
-      return EntityType.ORGANIZATION;
-    }
+  private resolveEntityOverlaps(entities: RecognizedEntity[], originalText: string): RecognizedEntity[] {
+    const sortedEntities = entities.sort((a, b) => a.startIndex - b.startIndex);
+    const resolvedEntities: RecognizedEntity[] = [];
     
-    // Check for location indicators
-    if (
-      text.includes(' Street') || 
-      text.includes(' Avenue') || 
-      text.includes(' Road') ||
-      text.includes(' Lane') ||
-      text.includes(' Boulevard') ||
-      text.includes(' City') ||
-      text.includes(' County') ||
-      text.includes(' State') ||
-      text.includes(' Country')
-    ) {
-      return EntityType.LOCATION;
-    }
-    
-    // Default to person if we can't determine
-    // This is a simplistic approach and would need improvement
-    return EntityType.PERSON;
-  }
-  
-  /**
-   * Extract date entities from text
-   */
-  private extractDateEntities(
-    text: string, 
-    posTags: Array<{word: string, tag: string}>, 
-    currentIndex: number,
-    entities: RecognizedEntity[]
-  ): void {
-    // Simple date extraction
-    if (currentIndex + 2 < posTags.length) {
-      const monthNames = [
-        'january', 'february', 'march', 'april', 'may', 'june',
-        'july', 'august', 'september', 'october', 'november', 'december'
-      ];
+    for (const entity of sortedEntities) {
+      const hasOverlap = resolvedEntities.some(existing => 
+        this.entitiesOverlap(entity, existing)
+      );
       
-      const currentWord = posTags[currentIndex].word.toLowerCase();
-      const nextWord = posTags[currentIndex + 1].word;
-      const thirdWord = posTags[currentIndex + 2].word;
-      
-      // Check for "Month Day, Year" pattern
-      if (
-        monthNames.includes(currentWord) &&
-        /^[0-9]{1,2}(st|nd|rd|th)?$/.test(nextWord) &&
-        /^[0-9]{4}$/.test(thirdWord)
-      ) {
-        const dateText = `${posTags[currentIndex].word} ${nextWord} ${thirdWord}`;
-        const startIndex = text.indexOf(dateText);
+      if (!hasOverlap) {
+        resolvedEntities.push(entity);
+      } else {
+        // Replace with higher confidence entity
+        const overlappingIndex = resolvedEntities.findIndex(existing => 
+          this.entitiesOverlap(entity, existing)
+        );
         
-        if (startIndex !== -1) {
-          entities.push({
-            text: dateText,
-            type: EntityType.DATE,
-            startIndex,
-            endIndex: startIndex + dateText.length,
-            confidence: 0.75
-          });
+        if (overlappingIndex !== -1 && entity.confidence > resolvedEntities[overlappingIndex].confidence) {
+          resolvedEntities[overlappingIndex] = entity;
         }
       }
     }
+    
+    return resolvedEntities;
   }
-  
+
   /**
-   * Extract money entities from text
+   * Check if two entities overlap
    */
-  private extractMoneyEntities(
-    text: string, 
-    posTags: Array<{word: string, tag: string}>, 
-    currentIndex: number,
-    entities: RecognizedEntity[]
-  ): void {
-    // Simple money extraction
-    const currencySymbols = ['$', '€', '£', '¥'];
-    const currentWord = posTags[currentIndex].word;
+  private entitiesOverlap(entity1: RecognizedEntity, entity2: RecognizedEntity): boolean {
+    return !(entity1.endIndex <= entity2.startIndex || entity2.endIndex <= entity1.startIndex);
+  }
+
+  /**
+   * Enhance entity confidence based on context
+   */
+  private enhanceEntityConfidence(entities: RecognizedEntity[], originalText: string): RecognizedEntity[] {
+    return entities.map(entity => {
+      const contextBonus = this.calculateContextBonus(entity, originalText);
+      return {
+        ...entity,
+        confidence: Math.min(1.0, entity.confidence + contextBonus)
+      };
+    });
+  }
+
+  /**
+   * Calculate context bonus for entity confidence
+   */
+  private calculateContextBonus(entity: RecognizedEntity, originalText: string): number {
+    const contextMapping = this.createContextBonusMapping();
+    let bonus = 0;
     
-    // Check for currency symbol followed by number
-    if (
-      currencySymbols.includes(currentWord) &&
-      currentIndex + 1 < posTags.length &&
-      /^[0-9]+(\.[0-9]+)?$/.test(posTags[currentIndex + 1].word)
-    ) {
-      const moneyText = `${currentWord}${posTags[currentIndex + 1].word}`;
-      const startIndex = text.indexOf(moneyText);
-      
-      if (startIndex !== -1) {
-        entities.push({
-          text: moneyText,
-          type: EntityType.MONEY,
-          startIndex,
-          endIndex: startIndex + moneyText.length,
-          confidence: 0.8
-        });
-      }
+    for (const [contextType, calculator] of contextMapping) {
+      bonus += calculator(entity, originalText);
     }
     
-    // Check for number followed by currency words
-    if (
-      /^[0-9]+(\.[0-9]+)?$/.test(currentWord) &&
-      currentIndex + 1 < posTags.length &&
-      ['dollars', 'euros', 'pounds', 'yen'].includes(posTags[currentIndex + 1].word.toLowerCase())
-    ) {
-      const moneyText = `${currentWord} ${posTags[currentIndex + 1].word}`;
-      const startIndex = text.indexOf(moneyText);
-      
-      if (startIndex !== -1) {
-        entities.push({
-          text: moneyText,
-          type: EntityType.MONEY,
-          startIndex,
-          endIndex: startIndex + moneyText.length,
-          confidence: 0.8
-        });
-      }
+    return Math.min(0.2, bonus); // Cap bonus at 0.2
+  }
+
+  /**
+   * Create context bonus mapping
+   */
+  private createContextBonusMapping(): Map<string, (entity: RecognizedEntity, text: string) => number> {
+    return new Map([
+      ['multiple_providers', (entity: RecognizedEntity, text: string): number => {
+        return entity.metadata?.multipleProviders ? 0.1 : 0;
+      }],
+      ['pattern_validation', (entity: RecognizedEntity, text: string): number => {
+        return this.hasValidPattern(entity) ? 0.05 : 0;
+      }],
+      ['context_keywords', (entity: RecognizedEntity, text: string): number => {
+        return this.hasContextKeywords(entity, text) ? 0.05 : 0;
+      }]
+    ]);
+  }
+
+  /**
+   * Check if entity has valid pattern
+   */
+  private hasValidPattern(entity: RecognizedEntity): boolean {
+    // Basic pattern validation for different entity types
+    switch (entity.type) {
+      case EntityType.EMAIL:
+        return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(entity.text);
+      case EntityType.URL:
+        return /^https?:\/\//.test(entity.text);
+      case EntityType.MONEY:
+        return /^\$[\d,]+(\.\d{2})?$/.test(entity.text);
+      case EntityType.DATE:
+        return /\b\d{1,2}\/\d{1,2}\/\d{4}\b|\b\d{4}-\d{2}-\d{2}\b/.test(entity.text);
+      default:
+        return true; // Assume valid for other types
     }
+  }
+
+  /**
+   * Check if entity has supporting context keywords
+   */
+  private hasContextKeywords(entity: RecognizedEntity, text: string): boolean {
+    const contextKeywords: Record<string, string[]> = {
+      [EntityType.PERSON]: ['said', 'told', 'spoke', 'mr', 'mrs', 'ms', 'dr'],
+      [EntityType.ORGANIZATION]: ['company', 'corporation', 'inc', 'corp', 'llc'],
+      [EntityType.LOCATION]: ['in', 'at', 'from', 'to', 'near', 'city', 'country'],
+      [EntityType.MONEY]: ['cost', 'price', 'worth', 'value', 'paid', 'spend'],
+      [EntityType.DATE]: ['on', 'when', 'during', 'since', 'until', 'by']
+    };
+    
+    const keywords = contextKeywords[entity.type] || [];
+    const textLower = text.toLowerCase();
+    
+    return keywords.some(keyword => textLower.includes(keyword));
+  }
+
+  /**
+   * Filter low quality entities
+   */
+  private filterLowQualityEntities(entities: RecognizedEntity[], originalText: string): RecognizedEntity[] {
+    const minimumConfidence = 0.3;
+    const minimumLength = 2;
+    
+    return entities.filter(entity => 
+      entity.confidence >= minimumConfidence &&
+      entity.text.trim().length >= minimumLength &&
+      !/^\s*$/.test(entity.text)
+    );
+  }
+
+  /**
+   * Get entity recognition statistics
+   */
+  getRecognitionStats(text: string): Promise<Record<string, any>> {
+    const textValidation = ValidationHelpers.validateNonEmptyString(text);
+    if (!textValidation.isValid) {
+      return Promise.resolve({});
+    }
+
+    return this.recognizeEntities(text).then(entities => {
+      const stats: Record<string, any> = {
+        totalEntities: entities.length,
+        averageConfidence: entities.length > 0 ? 
+          entities.reduce((sum, e) => sum + e.confidence, 0) / entities.length : 0,
+        entityTypes: {},
+        providerUsage: {}
+      };
+
+      // Count entities by type
+      for (const entity of entities) {
+        const typeName = EntityType[entity.type] || 'UNKNOWN';
+        stats.entityTypes[typeName] = (stats.entityTypes[typeName] || 0) + 1;
+        
+        const provider = entity.metadata?.provider || 'unknown';
+        stats.providerUsage[provider] = (stats.providerUsage[provider] || 0) + 1;
+      }
+
+      return stats;
+    });
   }
 }
 
-// Singleton instance
+// Singleton instance for backward compatibility
 export const advancedNER = new AdvancedNER();

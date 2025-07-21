@@ -1,7 +1,7 @@
 # Analytical MCP Server Architecture
 
 ## System Overview
-The Analytical MCP Server is a Model Context Protocol (MCP) server that provides statistical analysis, decision support, and logical reasoning capabilities.
+The Analytical MCP Server implements the Model Context Protocol (MCP) to provide statistical analysis, decision support, and logical reasoning tools.
 
 ## Core Components
 
@@ -55,7 +55,8 @@ The Analytical MCP Server is a Model Context Protocol (MCP) server that provides
 - Modularity
 - Type Safety
 - Error Handling
-- Research Capabilities
+- Centralized Logging
+- Research Integration
 
 ## Tool Integration
 Tools work together to:
@@ -73,6 +74,20 @@ Tools work together to:
 - Fact extraction efficiency
 - Configurable confidence thresholds
 - Minimal overhead in research verification
+- Centralized logging system for output consistency
+
+## Infrastructure
+
+### Logging System
+- Centralized Logger class handles all output
+- MCP protocol compliance (stderr for logs, stdout for protocol)
+- Utility scripts integrate with Logger for consistent formatting
+- No direct console.log usage in codebase
+
+### File Structure
+- src/utils/logger.ts: Core logging implementation
+- tools/: Utility scripts with Logger integration
+- examples/: Demonstration scripts (console output preserved for clarity)
 
 ## Future Roadmap
 - Machine Learning Integration

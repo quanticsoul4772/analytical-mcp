@@ -26,24 +26,7 @@ interface ConfigMock {
   };
 }
 
-// Mock the Logger
-jest.mock('../logger', () => ({
-  Logger: {
-    debug: jest.fn(),
-    info: jest.fn(),
-    warn: jest.fn(),
-    error: jest.fn(),
-    log: jest.fn(),
-  },
-}));
-
-// Mock the config module
-jest.mock('../config', () => ({
-  config: {
-    // Default mock values, will be modified in tests
-    EXA_API_KEY: undefined,
-  },
-}));
+// Note: Tests now run against real implementations without mocking
 
 describe('API Helper Utilities', () => {
   // Clear mocks before each test

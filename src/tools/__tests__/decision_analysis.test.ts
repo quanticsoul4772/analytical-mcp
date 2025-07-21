@@ -1,22 +1,10 @@
-import { describe, it, expect, jest, beforeEach } from '@jest/globals';
+import { describe, it, expect, beforeEach } from '@jest/globals';
 import { decisionAnalysis } from '../decision_analysis.js';
 import { ValidationError } from '../../utils/errors.js';
 
-// Mock the Logger
-jest.mock('../../utils/logger', () => ({
-  Logger: {
-    debug: jest.fn(),
-    info: jest.fn(),
-    warn: jest.fn(),
-    error: jest.fn(),
-    log: jest.fn(),
-  },
-}));
-
 describe('Decision Analysis', () => {
-  // Clear mocks before each test
   beforeEach(() => {
-    jest.clearAllMocks();
+    // Test setup if needed
   });
 });
 
