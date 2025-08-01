@@ -7,6 +7,7 @@
 
 import { z } from 'zod';
 import * as mathjs from 'mathjs';
+import { withErrorHandling, createValidationError, createDataProcessingError } from '../utils/errors.js';
 
 /**
  * ML Model Evaluation Schema
@@ -54,7 +55,11 @@ function calculateClassificationMetrics(
   predictedValues: number[]
 ): Record<string, number> {
   if (actualValues.length !== predictedValues.length) {
-    throw new Error('Actual and predicted values must have the same length');
+    throw createValidationError(
+      'Actual and predicted values must have the same length',
+      { actualLength: actualValues.length, predictedLength: predictedValues.length },
+      'ml_model_evaluation'
+    );
   }
 
   // Assuming binary classification for simplicity
@@ -145,7 +150,7 @@ function calculateRegressionMetrics(
  * @param evaluationMetrics Optional array of specific metrics to calculate
  * @returns Formatted markdown report with evaluation results
  */
-export async function evaluateMLModel(
+async function evaluateMLModelInternal(
   modelType: string,
   actualValues: number[],
   predictedValues: number[],
@@ -154,7 +159,11 @@ export async function evaluateMLModel(
   try {
     // Validate inputs
     if (actualValues.length === 0 || predictedValues.length === 0) {
-      throw new Error('Input arrays cannot be empty');
+      throw createValidationError(
+        'Input arrays cannot be empty',
+        { actualLength: actualValues.length, predictedLength: predictedValues.length },
+        'ml_model_evaluation'
+      );
     }
 
     // Select metrics based on model type
@@ -167,7 +176,11 @@ export async function evaluateMLModel(
     } else if (modelType === 'regression') {
       metrics = calculateRegressionMetrics(actualValues, predictedValues);
     } else {
-      throw new Error(`Unsupported model type: ${modelType}`);
+      throw createValidationError(
+        `Unsupported model type: ${modelType}`,
+        { modelType, supportedTypes: ['classification', 'regression'] },
+        'ml_model_evaluation'
+      );
     }
 
     // Filter metrics based on requested evaluation metrics
@@ -192,14 +205,22 @@ ${Object.entries(filteredMetrics)
 
     return report;
   } catch (error) {
-    return `## Error in ML Model Evaluation
-- **Error Message**: ${error instanceof Error ? error.message : 'Unknown error'}
-- **Model Type**: ${modelType}
-- **Number of Actual Values**: ${actualValues.length}
-- **Number of Predicted Values**: ${predictedValues.length}
-`;
+    // Re-throw our custom errors
+    if (error instanceof Error && (error.name.includes('ValidationError') || error.name.includes('DataProcessingError'))) {
+      throw error;
+    }
+    
+    // Wrap unknown errors
+    throw createDataProcessingError(
+      `ML model evaluation failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      { modelType, actualLength: actualValues?.length, predictedLength: predictedValues?.length, originalError: error },
+      'ml_model_evaluation'
+    );
   }
 }
+
+// Export the wrapped function with error handling
+export const evaluateMLModel = withErrorHandling('ml_model_evaluation', evaluateMLModelInternal);
 
 /**
  * Tool definition for MCP server registration

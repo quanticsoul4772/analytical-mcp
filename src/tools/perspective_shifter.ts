@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { exaResearch } from '../utils/exa_research.js';
 import { Logger } from '../utils/logger.js';
-import { ValidationError, DataProcessingError, APIError } from '../utils/errors.js';
+import { withErrorHandling, createValidationError, createDataProcessingError, createAPIError } from '../utils/errors.js';
 
 // Schema for perspective shifter
 const PerspectiveShifterSchema = z.object({
@@ -56,9 +56,11 @@ async function generatePerspectives(
   } catch (error) {
     if (error instanceof z.ZodError) {
       Logger.error('Perspective shifter validation failed', error);
-      throw new ValidationError(`Invalid parameters for perspective shifting: ${error.message}`, {
-        issues: error.issues,
-      });
+      throw createValidationError(
+        `Invalid parameters for perspective shifting: ${error.message}`,
+        { issues: error.issues, shiftType, numberOfPerspectives },
+        'perspective_shifter'
+      );
     }
     throw error;
   }
@@ -109,12 +111,9 @@ async function generatePerspectives(
 
     return result;
   } catch (error) {
-    if (error instanceof APIError) {
-      Logger.error('API error during perspective shifting', error, {
-        status: error.status,
-        endpoint: error.endpoint,
-      });
-      throw error; // Rethrow API errors as they are already properly formatted
+    // Re-throw if it's already one of our custom errors
+    if (error instanceof Error && (error.name.includes('ValidationError') || error.name.includes('APIError') || error.name.includes('DataProcessingError'))) {
+      throw error;
     }
 
     Logger.error('Perspective Shifting Error', error, {
@@ -123,15 +122,16 @@ async function generatePerspectives(
       numberOfPerspectives,
     });
 
-    throw new DataProcessingError(
+    throw createDataProcessingError(
       `Perspective shifting failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
-      { shiftType, problemLength: problem.length }
+      { shiftType, problemLength: problem.length, originalError: error },
+      'perspective_shifter'
     );
   }
 }
 
-// Export the function with support for both parameter styles
-export const perspectiveShifter = async (
+// Internal wrapper function with support for both parameter styles
+async function perspectiveShifterInternal(
   problemOrParams: string | {
     problem: string;
     currentPerspective?: string;
@@ -143,7 +143,7 @@ export const perspectiveShifter = async (
   shiftType: string = 'stakeholder',
   numberOfPerspectives: number = 3,
   includeActionable: boolean = true
-): Promise<string> => {
+): Promise<string> {
   if (typeof problemOrParams === 'object') {
     return generatePerspectives(
       problemOrParams.problem,
@@ -161,4 +161,7 @@ export const perspectiveShifter = async (
       includeActionable
     );
   }
-};
+}
+
+// Export the wrapped function with error handling
+export const perspectiveShifter = withErrorHandling('perspective_shifter', perspectiveShifterInternal);

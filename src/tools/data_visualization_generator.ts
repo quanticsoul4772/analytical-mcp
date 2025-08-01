@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { ValidationHelpers } from '../utils/validation_helpers.js';
-import { ValidationError } from '../utils/errors.js';
+import { withErrorHandling, createValidationError, createDataProcessingError } from '../utils/errors.js';
 import { CustomizationProvider } from '../utils/customization_provider.js';
 import { VisualizationValidationProvider } from '../utils/visualization_validation_provider.js';
 import { OutputFormattingProvider } from '../utils/output_formatting_provider.js';
@@ -38,8 +38,8 @@ export const dataVisualizationGeneratorSchema = z.object({
   options: z.record(z.any()).optional().describe('Additional visualization options'),
 });
 
-// Tool implementation
-export async function dataVisualizationGenerator(
+// Internal tool implementation
+async function dataVisualizationGeneratorInternal(
   params: VisualizationOptions
 ): Promise<string> {
   // Destructure parameters from options object
@@ -89,5 +89,8 @@ export async function dataVisualizationGenerator(
 
   return result;
 }
+
+// Export the wrapped function with error handling
+export const dataVisualizationGenerator = withErrorHandling('data_visualization_generator', dataVisualizationGeneratorInternal);
 
 

@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import * as math from 'mathjs';
-import { ValidationError, DataProcessingError } from '../utils/errors.js';
+import { withErrorHandling, createValidationError, createDataProcessingError } from '../utils/errors.js';
 import { Logger } from '../utils/logger.js';
 
 // Type definitions
@@ -18,21 +18,25 @@ export const analyzeDatasetSchema = z.object({
     .describe('Type of analysis to perform'),
 });
 
-// Tool implementation
-export async function analyzeDataset(data: Dataset, analysisType: string): Promise<string> {
+// Internal tool implementation
+async function analyzeDatasetInternal(data: Dataset, analysisType: string): Promise<string> {
   try {
     Logger.debug(`Analyzing dataset`, { analysisType, dataLength: data?.length });
 
     // Validate inputs
     if (!Array.isArray(data) || data.length === 0) {
-      throw new ValidationError(
-        'Invalid data format. Please provide an array of numeric values or data objects.'
+      throw createValidationError(
+        'Invalid data format. Please provide an array of numeric values or data objects.',
+        { data: data ? 'length=' + data.length : 'null/undefined', type: typeof data },
+        'analyze_dataset'
       );
     }
 
     if (!['summary', 'stats'].includes(analysisType)) {
-      throw new ValidationError(
-        `Invalid analysis type: ${analysisType}. Supported types are 'summary' and 'stats'.`
+      throw createValidationError(
+        `Invalid analysis type: ${analysisType}. Supported types are 'summary' and 'stats'.`,
+        { analysisType, validTypes: ['summary', 'stats'] },
+        'analyze_dataset'
       );
     }
 
@@ -47,8 +51,10 @@ export async function analyzeDataset(data: Dataset, analysisType: string): Promi
         );
 
         if (!numericProperty) {
-          throw new ValidationError(
-            'Could not find numeric property in data objects for analysis.'
+          throw createValidationError(
+            'Could not find numeric property in data objects for analysis.',
+            { availableProperties: Object.keys(firstObject), firstObject },
+            'analyze_dataset'
           );
         }
 
@@ -61,16 +67,23 @@ export async function analyzeDataset(data: Dataset, analysisType: string): Promi
 
       // Validate numeric data
       if (numericData.some((val) => typeof val !== 'number' || isNaN(val))) {
-        throw new ValidationError('Dataset contains non-numeric values.');
+        const invalidValues = numericData.filter((val) => typeof val !== 'number' || isNaN(val));
+        throw createValidationError(
+          'Dataset contains non-numeric values.',
+          { invalidValues: invalidValues.slice(0, 5), totalInvalid: invalidValues.length },
+          'analyze_dataset'
+        );
       }
     } catch (error) {
-      if (error instanceof ValidationError) {
+      if (error instanceof Error && error.name === 'ValidationError') {
         throw error;
       }
 
       Logger.error('Error processing dataset', error);
-      throw new DataProcessingError(
-        `Failed to process dataset: ${error instanceof Error ? error.message : String(error)}`
+      throw createDataProcessingError(
+        `Failed to process dataset: ${error instanceof Error ? error.message : String(error)}`,
+        { originalError: error, data: 'redacted' },
+        'analyze_dataset'
       );
     }
 
@@ -126,8 +139,10 @@ export async function analyzeDataset(data: Dataset, analysisType: string): Promi
     `;
       } catch (error) {
         Logger.error('Error during statistical calculations', error);
-        throw new DataProcessingError(
-          `Statistical calculation failed: ${error instanceof Error ? error.message : String(error)}`
+        throw createDataProcessingError(
+          `Statistical calculation failed: ${error instanceof Error ? error.message : String(error)}`,
+          { calculationType: 'statistics', dataLength: numericData.length },
+          'analyze_dataset'
         );
       }
     } else {
@@ -167,21 +182,25 @@ ${numericData.slice(0, 5).join(', ')}${numericData.length > 5 ? ', ...' : ''}
     `;
       } catch (error) {
         Logger.error('Error during summary calculations', error);
-        throw new DataProcessingError(
-          `Summary calculation failed: ${error instanceof Error ? error.message : String(error)}`
+        throw createDataProcessingError(
+          `Summary calculation failed: ${error instanceof Error ? error.message : String(error)}`,
+          { calculationType: 'summary', dataLength: numericData.length },
+          'analyze_dataset'
         );
       }
     }
   } catch (error) {
     // Ensure all errors are properly logged
-    if (!(error instanceof ValidationError) && !(error instanceof DataProcessingError)) {
+    if (!(error instanceof Error) || (!error.name.includes('ValidationError') && !error.name.includes('DataProcessingError'))) {
       Logger.error('Unexpected error in dataset analysis', error);
-      throw new DataProcessingError(
-        `Dataset analysis failed: ${error instanceof Error ? error.message : String(error)}`
+      throw createDataProcessingError(
+        `Dataset analysis failed: ${error instanceof Error ? error.message : String(error)}`,
+        { originalError: error, analysisType, dataLength: data?.length },
+        'analyze_dataset'
       );
     }
 
-    // Re-throw ValidationError and DataProcessingError
+    // Re-throw our custom errors
     throw error;
   }
 }
@@ -213,3 +232,6 @@ function calculateVariance(arr: number[]): number {
 
   return sum / arr.length;
 }
+
+// Export the wrapped function with error handling
+export const analyzeDataset = withErrorHandling('analyze_dataset', analyzeDatasetInternal);
