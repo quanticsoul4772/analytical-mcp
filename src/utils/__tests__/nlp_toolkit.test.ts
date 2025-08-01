@@ -1,3 +1,4 @@
+import { describe, it, test, expect } from '@jest/globals';
 import { nlpToolkit } from '../nlp_toolkit.js';
 
 describe('NLP Toolkit', () => {

@@ -88,7 +88,7 @@ describe('Rate Limit Manager', () => {
 
     // Mock function that tracks which key was used
     const usedKeys: string[] = [];
-    const mockFnWithKeyTracking = jest.fn().mockImplementation((apiKey: unknown) => {
+    const mockFnWithKeyTracking = jest.fn().mockImplementation((apiKey: unknown): Promise<string> => {
       usedKeys.push(apiKey as string);
 
       // Rate limit on first key, succeed on second

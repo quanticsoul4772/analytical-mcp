@@ -182,7 +182,7 @@ export class MentionExtractionProvider {
     
     try {
       // Use POS tagging to find determiners followed by nouns
-      const posTags = nlpToolkit.posTag(text);
+      const posTags = nlpToolkit.getPOSTags(text);
       
       for (let i = 0; i < posTags.length - 1; i++) {
         const current = posTags[i];
@@ -263,7 +263,7 @@ export class MentionExtractionProvider {
           animacy: Animacy.ANIMATE
         };
       case EntityType.ORGANIZATION:
-      case EntityType.GPE:
+      case EntityType.LOCATION:
       case EntityType.FACILITY:
         return {
           gender: Gender.NEUTRAL,

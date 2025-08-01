@@ -124,6 +124,13 @@ export function isFeatureEnabled(feature: keyof FeatureFlags): boolean {
   return DEFAULT_FEATURE_FLAGS[environment][feature] || false;
 }
 
+/**
+ * Get a configuration value by key
+ */
+export function getConfig(key: string): any {
+  return (config as any)[key];
+}
+
 // Log configuration on startup
 Logger.debug('Configuration loaded', {
   environment: config.NODE_ENV,

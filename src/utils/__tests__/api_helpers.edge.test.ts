@@ -274,7 +274,7 @@ describe('API Helper Utilities - Edge Cases', () => {
       ).rejects.toThrow(APIError);
 
       // Should not have created a new APIError wrapper
-      const { Logger } = await import('../logger.js');
+      const { Logger } = await import('../logger');
       expect(Logger.error).toHaveBeenCalledWith(
         expect.stringContaining('API error'),
         expect.objectContaining({
@@ -319,7 +319,7 @@ describe('API Helper Utilities - Edge Cases', () => {
       ).rejects.toThrow(APIError);
 
       // Should have converted to APIError
-      const { Logger } = await import('../logger.js');
+      const { Logger } = await import('../logger');
       expect(Logger.error).toHaveBeenCalledWith(
         expect.stringContaining('API error'),
         expect.any(Object),
