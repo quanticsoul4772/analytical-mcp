@@ -1,5 +1,11 @@
 import { z } from 'zod';
-import { ValidationError, DataProcessingError } from '../utils/errors.js';
+import { 
+  ValidationError, 
+  DataProcessingError,
+  withErrorHandling,
+  createValidationError,
+  createDataProcessingError
+} from '../utils/errors.js';
 import { Logger } from '../utils/logger.js';
 
 // Schema for the tool parameters
@@ -19,8 +25,8 @@ export interface DecisionAnalysisParams {
   weights?: number[];
 }
 
-// Tool implementation that accepts both a parameter object and individual parameters
-export async function decisionAnalysis(
+// Internal decision analysis function (wrapped for error handling)
+async function decisionAnalysisInternal(
   optionsOrParams: string[] | DecisionAnalysisParams,
   criteriaOrVoid?: string[],
   weights?: number[]
@@ -48,21 +54,37 @@ export async function decisionAnalysis(
 
     // Validate inputs
     if (!options || !Array.isArray(options) || options.length === 0) {
-      throw new ValidationError('At least one option must be provided');
+      throw createValidationError(
+        'At least one option must be provided',
+        { providedOptions: options },
+        'decision_analysis'
+      );
     }
 
     if (!criteria || !Array.isArray(criteria) || criteria.length === 0) {
-      throw new ValidationError('At least one criterion must be provided');
+      throw createValidationError(
+        'At least one criterion must be provided',
+        { providedCriteria: criteria },
+        'decision_analysis'
+      );
     }
 
     // Check for empty strings in options
     if (options.some((opt) => typeof opt !== 'string' || opt.trim() === '')) {
-      throw new ValidationError('All options must be non-empty strings');
+      throw createValidationError(
+        'All options must be non-empty strings',
+        { invalidOptions: options.filter(opt => typeof opt !== 'string' || opt.trim() === '') },
+        'decision_analysis'
+      );
     }
 
     // Check for empty strings in criteria
     if (criteria.some((crit) => typeof crit !== 'string' || crit.trim() === '')) {
-      throw new ValidationError('All criteria must be non-empty strings');
+      throw createValidationError(
+        'All criteria must be non-empty strings',
+        { invalidCriteria: criteria.filter(crit => typeof crit !== 'string' || crit.trim() === '') },
+        'decision_analysis'
+      );
     }
 
     // Use equal weights if none provided
@@ -70,15 +92,21 @@ export async function decisionAnalysis(
 
     // Validate weights length
     if (normalizedWeights.length !== criteria.length) {
-      throw new ValidationError(
-        `Weights length (${normalizedWeights.length}) must match criteria length (${criteria.length})`
+      throw createValidationError(
+        `Weights length (${normalizedWeights.length}) must match criteria length (${criteria.length})`,
+        { weightsLength: normalizedWeights.length, criteriaLength: criteria.length },
+        'decision_analysis'
       );
     }
 
     // Validate weights are numbers and sum to approximately 1
     if (weights) {
       if (weights.some((w) => typeof w !== 'number' || isNaN(w))) {
-        throw new ValidationError('All weights must be valid numbers');
+        throw createValidationError(
+          'All weights must be valid numbers',
+          { invalidWeights: weights.filter(w => typeof w !== 'number' || isNaN(w)) },
+          'decision_analysis'
+        );
       }
 
       const weightSum = weights.reduce((sum, w) => sum + w, 0);
@@ -220,16 +248,20 @@ export async function decisionAnalysis(
       return result;
     } catch (error) {
       Logger.error('Error generating decision analysis results', error);
-      throw new DataProcessingError(
-        `Failed to generate decision analysis: ${error instanceof Error ? error.message : String(error)}`
+      throw createDataProcessingError(
+        `Failed to generate decision analysis: ${error instanceof Error ? error.message : String(error)}`,
+        { originalError: error },
+        'decision_analysis'
       );
     }
   } catch (error) {
     // Ensure all errors are properly logged and categorized
     if (!(error instanceof ValidationError) && !(error instanceof DataProcessingError)) {
       Logger.error('Unexpected error in decision analysis', error);
-      throw new DataProcessingError(
-        `Decision analysis failed: ${error instanceof Error ? error.message : String(error)}`
+      throw createDataProcessingError(
+        `Decision analysis failed: ${error instanceof Error ? error.message : String(error)}`,
+        { originalError: error },
+        'decision_analysis'
       );
     }
 
@@ -237,3 +269,9 @@ export async function decisionAnalysis(
     throw error;
   }
 }
+
+// Export the wrapped function with standardized error handling
+export const decisionAnalysis = withErrorHandling(
+  'decision_analysis',
+  decisionAnalysisInternal
+);

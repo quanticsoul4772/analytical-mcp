@@ -6,7 +6,12 @@
  */
 
 import { z } from 'zod';
-import { ValidationError } from '../utils/errors.js';
+import { 
+  ValidationError, 
+  withErrorHandling,
+  createValidationError,
+  createDataProcessingError
+} from '../utils/errors.js';
 import { Logger } from '../utils/logger.js';
 import { ValidationHelpers } from '../utils/validation_helpers.js';
 
@@ -181,7 +186,14 @@ class AdvancedRegressionAnalysisCoordinator {
     const regressionHandler = providerMapping[regressionType];
     
     if (!regressionHandler) {
-      throw new ValidationError(`Unsupported regression type: ${regressionType}`);
+      throw createValidationError(
+        `Unsupported regression type: ${regressionType}`,
+        { 
+          providedType: regressionType, 
+          supportedTypes: ['linear', 'polynomial', 'logistic', 'multivariate'] 
+        },
+        'advanced_regression_analysis'
+      );
     }
 
     const { provider, method } = regressionHandler;
@@ -292,8 +304,17 @@ class AdvancedRegressionAnalysisCoordinator {
       return completeResult;
       
     } catch (error) {
+      // Re-throw ValidationError without modification
+      if (error instanceof ValidationError) {
+        throw error;
+      }
+      
       Logger.error('Regression analysis failed', error);
-      throw error;
+      throw createDataProcessingError(
+        `Regression analysis failed: ${error instanceof Error ? error.message : String(error)}`,
+        { regressionType: options.regressionType, originalError: error },
+        'advanced_regression_analysis'
+      );
     }
   }
 }
@@ -302,13 +323,21 @@ class AdvancedRegressionAnalysisCoordinator {
 const regressionCoordinator = new AdvancedRegressionAnalysisCoordinator();
 
 /**
- * Main export function - delegates to coordinator
+ * Internal function - delegates to coordinator (wrapped for error handling)
  */
-export async function advancedRegressionAnalysis(
+async function advancedRegressionAnalysisInternal(
   options: RegressionAnalysisOptions
 ): Promise<string> {
   return await regressionCoordinator.performRegressionAnalysis(options);
 }
+
+/**
+ * Main export function with standardized error handling
+ */
+export const advancedRegressionAnalysis = withErrorHandling(
+  'advanced_regression_analysis',
+  advancedRegressionAnalysisInternal
+);
 
 /**
  * Export provider access for testing and advanced usage

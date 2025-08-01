@@ -1,7 +1,14 @@
 import { z } from 'zod';
 import * as mathjs from 'mathjs';
 import { Logger } from '../utils/logger.js';
-import { ValidationError, DataProcessingError } from '../utils/errors.js';
+import { 
+  ValidationError, 
+  DataProcessingError, 
+  withErrorHandling,
+  createValidationError,
+  createDataProcessingError,
+  ErrorCodes
+} from '../utils/errors.js';
 
 // Schema for hypothesis testing
 const HypothesisTestingSchema = z.object({
@@ -35,8 +42,8 @@ function interpretCorrelation(r: number): string {
   return 'strong';
 }
 
-// Hypothesis testing function
-async function hypothesisTesting(
+// Internal hypothesis testing function (wrapped for error handling)
+async function hypothesisTestingInternal(
   testType: string,
   data: number[][] | Record<string, any>[],
   variables?: string[],
@@ -60,9 +67,11 @@ async function hypothesisTesting(
   } catch (error) {
     if (error instanceof z.ZodError) {
       Logger.error('Hypothesis testing validation failed', error);
-      throw new ValidationError(`Invalid parameters for hypothesis testing: ${error.message}`, {
-        issues: error.issues,
-      });
+      throw createValidationError(
+        `Invalid parameters for hypothesis testing: ${error.message}`,
+        { issues: error.issues },
+        'hypothesis_testing'
+      );
     }
     throw error;
   }
@@ -113,21 +122,37 @@ async function hypothesisTesting(
         break;
 
       default:
-        throw new Error(`Unsupported test type: ${testType}`);
+        throw createValidationError(
+          `Unsupported test type: ${testType}`,
+          { supportedTypes: ['t_test_independent', 't_test_paired', 'correlation', 'chi_square', 'anova'] },
+          'hypothesis_testing'
+        );
     }
 
     return result;
   } catch (error) {
+    // Re-throw ValidationError without modification
+    if (error instanceof ValidationError) {
+      throw error;
+    }
+    
     Logger.error('Hypothesis Testing Error', error, {
       testType,
       dataLength: data.length,
     });
-    throw new DataProcessingError(
+    throw createDataProcessingError(
       `Hypothesis testing failed: ${error instanceof Error ? error.message : String(error)}`,
-      { testType }
+      { testType, originalError: error },
+      'hypothesis_testing'
     );
   }
 }
 
-// Explicit re-export of the function and schema
-export { hypothesisTesting, HypothesisTestingSchema as hypothesisTestingSchema };
+// Wrap the function with standardized error handling
+export const hypothesisTesting = withErrorHandling(
+  'hypothesis_testing',
+  hypothesisTestingInternal
+);
+
+// Export schema
+export { HypothesisTestingSchema as hypothesisTestingSchema };

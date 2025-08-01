@@ -1,5 +1,12 @@
 import { z } from 'zod';
-import { ValidationError, ToolExecutionError, DataProcessingError } from '../utils/errors.js';
+import { 
+  ValidationError, 
+  ToolExecutionError, 
+  DataProcessingError,
+  withErrorHandling,
+  createValidationError,
+  createDataProcessingError
+} from '../utils/errors.js';
 import { Logger } from '../utils/logger.js';
 
 // Fallacy definition type
@@ -122,7 +129,11 @@ async function detectFallacies(
   try {
     // Performance optimization: early validation of input length
     if (!text || text.trim().length === 0) {
-      throw new ValidationError('Empty or invalid text provided for fallacy detection');
+      throw createValidationError(
+        'Empty or invalid text provided for fallacy detection',
+        { providedText: text },
+        'logical_fallacy_detector'
+      );
     }
 
     Logger.debug(`Analyzing text for logical fallacies`, {
@@ -144,7 +155,7 @@ async function detectFallacies(
     } catch (error) {
       if (error instanceof z.ZodError) {
         Logger.error('Validation error in logical fallacy detector', error);
-        throw new ValidationError(
+        throw createValidationError(
           `Invalid parameters for logical fallacy detection: ${error.message}`,
           {
             issues: error.issues,
@@ -198,9 +209,10 @@ async function detectFallacies(
       }
     } catch (error) {
       Logger.error('Error during fallacy pattern matching', error);
-      throw new DataProcessingError(
+      throw createDataProcessingError(
         `Error analyzing text for fallacies: ${error instanceof Error ? error.message : String(error)}`,
-        { textLength: text.length }
+        { textLength: text.length, originalError: error },
+        'logical_fallacy_detector'
       );
     }
 
@@ -260,15 +272,16 @@ async function detectFallacies(
 
     // For unknown errors, wrap in a DataProcessingError for consistent handling
     Logger.error('Unexpected error in logical fallacy detector', error);
-    throw new DataProcessingError(
+    throw createDataProcessingError(
       `Logical fallacy detection failed: ${error instanceof Error ? error.message : String(error)}`,
-      { textLength: text?.length }
+      { textLength: text?.length, originalError: error },
+      'logical_fallacy_detector'
     );
   }
 }
 
-// Export the function
-export const logicalFallacyDetector = async (
+// Internal function (wrapped for error handling)
+const logicalFallacyDetectorInternal = async (
   textOrParams: string | {
     text: string;
     confidenceThreshold?: number;
@@ -300,3 +313,9 @@ export const logicalFallacyDetector = async (
     );
   }
 };
+
+// Export the wrapped function with standardized error handling
+export const logicalFallacyDetector = withErrorHandling(
+  'logical_fallacy_detector',
+  logicalFallacyDetectorInternal
+);
