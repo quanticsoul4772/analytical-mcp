@@ -141,12 +141,12 @@ export class MentionExtractionProvider {
     ValidationHelpers.throwIfInvalid(ValidationHelpers.validateNonEmptyString(text));
     
     const mentions: Mention[] = [];
-    const words = text.split(/\\s+/);
+    const words = text.split(/\s+/);
     
     let currentIndex = 0;
     for (const word of words) {
       // Clean the word (remove punctuation)
-      const cleanWord = word.toLowerCase().replace(/[^\\w\\s]/g, '');
+      const cleanWord = word.toLowerCase().replace(/[^\w\s]/g, '');
       
       // Check if it's a pronoun
       if (this.PRONOUN_MAP[cleanWord]) {
@@ -239,7 +239,7 @@ export class MentionExtractionProvider {
     ValidationHelpers.throwIfInvalid(ValidationHelpers.validateNonEmptyString(phrase));
     
     // Simple strategy: use the last word as head
-    const words = phrase.trim().split(/\\s+/);
+    const words = phrase.trim().split(/\s+/);
     return words[words.length - 1];
   }
 
