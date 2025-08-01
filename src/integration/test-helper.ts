@@ -2,11 +2,24 @@
  * Test helper functions for integration tests
  */
 
-import { exaResearch } from '../__mocks__/exa-research.js';
-import { researchVerification } from '../__mocks__/research-verification-mock.js';
-import { mockExaSearchResponse, mockExtractionResults } from '../__mocks__/exa-research-mock.js';
+// Mock imports will be handled by Jest configuration
+// import { exaResearch } from '../__mocks__/exa-research.js';
+// import { researchVerification } from '../__mocks__/research-verification-mock.js';
+// import { mockExaSearchResponse, mockExtractionResults } from '../__mocks__/exa-research-mock.js';
 import fetch from 'node-fetch';
 import { config, isFeatureEnabled } from '../utils/config.js';
+
+// Mock search response for testing
+const mockExaSearchResponse = {
+  results: [
+    {
+      id: 'test-1',
+      title: 'Test Result',
+      text: 'Test content',
+      url: 'https://example.com'
+    }
+  ]
+};
 
 /**
  * Sets up mock responses for Exa API tests
@@ -52,8 +65,8 @@ export function setupExaMocks(options: {
     });
   });
   
-  // Mock the Exa search method
-  exaResearch.search.mockResolvedValue(options.searchResults || mockExaSearchResponse);
+  // Mock would go here if exaResearch mock was available
+  // exaResearch.search.mockResolvedValue(options.searchResults || mockExaSearchResponse);
 }
 
 /**

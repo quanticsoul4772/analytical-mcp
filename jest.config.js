@@ -8,6 +8,7 @@ export default {
       'ts-jest',
       {
         useESM: true,
+        isolatedModules: true, // Faster compilation
       },
     ],
   },
@@ -21,11 +22,37 @@ export default {
   collectCoverageFrom: [
     'src/**/*.{js,ts}',
     '!src/**/*.d.ts',
+    '!src/integration/**', // Exclude integration tests from unit test coverage
   ],
-  testTimeout: 90000, // Increased timeout for API calls (90 seconds)
-  verbose: true,      // Detailed output
-  bail: false,        // Don't stop after first test failure
-  maxWorkers: 4,      // Limit concurrent tests to avoid API rate limits
-  forceExit: true,    // Force exit after tests complete
-  setupFilesAfterEnv: ['<rootDir>/src/setupTests.ts']
+  // Performance optimizations
+  testTimeout: 30000,     // Reduced from 90s to 30s for unit tests
+  verbose: false,         // Reduce output noise
+  bail: false,
+  maxWorkers: '50%',      // Use 50% of available cores
+  forceExit: false,       // Let tests exit naturally to detect hanging processes
+  detectOpenHandles: true, // Help identify memory leaks and hanging processes
+  detectLeaks: true,      // Enable memory leak detection
+  logHeapUsage: true,     // Log memory usage to help identify issues
+  
+  // Caching optimizations
+  cache: true,
+  cacheDirectory: '<rootDir>/node_modules/.cache/jest',
+  
+  // Setup files
+  setupFilesAfterEnv: ['<rootDir>/src/setupTests.ts'],
+  
+  // Test categorization
+  projects: [
+    {
+      displayName: 'unit',
+      testMatch: ['<rootDir>/src/**/__tests__/**/*.test.ts'],
+      testTimeout: 10000, // Shorter timeout for unit tests
+    },
+    {
+      displayName: 'integration', 
+      testMatch: ['<rootDir>/src/integration/**/*.test.ts'],
+      testTimeout: 60000, // Longer timeout for integration tests
+      maxWorkers: 1,      // Sequential execution for integration tests
+    }
+  ]
 };
