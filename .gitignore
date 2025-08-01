@@ -79,3 +79,4 @@ mcp-inspector.log
 # Test artifacts
 test-results/
 junit.xml
+CLAUDE.md
