@@ -125,15 +125,40 @@ docker-compose up -d
 ## Development
 
 ### Testing
+
+[![Coverage Status](https://codecov.io/gh/quanticsoul4772/analytical-mcp/branch/main/graph/badge.svg)](https://codecov.io/gh/quanticsoul4772/analytical-mcp)
+
+The project includes comprehensive testing infrastructure with 70%+ code coverage:
+
 ```bash
-# Run all tests
-./tools/test-runner.sh
+# Run all tests with coverage
+npm run test:coverage
 
-# Run specific test suite
-./tools/test-runner.sh integration
+# Run specific test suites
+npm run test:unit          # Unit tests only
+npm run test:integration   # Integration tests
+npm run test:e2e          # End-to-end workflows
+npm run test:performance  # Performance benchmarks
 
-# Available test suites: api-keys, server, integration, research, data-pipeline
+# Development testing
+npm run test:watch        # Watch mode
+npm run test:debug        # Debug mode
 ```
+
+#### Test Categories
+
+- **Unit Tests** (`test/unit/`): Isolated component testing with mocks
+- **Integration Tests** (`src/integration/`): Cross-module functionality
+- **End-to-End Tests** (`test/e2e/`): Complete workflow testing  
+- **Performance Tests** (`test/performance/`): Benchmarks and load testing
+
+#### Coverage Targets
+
+- Global: 70% minimum
+- Tools module: 75% minimum
+- Utils module: 70% minimum
+
+See [TESTING.md](TESTING.md) for detailed testing documentation.
 
 ### Scripts
 - `npm run build` - Build TypeScript to JavaScript

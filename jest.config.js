@@ -21,7 +21,29 @@ export default {
   collectCoverageFrom: [
     'src/**/*.{js,ts}',
     '!src/**/*.d.ts',
+    '!src/**/*.test.ts',
+    '!src/types/**',
   ],
+  coverageThreshold: {
+    global: {
+      branches: 70,
+      functions: 70,
+      lines: 70,
+      statements: 70,
+    },
+    './src/tools/': {
+      branches: 75,
+      functions: 75,
+      lines: 75,
+      statements: 75,
+    },
+    './src/utils/': {
+      branches: 70,
+      functions: 70,
+      lines: 70,
+      statements: 70,
+    },
+  },
   testTimeout: 90000, // Increased timeout for API calls (90 seconds)
   verbose: true,      // Detailed output
   bail: false,        // Don't stop after first test failure
