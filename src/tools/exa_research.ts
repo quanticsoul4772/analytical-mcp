@@ -2,7 +2,12 @@ import { z } from 'zod';
 import fetch from 'node-fetch';
 import { Logger } from '../utils/logger.js';
 import { nlpToolkit } from '../utils/nlp_toolkit.js';
-import { APIError, ValidationError, DataProcessingError } from '../utils/errors.js';
+import { 
+  APIError, 
+  ValidationError, 
+  DataProcessingError,
+  createDataProcessingError 
+} from '../utils/errors.js';
 import { executeApiRequest, RETRYABLE_STATUS_CODES } from '../utils/api_helpers.js';
 import { config, isFeatureEnabled } from '../utils/config.js';
 import * as mathjs from 'mathjs';
@@ -67,10 +72,14 @@ export class EnhancedFactExtractor {
       };
     } catch (error) {
       Logger.error('Fact extraction failed', error);
-      throw new DataProcessingError('Failed to extract facts', { 
-        originalText: text,
-        error: error instanceof Error ? error.message : 'Unknown error'
-      });
+      throw createDataProcessingError(
+        'Failed to extract facts',
+        { 
+          originalText: text,
+          error: error instanceof Error ? error.message : 'Unknown error'
+        },
+        'enhanced_fact_extractor'
+      );
     }
   }
 

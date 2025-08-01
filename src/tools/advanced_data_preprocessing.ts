@@ -1,7 +1,12 @@
 import { z } from 'zod';
 import * as mathjs from 'mathjs';
 import { Logger } from '../utils/logger.js';
-import { ValidationError, DataProcessingError } from '../utils/errors.js';
+import { 
+  withErrorHandling, 
+  createValidationError, 
+  createDataProcessingError,
+  ErrorCodes 
+} from '../utils/errors.js';
 
 // Enhanced type definition for numeric types
 type MathNumericType = number | Record<string, number>;
@@ -25,13 +30,14 @@ const AdvancedDataPreprocessingSchema = z.object({
 });
 
 // Advanced data preprocessing function
-async function advancedDataPreprocessing(
+async function advancedDataPreprocessingInternal(
   data: MathNumericType[],
   preprocessingType: string
 ): Promise<string> {
   // Validate input
+  let validatedInput: z.infer<typeof AdvancedDataPreprocessingSchema>;
   try {
-    const validatedInput = AdvancedDataPreprocessingSchema.parse({
+    validatedInput = AdvancedDataPreprocessingSchema.parse({
       data,
       preprocessingType,
     });
@@ -42,11 +48,25 @@ async function advancedDataPreprocessing(
   } catch (error) {
     if (error instanceof z.ZodError) {
       Logger.error('Data preprocessing validation failed', error);
-      throw new ValidationError(`Invalid parameters for data preprocessing: ${error.message}`, {
-        issues: error.issues,
-      });
+      throw createValidationError(
+        'Invalid parameters for data preprocessing',
+        {
+          issues: error.issues,
+          received: {
+            dataType: typeof data,
+            dataLength: Array.isArray(data) ? data.length : 0,
+            preprocessingType: typeof preprocessingType
+          },
+          expectedSchema: 'AdvancedDataPreprocessingSchema'
+        },
+        'advanced_data_preprocessing'
+      );
     }
-    throw error;
+    throw createValidationError(
+      'Failed to validate preprocessing parameters',
+      { originalError: error instanceof Error ? error.message : 'Unknown error' },
+      'advanced_data_preprocessing'
+    );
   }
 
   let result = `# Advanced Data Preprocessing Report\n\n`;
@@ -143,24 +163,41 @@ async function advancedDataPreprocessing(
         break;
 
       default:
-        throw new Error(`Unsupported preprocessing type: ${preprocessingType}`);
+        throw createValidationError(
+          `Unsupported preprocessing type: ${preprocessingType}`,
+          {
+            received: preprocessingType,
+            allowedValues: ['normalization', 'standardization', 'missing_value_handling', 'outlier_detection']
+          },
+          'advanced_data_preprocessing'
+        );
     }
 
     return result;
   } catch (error) {
+    if (error.context?.toolName === 'advanced_data_preprocessing') {
+      throw error; // Re-throw our own errors
+    }
     Logger.error('Advanced Data Preprocessing Error', error, {
       preprocessingType,
       dataLength: data.length,
     });
-    throw new DataProcessingError(
+    throw createDataProcessingError(
       `Preprocessing failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
-      { preprocessingType }
+      { 
+        preprocessingType,
+        dataLength: data.length,
+        originalError: error instanceof Error ? error.message : 'Unknown error'
+      },
+      'advanced_data_preprocessing'
     );
   }
 }
 
-// Export both the function and schema
+// Export wrapped function with enhanced error handling
+export const advancedDataPreprocessing = withErrorHandling('advanced_data_preprocessing', advancedDataPreprocessingInternal);
+
+// Export schema
 export {
-  advancedDataPreprocessing,
   AdvancedDataPreprocessingSchema as advancedDataPreprocessingSchema,
 };

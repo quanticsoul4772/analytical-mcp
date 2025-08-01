@@ -2,7 +2,13 @@ import { z } from 'zod';
 import { exaResearch } from '../utils/exa_research.js';
 import { enhancedFactExtractor } from './exa_research.js';
 import { Logger } from '../utils/logger.js';
-import { APIError, ValidationError, DataProcessingError } from '../utils/errors.js';
+import { 
+  withErrorHandling, 
+  createValidationError, 
+  createDataProcessingError,
+  createAPIError,
+  ErrorCodes 
+} from '../utils/errors.js';
 import * as mathjs from 'mathjs';
 
 // Research verification configuration schema
@@ -37,7 +43,7 @@ interface ResearchConfidence {
   };
 }
 
-export class ResearchVerificationTool {
+class ResearchVerificationToolInternal {
   // Cross-source verification method with enhanced fact extraction
   async verifyResearch(
     input: z.infer<typeof ResearchVerificationSchema>
@@ -45,8 +51,27 @@ export class ResearchVerificationTool {
     verifiedResults: string[];
     confidence: ResearchConfidence;
   }> {
+    let params: z.infer<typeof ResearchVerificationSchema>;
     try {
-      const params = ResearchVerificationSchema.parse(input);
+      params = ResearchVerificationSchema.parse(input);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        throw createValidationError(
+          'Invalid research verification parameters',
+          { 
+            issues: error.issues,
+            received: typeof input,
+            expectedSchema: 'ResearchVerificationSchema'
+          },
+          'research_verification'
+        );
+      }
+      throw createValidationError(
+        'Failed to parse research verification input',
+        { input: typeof input },
+        'research_verification'
+      );
+    }
       
       // Prepare for fact extraction and verification
       const factExtractions: ResearchConfidence['details']['factExtractions'] = [];
@@ -55,13 +80,30 @@ export class ResearchVerificationTool {
       const conflictingClaims: string[] = [];
 
       // Primary query search
-      const primaryResults = await exaResearch.search({
-        query: params.query,
-        numResults: params.sources,
-        includeContents: true,
-        useWebResults: true,
-        useNewsResults: false
-      });
+      let primaryResults: { results: any[] };
+      try {
+        primaryResults = await exaResearch.search({
+          query: params.query,
+          numResults: params.sources,
+          includeContents: true,
+          useWebResults: true,
+          useNewsResults: false
+        }) as { results: any[] };
+      } catch (error) {
+        if (error instanceof Error && error.message.includes('API')) {
+          throw createAPIError(
+            `Failed to execute primary research query: ${error.message}`,
+            ErrorCodes.API_SERVICE_UNAVAILABLE,
+            { query: params.query, sources: params.sources },
+            'research_verification'
+          );
+        }
+        throw createDataProcessingError(
+          `Primary research search failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          { query: params.query, sources: params.sources },
+          'research_verification'
+        );
+      }
 
       // Extract and analyze facts from primary search
       for (const result of primaryResults.results) {
@@ -92,13 +134,20 @@ export class ResearchVerificationTool {
       // Verification queries processing
       if (params.verificationQueries) {
         for (const verificationQuery of params.verificationQueries) {
-          const verificationSearch = await exaResearch.search({
-            query: verificationQuery,
-            numResults: params.sources,
-            includeContents: true,
-            useWebResults: true,
-            useNewsResults: false
-          });
+          let verificationSearch: { results: any[] };
+          try {
+            verificationSearch = await exaResearch.search({
+              query: verificationQuery,
+              numResults: params.sources,
+              includeContents: true,
+              useWebResults: true,
+              useNewsResults: false
+            }) as { results: any[] };
+          } catch (error) {
+            Logger.warn(`Verification query failed: ${verificationQuery}`, error);
+            // Continue with other verification queries even if one fails
+            continue;
+          }
 
           for (const result of verificationSearch.results) {
             const sourceTitle = result.title || 'Verification Source';
@@ -143,19 +192,6 @@ export class ResearchVerificationTool {
         verifiedResults: allExtractedFacts,
         confidence
       };
-    } catch (error) {
-      Logger.error('Research verification failed', error);
-      
-      if (error instanceof z.ZodError) {
-        throw new ValidationError(`Invalid research verification input: ${error.message}`, {
-          issues: error.issues
-        });
-      }
-
-      throw new DataProcessingError(`Research verification failed: ${error instanceof Error ? error.message : 'Unknown error'}`, {
-        originalInput: input
-      });
-    }
   }
 
   // Compute confidence score based on research consistency
@@ -235,5 +271,10 @@ export class ResearchVerificationTool {
   }
 }
 
-// Singleton instance
-export const researchVerification = new ResearchVerificationTool();
+// Create internal instance
+const researchVerificationInternal = new ResearchVerificationToolInternal();
+
+// Export wrapped tool with enhanced error handling
+export const researchVerification = {
+  verifyResearch: withErrorHandling('research_verification', researchVerificationInternal.verifyResearch.bind(researchVerificationInternal))
+};

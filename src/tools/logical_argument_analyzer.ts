@@ -6,6 +6,12 @@ import { LogicalFallacyProvider } from './logical_fallacy_provider.js';
 import { ArgumentValidityProvider } from './argument_validity_provider.js';
 import { ArgumentStrengthProvider } from './argument_strength_provider.js';
 import { RecommendationProvider } from './recommendation_provider.js';
+import { 
+  withErrorHandling, 
+  createValidationError, 
+  createDataProcessingError,
+  ErrorCodes 
+} from '../utils/errors.js';
 
 /**
  * Logical Argument Analyzer Tool
@@ -36,7 +42,7 @@ export interface AnalysisOptions {
  * Logical Argument Analyzer Coordinator
  * Uses provider pattern for focused analysis
  */
-export class LogicalArgumentAnalyzer {
+class LogicalArgumentAnalyzerInternal {
   private structureProvider: ArgumentStructureProvider;
   private fallacyProvider: LogicalFallacyProvider;
   private validityProvider: ArgumentValidityProvider;
@@ -44,17 +50,37 @@ export class LogicalArgumentAnalyzer {
   private recommendationProvider: RecommendationProvider;
 
   constructor() {
-    this.structureProvider = new ArgumentStructureProvider();
-    this.fallacyProvider = new LogicalFallacyProvider();
-    this.validityProvider = new ArgumentValidityProvider();
-    this.strengthProvider = new ArgumentStrengthProvider();
-    this.recommendationProvider = new RecommendationProvider();
+    try {
+      this.structureProvider = new ArgumentStructureProvider();
+      this.fallacyProvider = new LogicalFallacyProvider();
+      this.validityProvider = new ArgumentValidityProvider();
+      this.strengthProvider = new ArgumentStrengthProvider();
+      this.recommendationProvider = new RecommendationProvider();
+    } catch (error) {
+      throw createDataProcessingError(
+        `Failed to initialize argument analyzer providers: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        { originalError: error instanceof Error ? error.message : 'Unknown error' },
+        'logical_argument_analyzer'
+      );
+    }
   }
 
   /**
    * Analyzes logical argument using provider coordination
    */
   async analyze(options: AnalysisOptions): Promise<string> {
+    // Validate options parameter
+    if (!options || typeof options !== 'object') {
+      throw createValidationError(
+        'Options parameter is required and must be an object',
+        {
+          received: typeof options,
+          value: options
+        },
+        'logical_argument_analyzer'
+      );
+    }
+
     // Destructure options with defaults
     const {
       argument,
@@ -62,9 +88,43 @@ export class LogicalArgumentAnalyzer {
       includeRecommendations = true
     } = options;
 
-    // Early validation using ValidationHelpers
-    ValidationHelpers.throwIfInvalid(ValidationHelpers.validateNonEmptyString(argument));
-    ValidationHelpers.throwIfInvalid(ValidationHelpers.validateNonEmptyString(analysisType));
+    // Validate argument
+    if (!argument || typeof argument !== 'string' || argument.trim().length === 0) {
+      throw createValidationError(
+        'Argument must be a non-empty string',
+        {
+          received: typeof argument,
+          length: argument?.length || 0,
+          trimmedLength: argument?.trim()?.length || 0
+        },
+        'logical_argument_analyzer'
+      );
+    }
+
+    // Validate analysisType
+    const validAnalysisTypes = ['structure', 'fallacies', 'validity', 'strength', 'comprehensive'];
+    if (!validAnalysisTypes.includes(analysisType)) {
+      throw createValidationError(
+        `Invalid analysis type: ${analysisType}`,
+        {
+          received: analysisType,
+          allowedValues: validAnalysisTypes
+        },
+        'logical_argument_analyzer'
+      );
+    }
+
+    // Validate includeRecommendations
+    if (typeof includeRecommendations !== 'boolean') {
+      throw createValidationError(
+        'includeRecommendations must be a boolean value',
+        {
+          received: typeof includeRecommendations,
+          value: includeRecommendations
+        },
+        'logical_argument_analyzer'
+      );
+    }
 
     // Determine which analyses to perform
     const analyzeStructure = analysisType === 'structure' || analysisType === 'comprehensive';
@@ -78,43 +138,59 @@ export class LogicalArgumentAnalyzer {
     // Add the argument text for reference
     result += `### Argument Text\n\n${argument}\n\n`;
 
-    // Analyze argument structure using provider
-    if (analyzeStructure) {
-      result += this.structureProvider.analyzeArgumentStructure(argument);
-    }
+    try {
+      // Analyze argument structure using provider
+      if (analyzeStructure) {
+        result += this.structureProvider.analyzeArgumentStructureInternal(argument);
+      }
 
-    // Analyze logical fallacies using provider
-    if (analyzeFallacies) {
-      result += this.fallacyProvider.analyzeLogicalFallacies(argument);
-    }
+      // Analyze logical fallacies using provider
+      if (analyzeFallacies) {
+        result += this.fallacyProvider.analyzeLogicalFallaciesInternal(argument);
+      }
 
-    // Analyze argument validity using provider
-    if (analyzeValidity) {
-      result += this.validityProvider.analyzeArgumentValidity(argument);
-    }
+      // Analyze argument validity using provider
+      if (analyzeValidity) {
+        result += this.validityProvider.analyzeArgumentValidityInternal(argument);
+      }
 
-    // Analyze argument strength using provider
-    if (analyzeStrength) {
-      result += this.strengthProvider.analyzeArgumentStrength(argument);
-    }
+      // Analyze argument strength using provider
+      if (analyzeStrength) {
+        result += this.strengthProvider.analyzeArgumentStrengthInternal(argument);
+      }
 
-    // Add recommendations if requested using provider
-    if (includeRecommendations) {
-      result += this.recommendationProvider.generateArgumentRecommendations(argument, analysisType);
+      // Add recommendations if requested using provider
+      if (includeRecommendations) {
+        result += this.recommendationProvider.generateArgumentRecommendationsInternal(argument, analysisType);
+      }
+    } catch (error) {
+      throw createDataProcessingError(
+        `Failed to analyze argument: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        {
+          argument: argument.substring(0, 100) + (argument.length > 100 ? '...' : ''),
+          analysisType,
+          includeRecommendations,
+          originalError: error instanceof Error ? error.message : 'Unknown error'
+        },
+        'logical_argument_analyzer'
+      );
     }
 
     return result;
   }
 }
 
-// Create singleton instance
-const analyzerInstance = new LogicalArgumentAnalyzer();
+// Create internal instance
+const analyzerInstanceInternal = new LogicalArgumentAnalyzerInternal();
 
 /**
- * Main function for tool integration
+ * Internal function for tool integration
  */
-export async function logicalArgumentAnalyzer(
+async function logicalArgumentAnalyzerInternal(
   options: AnalysisOptions
 ): Promise<string> {
-  return await analyzerInstance.analyze(options);
+  return await analyzerInstanceInternal.analyze(options);
 }
+
+// Export wrapped function with enhanced error handling
+export const logicalArgumentAnalyzer = withErrorHandling('logical_argument_analyzer', logicalArgumentAnalyzerInternal);

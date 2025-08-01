@@ -7,6 +7,12 @@
 
 import { z } from 'zod';
 import * as mathjs from 'mathjs';
+import { 
+  withErrorHandling, 
+  createValidationError, 
+  createDataProcessingError,
+  ErrorCodes 
+} from '../utils/errors.js';
 
 /**
  * Advanced Statistical Analysis Schema
@@ -27,14 +33,48 @@ export const advancedStatisticalAnalysisSchema = z.object({
  * @returns Object containing various descriptive statistics
  */
 export function calculateDescriptiveStatistics(data: number[]) {
-  return {
-    mean: Number(mathjs.mean(data)),
-    median: Number(mathjs.median(data)),
-    standardDeviation: Number(mathjs.std(data)),
-    variance: Number(mathjs.variance(data)),
-    min: Number(mathjs.min(data)),
-    max: Number(mathjs.max(data)),
-  };
+  if (!Array.isArray(data) || data.length === 0) {
+    throw createValidationError(
+      'Data array is required and must not be empty',
+      { 
+        received: typeof data,
+        length: data?.length,
+        expectedType: 'array of numbers'
+      },
+      'calculateDescriptiveStatistics'
+    );
+  }
+
+  if (data.some(val => typeof val !== 'number' || isNaN(val))) {
+    throw createValidationError(
+      'All data values must be valid numbers',
+      {
+        dataTypes: data.map(val => typeof val),
+        invalidCount: data.filter(val => typeof val !== 'number' || isNaN(val)).length
+      },
+      'calculateDescriptiveStatistics'
+    );
+  }
+
+  try {
+    return {
+      mean: Number(mathjs.mean(data)),
+      median: Number(mathjs.median(data)),
+      standardDeviation: Number(mathjs.std(data)),
+      variance: Number(mathjs.variance(data)),
+      min: Number(mathjs.min(data)),
+      max: Number(mathjs.max(data)),
+    };
+  } catch (error) {
+    throw createDataProcessingError(
+      `Failed to calculate descriptive statistics: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      {
+        dataLength: data.length,
+        originalError: error instanceof Error ? error.message : 'Unknown error'
+      },
+      'calculateDescriptiveStatistics'
+    );
+  }
 }
 
 /**
@@ -44,23 +84,90 @@ export function calculateDescriptiveStatistics(data: number[]) {
  * @returns Correlation coefficient between -1 and 1
  */
 export function calculateCorrelation(x: number[], y: number[]): number {
-  if (x.length !== y.length) {
-    throw new Error('Input arrays must have the same length');
+  if (!Array.isArray(x) || !Array.isArray(y)) {
+    throw createValidationError(
+      'Both input parameters must be arrays',
+      {
+        xType: typeof x,
+        yType: typeof y,
+        xIsArray: Array.isArray(x),
+        yIsArray: Array.isArray(y)
+      },
+      'calculateCorrelation'
+    );
   }
 
-  const meanX = Number(mathjs.mean(x));
-  const meanY = Number(mathjs.mean(y));
+  if (x.length !== y.length) {
+    throw createValidationError(
+      'Input arrays must have the same length',
+      {
+        xLength: x.length,
+        yLength: y.length,
+        lengthDifference: Math.abs(x.length - y.length)
+      },
+      'calculateCorrelation'
+    );
+  }
 
-  const numerator = x.reduce((sum, xi, i) => {
-    const yValue = y[i];
-    return sum + (xi - meanX) * (yValue !== undefined ? yValue - meanY : 0);
-  }, 0);
+  if (x.length === 0 || y.length === 0) {
+    throw createValidationError(
+      'Input arrays cannot be empty',
+      { xLength: x.length, yLength: y.length },
+      'calculateCorrelation'
+    );
+  }
 
-  const denominatorX = Math.sqrt(x.reduce((sum, xi) => sum + Math.pow(xi - meanX, 2), 0));
+  if (x.some(val => typeof val !== 'number' || isNaN(val)) || y.some(val => typeof val !== 'number' || isNaN(val))) {
+    throw createValidationError(
+      'All values in both arrays must be valid numbers',
+      {
+        invalidInX: x.filter(val => typeof val !== 'number' || isNaN(val)).length,
+        invalidInY: y.filter(val => typeof val !== 'number' || isNaN(val)).length
+      },
+      'calculateCorrelation'
+    );
+  }
 
-  const denominatorY = Math.sqrt(y.reduce((sum, yi) => sum + Math.pow(yi - meanY, 2), 0));
+  try {
+    const meanX = Number(mathjs.mean(x));
+    const meanY = Number(mathjs.mean(y));
 
-  return numerator / (denominatorX * denominatorY);
+    const numerator = x.reduce((sum, xi, i) => {
+      const yValue = y[i];
+      return sum + (xi - meanX) * (yValue !== undefined ? yValue - meanY : 0);
+    }, 0);
+
+    const denominatorX = Math.sqrt(x.reduce((sum, xi) => sum + Math.pow(xi - meanX, 2), 0));
+    const denominatorY = Math.sqrt(y.reduce((sum, yi) => sum + Math.pow(yi - meanY, 2), 0));
+
+    if (denominatorX === 0 || denominatorY === 0) {
+      throw createDataProcessingError(
+        'Cannot calculate correlation: one or both arrays have zero variance',
+        {
+          denominatorX,
+          denominatorY,
+          xVariance: Number(mathjs.variance(x)),
+          yVariance: Number(mathjs.variance(y))
+        },
+        'calculateCorrelation'
+      );
+    }
+
+    return numerator / (denominatorX * denominatorY);
+  } catch (error) {
+    if (error.context?.toolName === 'calculateCorrelation') {
+      throw error; // Re-throw our own errors
+    }
+    throw createDataProcessingError(
+      `Failed to calculate correlation: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      {
+        xLength: x.length,
+        yLength: y.length,
+        originalError: error instanceof Error ? error.message : 'Unknown error'
+      },
+      'calculateCorrelation'
+    );
+  }
 }
 
 /**
@@ -69,13 +176,45 @@ export function calculateCorrelation(x: number[], y: number[]): number {
  * @param analysisType Type of analysis to perform
  * @returns Formatted markdown string with analysis results
  */
-export async function advancedAnalyzeDataset(
+async function advancedAnalyzeDatasetInternal(
   data: Record<string, number | string>[],
   analysisType: string
 ): Promise<string> {
   // Validate inputs
   if (!Array.isArray(data) || data.length === 0) {
-    throw new Error('Invalid data format. Please provide a non-empty array of data objects.');
+    throw createValidationError(
+      'Data must be a non-empty array of objects',
+      {
+        received: typeof data,
+        isArray: Array.isArray(data),
+        length: data?.length,
+        expectedType: 'array of objects'
+      },
+      'advancedAnalyzeDataset'
+    );
+  }
+
+  if (!analysisType || typeof analysisType !== 'string') {
+    throw createValidationError(
+      'Analysis type must be a non-empty string',
+      {
+        received: typeof analysisType,
+        value: analysisType,
+        allowedValues: ['descriptive', 'correlation']
+      },
+      'advancedAnalyzeDataset'
+    );
+  }
+
+  if (!['descriptive', 'correlation'].includes(analysisType)) {
+    throw createValidationError(
+      `Invalid analysis type: ${analysisType}`,
+      {
+        received: analysisType,
+        allowedValues: ['descriptive', 'correlation']
+      },
+      'advancedAnalyzeDataset'
+    );
   }
 
   // Extract numeric columns for analysis
@@ -83,7 +222,15 @@ export async function advancedAnalyzeDataset(
   const numericColumns = firstItem ? Object.keys(firstItem).filter((key) => typeof firstItem[key] === 'number') : [];
 
   if (numericColumns.length === 0) {
-    throw new Error('No numeric columns found in the dataset for analysis.');
+    throw createValidationError(
+      'No numeric columns found in the dataset for analysis',
+      {
+        dataLength: data.length,
+        firstItemKeys: firstItem ? Object.keys(firstItem) : [],
+        firstItemTypes: firstItem ? Object.keys(firstItem).map(key => typeof firstItem[key]) : []
+      },
+      'advancedAnalyzeDataset'
+    );
   }
 
   let result = `# Advanced Statistical Analysis\n\n`;
@@ -133,3 +280,5 @@ export async function advancedAnalyzeDataset(
 
   return result;
 }
+
+export const advancedAnalyzeDataset = withErrorHandling('advancedAnalyzeDataset', advancedAnalyzeDatasetInternal);

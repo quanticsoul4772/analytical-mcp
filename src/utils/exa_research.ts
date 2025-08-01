@@ -1,7 +1,13 @@
 import { z } from 'zod';
 import fetch from 'node-fetch';
 import { executeApiRequest, RETRYABLE_STATUS_CODES } from './api_helpers.js';
-import { APIError, ValidationError, DataProcessingError } from './errors.js';
+import { 
+  withErrorHandling, 
+  createValidationError, 
+  createDataProcessingError,
+  createAPIError,
+  ErrorCodes 
+} from './errors.js';
 import { Logger } from './logger.js';
 import { config, isFeatureEnabled } from './config.js';
 import { factExtractor } from './advanced_fact_extraction.js';
@@ -46,7 +52,7 @@ interface DataValidationOptions {
 }
 
 // Exa research utility class
-class ExaResearchTool {
+class ExaResearchToolInternal {
   private apiKey: string;
   private baseUrl: string;
 
@@ -84,9 +90,14 @@ class ExaResearchTool {
       }
     } catch (error) {
       if (error instanceof z.ZodError) {
-        throw new ValidationError(`Invalid Exa configuration: ${error.message}`, {
-          issues: error.issues,
-        });
+        throw createValidationError(
+          'Invalid Exa configuration',
+          {
+            issues: error.issues,
+            configProvided: !!exaConfig
+          },
+          'exa_research'
+        );
       }
       throw error;
     }
@@ -101,11 +112,11 @@ class ExaResearchTool {
       Logger.warn(
         'Research integration is disabled. Enable it with ENABLE_RESEARCH_INTEGRATION=true'
       );
-      throw new APIError(
+      throw createAPIError(
         'Research integration is disabled in configuration',
-        403,
-        false,
-        'exa/search'
+        ErrorCodes.API_AUTH_FAILED,
+        { feature: 'researchIntegration', enabled: false },
+        'exa_research'
       );
     }
 
@@ -121,17 +132,27 @@ class ExaResearchTool {
     } catch (error) {
       if (error instanceof z.ZodError) {
         Logger.error('Search query validation failed', error);
-        throw new ValidationError(`Invalid search query: ${error.message}`, {
-          issues: error.issues,
-          query,
-        });
+        throw createValidationError(
+          'Invalid search query parameters',
+          {
+            issues: error.issues,
+            query: typeof query,
+            expectedSchema: 'ExaResearchQuerySchema'
+          },
+          'exa_research'
+        );
       }
       throw error;
     }
 
     if (!this.apiKey) {
       Logger.error('Missing API key for Exa search');
-      throw new APIError('Cannot perform search: Missing API key', 401, false, 'exa/search');
+      throw createAPIError(
+        'Cannot perform search: Missing API key',
+        ErrorCodes.API_AUTH_FAILED,
+        { keyProvided: false },
+        'exa_research'
+      );
     }
 
     // Check cache first
@@ -164,11 +185,15 @@ class ExaResearchTool {
           });
 
           if (!response.ok) {
-            throw new APIError(
+            throw createAPIError(
               `Exa search failed: ${response.statusText}`,
-              response.status,
-              RETRYABLE_STATUS_CODES.includes(response.status),
-              'exa/search'
+              RETRYABLE_STATUS_CODES.includes(response.status) ? ErrorCodes.API_RATE_LIMIT : ErrorCodes.API_SERVICE_UNAVAILABLE,
+              {
+                statusCode: response.status,
+                statusText: response.statusText,
+                retryable: RETRYABLE_STATUS_CODES.includes(response.status)
+              },
+              'exa_research'
             );
           }
 
@@ -203,11 +228,11 @@ class ExaResearchTool {
         throw error; // Already properly formatted
       }
 
-      throw new APIError(
+      throw createAPIError(
         `Exa search failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        undefined,
-        false,
-        'exa/search'
+        ErrorCodes.API_SERVICE_UNAVAILABLE,
+        { originalError: error instanceof Error ? error.message : 'Unknown error' },
+        'exa_research'
       );
     }
   }
@@ -291,9 +316,14 @@ class ExaResearchTool {
         Logger.warn('Falling back to basic fact extraction');
         return this.fallbackExtractKeyFacts(results, maxFacts);
       } catch (fallbackError) {
-        throw new DataProcessingError(
+        throw createDataProcessingError(
           `Failed to extract facts: ${error instanceof Error ? error.message : 'Unknown error'}`,
-          { resultsCount: results?.length }
+          { 
+            resultsCount: results?.length,
+            fallbackAttempted: true,
+            originalError: error instanceof Error ? error.message : 'Unknown error'
+          },
+          'exa_research'
         );
       }
     }
@@ -360,14 +390,28 @@ class ExaResearchTool {
 
     if (!originalData || !Array.isArray(originalData)) {
       Logger.warn('Invalid data provided for validation', { originalData });
-      throw new ValidationError('Invalid data format for validation: expected array', {
-        providedType: typeof originalData,
-      });
+      throw createValidationError(
+        'Invalid data format for validation: expected array',
+        {
+          received: typeof originalData,
+          expectedType: 'array',
+          isArray: Array.isArray(originalData)
+        },
+        'exa_research'
+      );
     }
 
     if (!context || typeof context !== 'string' || context.trim().length === 0) {
       Logger.warn('Invalid context provided for validation');
-      throw new ValidationError('Empty or invalid context for validation');
+      throw createValidationError(
+        'Empty or invalid context for validation',
+        {
+          contextProvided: !!context,
+          contextType: typeof context,
+          contextLength: context?.length || 0
+        },
+        'exa_research'
+      );
     }
 
     // Check cache first
@@ -465,16 +509,28 @@ class ExaResearchTool {
       }
 
       // For other errors, wrap in a DataProcessingError
-      throw new DataProcessingError(
+      throw createDataProcessingError(
         `Data validation failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        { context, dataLength: originalData.length }
+        { 
+          context, 
+          dataLength: originalData.length,
+          originalError: error instanceof Error ? error.message : 'Unknown error'
+        },
+        'exa_research'
       );
     }
   }
 }
 
-// Export utility for use across tools
-export const exaResearch = new ExaResearchTool();
+// Create internal instance
+const exaResearchInternal = new ExaResearchToolInternal();
+
+// Export wrapped utility with enhanced error handling
+export const exaResearch = {
+  search: withErrorHandling('exa_research_search', exaResearchInternal.search.bind(exaResearchInternal)),
+  extractKeyFacts: withErrorHandling('exa_research_extract_facts', exaResearchInternal.extractKeyFacts.bind(exaResearchInternal)),
+  validateData: withErrorHandling('exa_research_validate_data', exaResearchInternal.validateData.bind(exaResearchInternal))
+};
 
 // Optional: Registration function for MCP Server
 export function registerExaResearch(server: any) {

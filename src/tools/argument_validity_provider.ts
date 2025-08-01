@@ -6,6 +6,12 @@
  */
 
 import { ValidationHelpers } from '../utils/validation_helpers.js';
+import { 
+  withErrorHandling, 
+  createValidationError, 
+  createDataProcessingError,
+  ErrorCodes 
+} from '../utils/errors.js';
 
 /**
  * Validity patterns interface
@@ -29,13 +35,20 @@ export interface ScoringResult {
  * Argument Validity Provider Class
  * Analyzes logical validity of arguments
  */
-export class ArgumentValidityProvider {
+class ArgumentValidityProviderClass {
 
   /**
    * Validates validity analysis inputs
    */
   private validateValidityAnalysisInputs(argument: string): void {
-    ValidationHelpers.throwIfInvalid(ValidationHelpers.validateNonEmptyString(argument));
+    const validation = ValidationHelpers.validateNonEmptyString(argument);
+    if (!validation.isValid) {
+      throw createValidationError(
+        validation.errorMessage || 'Invalid argument input: expected non-empty string',
+        { field: 'argument', received: typeof argument },
+        'argument_validity_provider'
+      );
+    }
   }
 
   /**
@@ -102,84 +115,120 @@ export class ArgumentValidityProvider {
    * Detects circular reasoning in sentences
    */
   private detectCircularReasoning(sentences: string[]): ScoringResult {
-    ValidationHelpers.throwIfInvalid(ValidationHelpers.validateDataArray(sentences));
-    
-    if (sentences.length >= 2) {
-      const firstSentence = sentences[0].toLowerCase();
-      const lastSentence = sentences[sentences.length - 1].toLowerCase();
-
-      const similarWords = firstSentence
-        .split(/\s+/)
-        .filter((word) => lastSentence.split(/\s+/).includes(word) && word.length > 3);
-
-      if (similarWords.length >= 3) {
-        return {
-          score: -2,
-          assessment: '- The argument may contain circular reasoning, as the conclusion appears to restate the premise.\n',
-        };
-      }
+    const validation = ValidationHelpers.validateDataArray(sentences);
+    if (!validation.isValid) {
+      throw createValidationError(
+        validation.errorMessage || 'Invalid sentences input: expected non-empty array',
+        { field: 'sentences', received: typeof sentences },
+        'argument_validity_provider'
+      );
     }
-    return { score: 0, assessment: '' };
+    
+    try {
+      if (sentences.length >= 2) {
+        const firstSentence = sentences[0].toLowerCase();
+        const lastSentence = sentences[sentences.length - 1].toLowerCase();
+
+        const similarWords = firstSentence
+          .split(/\s+/)
+          .filter((word) => lastSentence.split(/\s+/).includes(word) && word.length > 3);
+
+        if (similarWords.length >= 3) {
+          return {
+            score: -2,
+            assessment: '- The argument may contain circular reasoning, as the conclusion appears to restate the premise.\n',
+          };
+        }
+      }
+      return { score: 0, assessment: '' };
+    } catch (error) {
+      throw createDataProcessingError(
+        `Failed to detect circular reasoning: ${error instanceof Error ? error.message : String(error)}`,
+        { sentenceCount: sentences.length },
+        'argument_validity_provider'
+      );
+    }
   }
 
   /**
-   * Analyzes argument validity
+   * Analyzes argument validity (internal implementation)
    */
-  analyzeArgumentValidity(argument: string): string {
+  public analyzeArgumentValidityInternal(argument: string): string {
     // Apply ValidationHelpers early return patterns
     this.validateValidityAnalysisInputs(argument);
     
-    let result = `### Argument Validity\n\n`;
-    
-    // Parse sentences and prepare argument
-    const sentences = argument
-      .split(/[.!?]+/)
-      .filter((s) => s.trim().length > 0)
-      .map((s) => s.trim());
-    const argLower = argument.toLowerCase();
-    
-    // Detect validity patterns using focused helper
-    const patterns = this.detectValidityPatterns(argLower);
-    
-    // Calculate validity score using mapping pattern
-    const scoringMethods = this.createValidityScoringMapping();
-    let validityScore = 0;
-    let validityAssessment = '';
-    
-    // Apply each scoring method
-    Object.values(scoringMethods).forEach(method => {
-      const result = method(patterns);
-      validityScore += result.score;
-      validityAssessment += result.assessment;
-    });
-    
-    // Check for circular reasoning
-    const circularResult = this.detectCircularReasoning(sentences);
-    validityScore += circularResult.score;
-    validityAssessment += circularResult.assessment;
-    
-    // Generate overall validity assessment
-    result += '**Validity Assessment:**\n\n';
-    
-    if (validityScore >= 3) {
-      result += 'The argument appears to follow valid logical structure with clear premises leading to conclusions.\n\n';
-    } else if (validityScore >= 1) {
-      result += 'The argument has some elements of valid logical structure but could be improved for clarity and coherence.\n\n';
-    } else {
-      result += 'The argument may have significant logical structure issues that affect its validity.\n\n';
+    try {
+      let result = `### Argument Validity\n\n`;
+      
+      // Parse sentences and prepare argument
+      const sentences = argument
+        .split(/[.!?]+/)
+        .filter((s) => s.trim().length > 0)
+        .map((s) => s.trim());
+      const argLower = argument.toLowerCase();
+      
+      // Detect validity patterns using focused helper
+      const patterns = this.detectValidityPatterns(argLower);
+      
+      // Calculate validity score using mapping pattern
+      const scoringMethods = this.createValidityScoringMapping();
+      let validityScore = 0;
+      let validityAssessment = '';
+      
+      // Apply each scoring method
+      Object.values(scoringMethods).forEach(method => {
+        const result = method(patterns);
+        validityScore += result.score;
+        validityAssessment += result.assessment;
+      });
+      
+      // Check for circular reasoning
+      const circularResult = this.detectCircularReasoning(sentences);
+      validityScore += circularResult.score;
+      validityAssessment += circularResult.assessment;
+      
+      // Generate overall validity assessment
+      result += '**Validity Assessment:**\n\n';
+      
+      if (validityScore >= 3) {
+        result += 'The argument appears to follow valid logical structure with clear premises leading to conclusions.\n\n';
+      } else if (validityScore >= 1) {
+        result += 'The argument has some elements of valid logical structure but could be improved for clarity and coherence.\n\n';
+      } else {
+        result += 'The argument may have significant logical structure issues that affect its validity.\n\n';
+      }
+      
+      result += validityAssessment + '\n';
+      result += "**Note:** This is a preliminary assessment of logical structure and doesn't evaluate the factual accuracy of premises or the strength of inference.\n\n";
+      
+      return result;
+    } catch (error) {
+      if (error instanceof Error && (error.name.includes('ValidationError') || error.name.includes('DataProcessingError'))) {
+        throw error; // Re-throw standardized errors
+      }
+      throw createDataProcessingError(
+        `Failed to analyze argument validity: ${error instanceof Error ? error.message : String(error)}`,
+        { argument: argument.slice(0, 100) + '...' },
+        'argument_validity_provider'
+      );
     }
-    
-    result += validityAssessment + '\n';
-    result += "**Note:** This is a preliminary assessment of logical structure and doesn't evaluate the factual accuracy of premises or the strength of inference.\n\n";
-    
-    return result;
   }
 
   /**
-   * Gets validity patterns for an argument
+   * Gets validity patterns for an argument (internal implementation)
    */
-  getValidityPatterns(argument: string): ValidityPatterns {
+  public getValidityPatternsInternal(argument: string): ValidityPatterns {
     this.validateValidityAnalysisInputs(argument);
     return this.detectValidityPatterns(argument.toLowerCase());
   }
 }
+
+// Create provider instance
+const argumentValidityProvider = new ArgumentValidityProviderClass();
+
+// Export wrapped functions
+export const analyzeArgumentValidity = withErrorHandling('argument_validity_provider', argumentValidityProvider.analyzeArgumentValidityInternal.bind(argumentValidityProvider));
+export const getValidityPatterns = withErrorHandling('argument_validity_provider', argumentValidityProvider.getValidityPatternsInternal.bind(argumentValidityProvider));
+
+// Export the class for backward compatibility
+export { ArgumentValidityProviderClass as ArgumentValidityProvider };

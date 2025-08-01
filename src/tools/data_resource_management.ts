@@ -2,7 +2,15 @@ import { z } from 'zod';
 import { SecureFileParser } from '../utils/secure_file_parser.js';
 import Papa from 'papaparse';
 import { Logger } from '../utils/logger.js';
-import { ValidationError, DataProcessingError } from '../utils/errors.js';
+import { 
+  withErrorHandling, 
+  createValidationError, 
+  createDataProcessingError,
+  createAPIError,
+  ErrorCodes,
+  ValidationError, 
+  DataProcessingError 
+} from '../utils/errors.js';
 
 // Schema for data resource management
 export const dataResourceManagementSchema = z.object({
@@ -11,8 +19,8 @@ export const dataResourceManagementSchema = z.object({
   options: z.record(z.any()).optional(),
 });
 
-// Data resource management tool
-export async function dataResourceManagement(
+// Data resource management tool (internal implementation)
+async function dataResourceManagementInternal(
   resourceType: string,
   filePath: string,
   options?: Record<string, any>
@@ -28,9 +36,11 @@ export async function dataResourceManagement(
   } catch (error) {
     if (error instanceof z.ZodError) {
       Logger.error('Resource management validation failed', error);
-      throw new ValidationError(`Invalid parameters for resource management: ${error.message}`, {
-        issues: error.issues,
-      });
+      throw createValidationError(
+        `Invalid parameters for resource management: ${error.message}`,
+        { issues: error.issues, resourceType, filePath },
+        'data_resource_management'
+      );
     }
     throw error;
   }
@@ -61,16 +71,30 @@ export async function dataResourceManagement(
         });
 
       default:
-        throw new Error(`Unsupported resource type: ${resourceType}`);
+        throw createValidationError(
+          `Unsupported resource type: ${resourceType}`,
+          { resourceType, supportedTypes: ['csv', 'json', 'text'] },
+          'data_resource_management'
+        );
     }
   } catch (error) {
     Logger.error('Data Resource Management Error', error, {
       resourceType,
       filePath,
     });
-    throw new DataProcessingError(
+    
+    // Re-throw standardized errors
+    if (error instanceof Error && (error.name.includes('ValidationError') || error.name.includes('DataProcessingError'))) {
+      throw error;
+    }
+    
+    throw createDataProcessingError(
       `Failed to manage resource: ${error instanceof Error ? error.message : String(error)}`,
-      { resourceType, filePath }
+      { resourceType, filePath, error: error instanceof Error ? error.message : String(error) },
+      'data_resource_management'
     );
   }
 }
+
+// Export wrapped function
+export const dataResourceManagement = withErrorHandling('data_resource_management', dataResourceManagementInternal);

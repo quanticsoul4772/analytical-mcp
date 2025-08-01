@@ -6,6 +6,12 @@
  */
 
 import { ValidationHelpers } from '../utils/validation_helpers.js';
+import { 
+  withErrorHandling, 
+  createValidationError, 
+  createDataProcessingError,
+  ErrorCodes 
+} from '../utils/errors.js';
 
 /**
  * Fallacy type definition interface
@@ -30,7 +36,7 @@ export interface DetectedFallacy {
  * Logical Fallacy Provider Class
  * Detects and analyzes logical fallacies in arguments
  */
-export class LogicalFallacyProvider {
+class LogicalFallacyProviderClass {
 
   // Types of logical fallacies with descriptions
   private readonly fallacyTypes: Record<string, FallacyType> = {
@@ -93,7 +99,14 @@ export class LogicalFallacyProvider {
    * Validates fallacy analysis inputs
    */
   private validateFallacyAnalysisInputs(argument: string): void {
-    ValidationHelpers.throwIfInvalid(ValidationHelpers.validateNonEmptyString(argument));
+    const validation = ValidationHelpers.validateNonEmptyString(argument);
+    if (!validation.isValid) {
+      throw createValidationError(
+        validation.errorMessage || 'Invalid argument input: expected non-empty string',
+        { field: 'argument', received: typeof argument },
+        'logical_fallacy_provider'
+      );
+    }
   }
 
   /**
@@ -235,36 +248,47 @@ export class LogicalFallacyProvider {
   }
 
   /**
-   * Analyzes logical fallacies in an argument
+   * Analyzes logical fallacies in an argument (internal implementation)
    */
-  analyzeLogicalFallacies(argument: string): string {
+  public analyzeLogicalFallaciesInternal(argument: string): string {
     // Apply ValidationHelpers early return patterns
     this.validateFallacyAnalysisInputs(argument);
     
-    let result = `### Logical Fallacy Analysis\n\n`;
-    const lowerArg = argument.toLowerCase();
-    
-    // Detect fallacies using focused helper
-    const detectedFallacies = this.detectFallaciesFromArgument(lowerArg);
-    
-    // Report detected fallacies
-    if (detectedFallacies.length === 0) {
-      result +=
-        "No common logical fallacies were detected in this argument. However, fallacy detection is complex and the absence of detection doesn't guarantee a fallacy-free argument.\n\n";
-    } else {
-      result += `**Potential Logical Fallacies Detected:**\n\n`;
+    try {
+      let result = `### Logical Fallacy Analysis\n\n`;
+      const lowerArg = argument.toLowerCase();
+      
+      // Detect fallacies using focused helper
+      const detectedFallacies = this.detectFallaciesFromArgument(lowerArg);
+      
+      // Report detected fallacies
+      if (detectedFallacies.length === 0) {
+        result +=
+          "No common logical fallacies were detected in this argument. However, fallacy detection is complex and the absence of detection doesn't guarantee a fallacy-free argument.\n\n";
+      } else {
+        result += `**Potential Logical Fallacies Detected:**\n\n`;
 
-      detectedFallacies.forEach((fallacy, index) => {
-        result += `${index + 1}. **${fallacy.name}** (Confidence: ${(fallacy.confidence * 100).toFixed(0)}%)  \n`;
-        result += `   *${fallacy.description}*  \n`;
-        result += `   Evidence: ${fallacy.evidence}\n\n`;
-      });
+        detectedFallacies.forEach((fallacy, index) => {
+          result += `${index + 1}. **${fallacy.name}** (Confidence: ${(fallacy.confidence * 100).toFixed(0)}%)  \n`;
+          result += `   *${fallacy.description}*  \n`;
+          result += `   Evidence: ${fallacy.evidence}\n\n`;
+        });
 
-      result +=
-        'Note: Fallacy detection is based on text patterns and may not accurately capture the nuance of the argument. These are potential fallacies that should be evaluated in context.\n\n';
+        result +=
+          'Note: Fallacy detection is based on text patterns and may not accurately capture the nuance of the argument. These are potential fallacies that should be evaluated in context.\n\n';
+      }
+
+      return result;
+    } catch (error) {
+      if (error instanceof Error && (error.name.includes('ValidationError') || error.name.includes('DataProcessingError'))) {
+        throw error; // Re-throw standardized errors
+      }
+      throw createDataProcessingError(
+        `Failed to analyze logical fallacies: ${error instanceof Error ? error.message : String(error)}`,
+        { argument: argument.slice(0, 100) + '...' },
+        'logical_fallacy_provider'
+      );
     }
-
-    return result;
   }
 
   /**
@@ -274,3 +298,15 @@ export class LogicalFallacyProvider {
     return { ...this.fallacyTypes };
   }
 }
+
+// Create provider instance
+const logicalFallacyProvider = new LogicalFallacyProviderClass();
+
+// Export wrapped functions
+export const analyzeLogicalFallacies = withErrorHandling('logical_fallacy_provider', logicalFallacyProvider.analyzeLogicalFallaciesInternal.bind(logicalFallacyProvider));
+
+// Export getFallacyTypes as-is since it doesn't need error handling
+export const getFallacyTypes = logicalFallacyProvider.getFallacyTypes.bind(logicalFallacyProvider);
+
+// Export the class for backward compatibility
+export { LogicalFallacyProviderClass as LogicalFallacyProvider };

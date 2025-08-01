@@ -6,6 +6,12 @@
  */
 
 import { ValidationHelpers } from '../utils/validation_helpers.js';
+import { 
+  withErrorHandling, 
+  createValidationError, 
+  createDataProcessingError,
+  ErrorCodes 
+} from '../utils/errors.js';
 
 /**
  * Strength factor interface
@@ -21,13 +27,20 @@ export interface StrengthFactor {
  * Argument Strength Provider Class
  * Analyzes strength factors in logical arguments
  */
-export class ArgumentStrengthProvider {
+class ArgumentStrengthProviderClass {
 
   /**
    * Validates strength analysis inputs
    */
   private validateStrengthAnalysisInputs(argument: string): void {
-    ValidationHelpers.throwIfInvalid(ValidationHelpers.validateNonEmptyString(argument));
+    const validation = ValidationHelpers.validateNonEmptyString(argument);
+    if (!validation.isValid) {
+      throw createValidationError(
+        validation.errorMessage || 'Invalid argument input: expected non-empty string',
+        { field: 'argument', received: typeof argument },
+        'argument_strength_provider'
+      );
+    }
   }
 
   /**
@@ -146,80 +159,124 @@ export class ArgumentStrengthProvider {
    * Generates strength assessment from factors
    */
   private generateStrengthAssessment(strengthFactors: StrengthFactor[]): string {
-    ValidationHelpers.throwIfInvalid(ValidationHelpers.validateDataArray(strengthFactors));
-    
-    const strengthScore = strengthFactors.reduce((sum, factor) => sum + factor.impact, 0);
-    
-    let result = '**Strength Assessment:**\n\n';
-    
-    if (strengthScore >= 3) {
-      result += 'The argument demonstrates strong logical foundation with multiple supporting elements.\n\n';
-    } else if (strengthScore >= 0) {
-      result += 'The argument has adequate logical foundation but could be strengthened with additional elements.\n\n';
-    } else {
-      result += 'The argument has several weaknesses that significantly impact its persuasive strength.\n\n';
+    const validation = ValidationHelpers.validateDataArray(strengthFactors);
+    if (!validation.isValid) {
+      throw createValidationError(
+        validation.errorMessage || 'Invalid strength factors: expected non-empty array',
+        { field: 'strengthFactors', received: typeof strengthFactors },
+        'argument_strength_provider'
+      );
     }
     
-    result += '**Strength Factors Analysis:**\n\n';
-    result += '| Factor | Present | Impact |\n';
-    result += '|--------|---------|--------|\n';
-    
-    strengthFactors.forEach((factor) => {
-      const impactSymbol = factor.impact > 0 ? '➕' : factor.impact < 0 ? '➖' : '⚪';
-      const impactText = factor.impact > 0 ? 'Positive' : factor.impact < 0 ? 'Negative' : 'Neutral';
-      result += `| ${factor.name} | ${factor.present ? 'Yes' : 'No'} | ${impactSymbol} ${impactText} |\n`;
-    });
-    
-    result += '\n**Factor Details:**\n\n';
-    strengthFactors.forEach((factor) => {
-      result += `- **${factor.name}**: ${factor.evidence}\n`;
-    });
-    
-    result += '\n';
-    return result;
+    try {
+      const strengthScore = strengthFactors.reduce((sum, factor) => sum + factor.impact, 0);
+      
+      let result = '**Strength Assessment:**\n\n';
+      
+      if (strengthScore >= 3) {
+        result += 'The argument demonstrates strong logical foundation with multiple supporting elements.\n\n';
+      } else if (strengthScore >= 0) {
+        result += 'The argument has adequate logical foundation but could be strengthened with additional elements.\n\n';
+      } else {
+        result += 'The argument has several weaknesses that significantly impact its persuasive strength.\n\n';
+      }
+      
+      result += '**Strength Factors Analysis:**\n\n';
+      result += '| Factor | Present | Impact |\n';
+      result += '|--------|---------|--------|\n';
+      
+      strengthFactors.forEach((factor) => {
+        const impactSymbol = factor.impact > 0 ? '➕' : factor.impact < 0 ? '➖' : '⚪';
+        const impactText = factor.impact > 0 ? 'Positive' : factor.impact < 0 ? 'Negative' : 'Neutral';
+        result += `| ${factor.name} | ${factor.present ? 'Yes' : 'No'} | ${impactSymbol} ${impactText} |\n`;
+      });
+      
+      result += '\n**Factor Details:**\n\n';
+      strengthFactors.forEach((factor) => {
+        result += `- **${factor.name}**: ${factor.evidence}\n`;
+      });
+      
+      result += '\n';
+      return result;
+    } catch (error) {
+      throw createDataProcessingError(
+        `Failed to generate strength assessment: ${error instanceof Error ? error.message : String(error)}`,
+        { factorCount: strengthFactors.length },
+        'argument_strength_provider'
+      );
+    }
   }
 
   /**
-   * Analyzes argument strength
+   * Analyzes argument strength (internal implementation)
    */
-  analyzeArgumentStrength(argument: string): string {
+  public analyzeArgumentStrengthInternal(argument: string): string {
     // Apply ValidationHelpers early return patterns
     this.validateStrengthAnalysisInputs(argument);
     
-    let result = `### Argument Strength\n\n`;
-    const argLower = argument.toLowerCase();
-    
-    // Detect strength factors using mapping pattern
-    const factorDetectors = this.createStrengthFactorDetectionMapping();
-    const strengthFactors = Object.values(factorDetectors).map(detector => detector(argLower));
-    
-    // Check if alternatives were detected (needed for causal reasoning check)
-    const hasAlternatives = strengthFactors.find(factor => factor.name === 'Alternative Consideration')?.present || false;
-    
-    // Add causal reasoning issues using focused helper
-    const causalIssues = this.detectCausalReasoningIssues(argLower, hasAlternatives);
-    strengthFactors.push(...causalIssues);
-    
-    // Generate assessment using focused helper
-    result += this.generateStrengthAssessment(strengthFactors);
-    
-    return result;
+    try {
+      let result = `### Argument Strength\n\n`;
+      const argLower = argument.toLowerCase();
+      
+      // Detect strength factors using mapping pattern
+      const factorDetectors = this.createStrengthFactorDetectionMapping();
+      const strengthFactors = Object.values(factorDetectors).map(detector => detector(argLower));
+      
+      // Check if alternatives were detected (needed for causal reasoning check)
+      const hasAlternatives = strengthFactors.find(factor => factor.name === 'Alternative Consideration')?.present || false;
+      
+      // Add causal reasoning issues using focused helper
+      const causalIssues = this.detectCausalReasoningIssues(argLower, hasAlternatives);
+      strengthFactors.push(...causalIssues);
+      
+      // Generate assessment using focused helper
+      result += this.generateStrengthAssessment(strengthFactors);
+      
+      return result;
+    } catch (error) {
+      if (error instanceof Error && (error.name.includes('ValidationError') || error.name.includes('DataProcessingError'))) {
+        throw error; // Re-throw standardized errors
+      }
+      throw createDataProcessingError(
+        `Failed to analyze argument strength: ${error instanceof Error ? error.message : String(error)}`,
+        { argument: argument.slice(0, 100) + '...' },
+        'argument_strength_provider'
+      );
+    }
   }
 
   /**
-   * Gets strength factors for an argument
+   * Gets strength factors for an argument (internal implementation)
    */
-  getStrengthFactors(argument: string): StrengthFactor[] {
+  public getStrengthFactorsInternal(argument: string): StrengthFactor[] {
     this.validateStrengthAnalysisInputs(argument);
     
-    const argLower = argument.toLowerCase();
-    const factorDetectors = this.createStrengthFactorDetectionMapping();
-    const strengthFactors = Object.values(factorDetectors).map(detector => detector(argLower));
-    
-    const hasAlternatives = strengthFactors.find(factor => factor.name === 'Alternative Consideration')?.present || false;
-    const causalIssues = this.detectCausalReasoningIssues(argLower, hasAlternatives);
-    strengthFactors.push(...causalIssues);
-    
-    return strengthFactors;
+    try {
+      const argLower = argument.toLowerCase();
+      const factorDetectors = this.createStrengthFactorDetectionMapping();
+      const strengthFactors = Object.values(factorDetectors).map(detector => detector(argLower));
+      
+      const hasAlternatives = strengthFactors.find(factor => factor.name === 'Alternative Consideration')?.present || false;
+      const causalIssues = this.detectCausalReasoningIssues(argLower, hasAlternatives);
+      strengthFactors.push(...causalIssues);
+      
+      return strengthFactors;
+    } catch (error) {
+      throw createDataProcessingError(
+        `Failed to get strength factors: ${error instanceof Error ? error.message : String(error)}`,
+        { argument: argument.slice(0, 100) + '...' },
+        'argument_strength_provider'
+      );
+    }
   }
 }
+
+// Create provider instance
+const argumentStrengthProvider = new ArgumentStrengthProviderClass();
+
+// Export wrapped functions
+export const analyzeArgumentStrength = withErrorHandling('argument_strength_provider', argumentStrengthProvider.analyzeArgumentStrengthInternal.bind(argumentStrengthProvider));
+export const getStrengthFactors = withErrorHandling('argument_strength_provider', argumentStrengthProvider.getStrengthFactorsInternal.bind(argumentStrengthProvider));
+
+// Export the class for backward compatibility
+export { ArgumentStrengthProviderClass as ArgumentStrengthProvider };
