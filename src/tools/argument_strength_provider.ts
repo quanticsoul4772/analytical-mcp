@@ -6,6 +6,7 @@
  */
 
 import { ValidationHelpers } from '../utils/validation_helpers.js';
+import { withErrorHandling, createValidationError, createDataProcessingError } from '../utils/errors.js';
 
 /**
  * Strength factor interface
@@ -27,7 +28,13 @@ export class ArgumentStrengthProvider {
    * Validates strength analysis inputs
    */
   private validateStrengthAnalysisInputs(argument: string): void {
-    ValidationHelpers.throwIfInvalid(ValidationHelpers.validateNonEmptyString(argument));
+    if (!argument || typeof argument !== 'string' || argument.trim().length === 0) {
+      throw createValidationError(
+        'Argument is required and must be a non-empty string',
+        { argument, type: typeof argument },
+        'argument_strength_provider'
+      );
+    }
   }
 
   /**
@@ -146,7 +153,13 @@ export class ArgumentStrengthProvider {
    * Generates strength assessment from factors
    */
   private generateStrengthAssessment(strengthFactors: StrengthFactor[]): string {
-    ValidationHelpers.throwIfInvalid(ValidationHelpers.validateDataArray(strengthFactors));
+    if (!Array.isArray(strengthFactors) || strengthFactors.length === 0) {
+      throw createDataProcessingError(
+        'Strength factors array is required and must not be empty',
+        { strengthFactors },
+        'argument_strength_provider'
+      );
+    }
     
     const strengthScore = strengthFactors.reduce((sum, factor) => sum + factor.impact, 0);
     
@@ -180,9 +193,9 @@ export class ArgumentStrengthProvider {
   }
 
   /**
-   * Analyzes argument strength
+   * Internal method - Analyzes argument strength
    */
-  analyzeArgumentStrength(argument: string): string {
+  analyzeArgumentStrengthInternal(argument: string): string {
     // Apply ValidationHelpers early return patterns
     this.validateStrengthAnalysisInputs(argument);
     
@@ -207,9 +220,9 @@ export class ArgumentStrengthProvider {
   }
 
   /**
-   * Gets strength factors for an argument
+   * Internal method - Gets strength factors for an argument
    */
-  getStrengthFactors(argument: string): StrengthFactor[] {
+  getStrengthFactorsInternal(argument: string): StrengthFactor[] {
     this.validateStrengthAnalysisInputs(argument);
     
     const argLower = argument.toLowerCase();
@@ -222,4 +235,47 @@ export class ArgumentStrengthProvider {
     
     return strengthFactors;
   }
+
+  /**
+   * Analyzes argument strength with error handling
+   */
+  analyzeArgumentStrength = withErrorHandling(
+    'argument_strength_provider',
+    async (argument: string): Promise<string> => {
+      return this.analyzeArgumentStrengthInternal(argument);
+    }
+  );
+
+  /**
+   * Gets strength factors for an argument with error handling
+   */
+  getStrengthFactors = withErrorHandling(
+    'argument_strength_provider',
+    async (argument: string): Promise<StrengthFactor[]> => {
+      return this.getStrengthFactorsInternal(argument);
+    }
+  );
 }
+
+// Create singleton instance
+const strengthProviderInstance = new ArgumentStrengthProvider();
+
+/**
+ * Analyzes argument strength
+ */
+export const analyzeArgumentStrength = withErrorHandling(
+  'argument_strength_provider', 
+  async (argument: string): Promise<string> => {
+    return strengthProviderInstance.analyzeArgumentStrengthInternal(argument);
+  }
+);
+
+/**
+ * Gets strength factors for an argument
+ */
+export const getStrengthFactors = withErrorHandling(
+  'argument_strength_provider',
+  async (argument: string): Promise<StrengthFactor[]> => {
+    return strengthProviderInstance.getStrengthFactorsInternal(argument);
+  }
+);

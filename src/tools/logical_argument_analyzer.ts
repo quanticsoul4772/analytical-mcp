@@ -1,6 +1,7 @@
 // Import types
 import { z } from 'zod';
 import { ValidationHelpers } from '../utils/validation_helpers.js';
+import { withErrorHandling, createValidationError } from '../utils/errors.js';
 import { ArgumentStructureProvider } from './argument_structure_provider.js';
 import { LogicalFallacyProvider } from './logical_fallacy_provider.js';
 import { ArgumentValidityProvider } from './argument_validity_provider.js';
@@ -52,9 +53,9 @@ export class LogicalArgumentAnalyzer {
   }
 
   /**
-   * Analyzes logical argument using provider coordination
+   * Internal method - Analyzes logical argument using provider coordination
    */
-  async analyze(options: AnalysisOptions): Promise<string> {
+  async analyzeInternal(options: AnalysisOptions): Promise<string> {
     // Destructure options with defaults
     const {
       argument,
@@ -62,9 +63,22 @@ export class LogicalArgumentAnalyzer {
       includeRecommendations = true
     } = options;
 
-    // Early validation using ValidationHelpers
-    ValidationHelpers.throwIfInvalid(ValidationHelpers.validateNonEmptyString(argument));
-    ValidationHelpers.throwIfInvalid(ValidationHelpers.validateNonEmptyString(analysisType));
+    // Early validation with enhanced error handling
+    if (!argument || typeof argument !== 'string' || argument.trim().length === 0) {
+      throw createValidationError(
+        'Argument is required and must be a non-empty string',
+        { argument, type: typeof argument },
+        'logical_argument_analyzer'
+      );
+    }
+
+    if (!analysisType || typeof analysisType !== 'string') {
+      throw createValidationError(
+        'Analysis type is required and must be a valid string',
+        { analysisType, type: typeof analysisType },
+        'logical_argument_analyzer'
+      );
+    }
 
     // Determine which analyses to perform
     const analyzeStructure = analysisType === 'structure' || analysisType === 'comprehensive';
@@ -105,16 +119,27 @@ export class LogicalArgumentAnalyzer {
 
     return result;
   }
+
+  /**
+   * Analyzes logical argument with error handling
+   */
+  analyze = withErrorHandling(
+    'logical_argument_analyzer',
+    async (options: AnalysisOptions): Promise<string> => {
+      return this.analyzeInternal(options);
+    }
+  );
 }
 
 // Create singleton instance
 const analyzerInstance = new LogicalArgumentAnalyzer();
 
 /**
- * Main function for tool integration
+ * Main function for tool integration with error handling
  */
-export async function logicalArgumentAnalyzer(
-  options: AnalysisOptions
-): Promise<string> {
-  return await analyzerInstance.analyze(options);
-}
+export const logicalArgumentAnalyzer = withErrorHandling(
+  'logical_argument_analyzer',
+  async (options: AnalysisOptions): Promise<string> => {
+    return await analyzerInstance.analyzeInternal(options);
+  }
+);

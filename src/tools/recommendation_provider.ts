@@ -6,6 +6,7 @@
  */
 
 import { ValidationHelpers } from '../utils/validation_helpers.js';
+import { withErrorHandling, createValidationError, createDataProcessingError } from '../utils/errors.js';
 
 /**
  * Argument features interface
@@ -29,7 +30,13 @@ export class RecommendationProvider {
    * Analyzes argument features
    */
   private analyzeArgumentFeatures(argument: string): ArgumentFeatures {
-    ValidationHelpers.throwIfInvalid(ValidationHelpers.validateNonEmptyString(argument));
+    if (!argument || typeof argument !== 'string' || argument.trim().length === 0) {
+      throw createValidationError(
+        'Argument is required and must be a non-empty string',
+        { argument, type: typeof argument },
+        'recommendation_provider'
+      );
+    }
     
     const argLower = argument.toLowerCase();
     const sentenceCount = argument.split(/[.!?]+/).filter((s) => s.trim().length > 0).length;
@@ -109,11 +116,24 @@ export class RecommendationProvider {
   }
 
   /**
-   * Generates argument recommendations based on analysis
+   * Internal method - Generates argument recommendations based on analysis
    */
-  generateArgumentRecommendations(argument: string, analysisType: string): string {
-    ValidationHelpers.throwIfInvalid(ValidationHelpers.validateNonEmptyString(argument));
-    ValidationHelpers.throwIfInvalid(ValidationHelpers.validateNonEmptyString(analysisType));
+  generateArgumentRecommendationsInternal(argument: string, analysisType: string): string {
+    if (!argument || typeof argument !== 'string' || argument.trim().length === 0) {
+      throw createValidationError(
+        'Argument is required and must be a non-empty string',
+        { argument, type: typeof argument },
+        'recommendation_provider'
+      );
+    }
+
+    if (!analysisType || typeof analysisType !== 'string') {
+      throw createValidationError(
+        'Analysis type is required and must be a valid string',
+        { analysisType, type: typeof analysisType },
+        'recommendation_provider'
+      );
+    }
     
     let result = `### Recommendations for Improvement\n\n`;
 
@@ -140,16 +160,16 @@ export class RecommendationProvider {
   }
 
   /**
-   * Gets argument features for analysis
+   * Internal method - Gets argument features for analysis
    */
-  getArgumentFeatures(argument: string): ArgumentFeatures {
+  getArgumentFeaturesInternal(argument: string): ArgumentFeatures {
     return this.analyzeArgumentFeatures(argument);
   }
 
   /**
-   * Gets specific recommendations by category
+   * Internal method - Gets specific recommendations by category
    */
-  getRecommendationsByCategory(argument: string): Record<string, string[]> {
+  getRecommendationsByCategoryInternal(argument: string): Record<string, string[]> {
     const features = this.analyzeArgumentFeatures(argument);
     
     return {
@@ -161,4 +181,67 @@ export class RecommendationProvider {
       alternatives: features.hasAlternatives ? [] : ['Consider alternative explanations or possibilities'],
     };
   }
+
+  /**
+   * Generates argument recommendations with error handling
+   */
+  generateArgumentRecommendations = withErrorHandling(
+    'recommendation_provider',
+    async (argument: string, analysisType: string): Promise<string> => {
+      return this.generateArgumentRecommendationsInternal(argument, analysisType);
+    }
+  );
+
+  /**
+   * Gets argument features for analysis with error handling
+   */
+  getArgumentFeatures = withErrorHandling(
+    'recommendation_provider',
+    async (argument: string): Promise<ArgumentFeatures> => {
+      return this.getArgumentFeaturesInternal(argument);
+    }
+  );
+
+  /**
+   * Gets specific recommendations by category with error handling
+   */
+  getRecommendationsByCategory = withErrorHandling(
+    'recommendation_provider',
+    async (argument: string): Promise<Record<string, string[]>> => {
+      return this.getRecommendationsByCategoryInternal(argument);
+    }
+  );
 }
+
+// Create singleton instance
+const recommendationProviderInstance = new RecommendationProvider();
+
+/**
+ * Generates argument recommendations
+ */
+export const generateArgumentRecommendations = withErrorHandling(
+  'recommendation_provider',
+  async (argument: string, analysisType: string): Promise<string> => {
+    return recommendationProviderInstance.generateArgumentRecommendationsInternal(argument, analysisType);
+  }
+);
+
+/**
+ * Gets argument features for analysis
+ */
+export const getArgumentFeatures = withErrorHandling(
+  'recommendation_provider',
+  async (argument: string): Promise<ArgumentFeatures> => {
+    return recommendationProviderInstance.getArgumentFeaturesInternal(argument);
+  }
+);
+
+/**
+ * Gets specific recommendations by category
+ */
+export const getRecommendationsByCategory = withErrorHandling(
+  'recommendation_provider',
+  async (argument: string): Promise<Record<string, string[]>> => {
+    return recommendationProviderInstance.getRecommendationsByCategoryInternal(argument);
+  }
+);
