@@ -19,9 +19,10 @@ COPY tsconfig.test.json ./
 # Install dependencies (including dev dependencies for build)
 RUN npm ci
 
-# Copy source code
+# Copy source code and configuration files
 COPY src/ ./src/
 COPY tools/ ./tools/
+COPY .env.example ./
 
 # Build the TypeScript project
 RUN npm run build
@@ -57,7 +58,7 @@ COPY --from=builder /app/tools ./tools/
 RUN mkdir -p cache && chown analytical:nodejs cache
 
 # Copy environment example (users can override with their own .env)
-COPY .env.example ./
+COPY --from=builder /app/.env.example ./
 
 # Switch to non-root user
 USER analytical
