@@ -2,7 +2,15 @@ import { z } from 'zod';
 import { exaResearch } from '../utils/exa_research.js';
 import { enhancedFactExtractor } from './exa_research.js';
 import { Logger } from '../utils/logger.js';
-import { APIError, ValidationError, DataProcessingError } from '../utils/errors.js';
+import { 
+  APIError, 
+  ValidationError, 
+  DataProcessingError,
+  AnalyticalError,
+  withErrorHandling,
+  createValidationError,
+  createDataProcessingError 
+} from '../utils/errors.js';
 import * as mathjs from 'mathjs';
 
 // Research verification configuration schema
@@ -37,62 +45,71 @@ interface ResearchConfidence {
   };
 }
 
-export class ResearchVerificationTool {
-  // Cross-source verification method with enhanced fact extraction
-  async verifyResearch(
-    input: z.infer<typeof ResearchVerificationSchema>
-  ): Promise<{
-    verifiedResults: string[];
-    confidence: ResearchConfidence;
-  }> {
-    try {
-      const params = ResearchVerificationSchema.parse(input);
-      
-      // Prepare for fact extraction and verification
-      const factExtractions: ResearchConfidence['details']['factExtractions'] = [];
-      const allExtractedFacts: string[] = [];
-      const uniqueSources = new Set<string>();
-      const conflictingClaims: string[] = [];
+// Internal research verification function
+async function researchVerificationInternal(
+  input: z.infer<typeof ResearchVerificationSchema>
+): Promise<{
+  verifiedResults: string[];
+  confidence: ResearchConfidence;
+}> {
+  const params = ResearchVerificationSchema.parse(input);
+  
+  // Prepare for fact extraction and verification
+  const factExtractions: ResearchConfidence['details']['factExtractions'] = [];
+  const allExtractedFacts: string[] = [];
+  const uniqueSources = new Set<string>();
+  const conflictingClaims: string[] = [];
 
-      // Primary query search
-      const primaryResults = await exaResearch.search({
-        query: params.query,
-        numResults: params.sources,
-        includeContents: true,
-        useWebResults: true,
-        useNewsResults: false
+  try {
+    // Primary query search
+    const primaryResults = await exaResearch({
+      query: params.query,
+      numResults: params.sources,
+      includeContents: true,
+      useWebResults: true,
+      useNewsResults: false
+    });
+
+    // Validate primary results
+    if (!primaryResults.results || primaryResults.results.length === 0) {
+      throw createDataProcessingError(
+        'No results found for primary research query',
+        { query: params.query },
+        'research_verification'
+      );
+    }
+
+    // Extract and analyze facts from primary search
+    for (const result of primaryResults.results) {
+      const sourceTitle = result.title || 'Unknown Source';
+      uniqueSources.add(sourceTitle);
+
+      // Use enhanced fact extractor
+      const extraction = enhancedFactExtractor.extractFacts(
+        result.contents || '', 
+        params.factExtractionOptions
+      );
+
+      // Add to fact extractions
+      factExtractions.push({
+        source: sourceTitle,
+        facts: extraction.facts.map(f => ({
+          fact: f.fact,
+          type: f.type,
+          confidence: f.confidence
+        })),
+        sourceConfidence: extraction.confidence
       });
 
-      // Extract and analyze facts from primary search
-      for (const result of primaryResults.results) {
-        const sourceTitle = result.title || 'Unknown Source';
-        uniqueSources.add(sourceTitle);
+      // Collect facts
+      allExtractedFacts.push(...extraction.facts.map(f => f.fact));
+    }
 
-        // Use enhanced fact extractor
-        const extraction = enhancedFactExtractor.extractFacts(
-          result.contents || '', 
-          params.factExtractionOptions
-        );
-
-        // Add to fact extractions
-        factExtractions.push({
-          source: sourceTitle,
-          facts: extraction.facts.map(f => ({
-            fact: f.fact,
-            type: f.type,
-            confidence: f.confidence
-          })),
-          sourceConfidence: extraction.confidence
-        });
-
-        // Collect facts
-        allExtractedFacts.push(...extraction.facts.map(f => f.fact));
-      }
-
-      // Verification queries processing
-      if (params.verificationQueries) {
-        for (const verificationQuery of params.verificationQueries) {
-          const verificationSearch = await exaResearch.search({
+    // Verification queries processing
+    if (params.verificationQueries && params.verificationQueries.length > 0) {
+      for (const verificationQuery of params.verificationQueries) {
+        try {
+          const verificationSearch = await exaResearch({
             query: verificationQuery,
             numResults: params.sources,
             includeContents: true,
@@ -122,118 +139,133 @@ export class ResearchVerificationTool {
             // Add verification facts
             allExtractedFacts.push(...extraction.facts.map(f => f.fact));
           }
+        } catch (verificationError) {
+          Logger.warn(`[research_verification] Verification query failed: ${verificationQuery}`, verificationError);
+          // Continue with other queries instead of failing completely
         }
       }
-
-      // Compute consistency and confidence
-      const confidence = this.computeConfidence(
-        allExtractedFacts, 
-        factExtractions, 
-        params.minConsistencyThreshold
-      );
-
-      // Log verification details
-      Logger.debug('Research Verification Results', {
-        primaryQuery: params.query,
-        confidenceScore: confidence.score,
-        sourceCount: confidence.details.sourceCount
-      });
-
-      return {
-        verifiedResults: allExtractedFacts,
-        confidence
-      };
-    } catch (error) {
-      Logger.error('Research verification failed', error);
-      
-      if (error instanceof z.ZodError) {
-        throw new ValidationError(`Invalid research verification input: ${error.message}`, {
-          issues: error.issues
-        });
-      }
-
-      throw new DataProcessingError(`Research verification failed: ${error instanceof Error ? error.message : 'Unknown error'}`, {
-        originalInput: input
-      });
     }
-  }
 
-  // Compute confidence score based on research consistency
-  private computeConfidence(
-    facts: string[], 
-    factExtractions: ResearchConfidence['details']['factExtractions'], 
-    minThreshold: number
-  ): ResearchConfidence {
-    // Compute fact similarity and consistency
-    const factConsistencyMatrix = this.computeFactConsistency(facts);
+    // Validate we have enough data for verification
+    if (factExtractions.length === 0) {
+      throw createDataProcessingError(
+        'No fact extractions available for verification',
+        { 
+          query: params.query, 
+          verificationQueries: params.verificationQueries 
+        },
+        'research_verification'
+      );
+    }
 
-    // Calculate source-level confidences
-    const sourceConfidences = factExtractions.map(extraction => 
-      mathjs.mean(extraction.facts.map(f => f.confidence))
+    // Compute consistency and confidence
+    const confidence = computeConfidence(
+      allExtractedFacts, 
+      factExtractions, 
+      params.minConsistencyThreshold
     );
 
-    // Overall source confidence
-    const averageSourceConfidence = mathjs.mean(sourceConfidences);
-
-    // Compute consistency score
-    const consistencyScore = mathjs.mean(
-      factConsistencyMatrix.map(row => mathjs.mean(row))
-    );
-
-    // Final confidence computation
-    const confidenceScore = mathjs.round(
-      Math.min(1, 
-        consistencyScore * 
-        averageSourceConfidence * 
-        (1 + Math.log(factExtractions.length))
-      ), 
-      2
-    );
+    // Log verification details
+    Logger.info(`[research_verification] Verification completed for "${params.query}"`, {
+      confidenceScore: confidence.score,
+      sourceCount: confidence.details.sourceCount,
+      factsExtracted: allExtractedFacts.length
+    });
 
     return {
-      score: Math.max(confidenceScore, minThreshold),
-      details: {
-        sourceConsistency: consistencyScore,
-        sourceCount: factExtractions.length,
-        uniqueSources: Array.from(new Set(factExtractions.map(e => e.source))),
-        conflictingClaims: [], // TODO: Implement more sophisticated conflict detection
-        factExtractions: factExtractions
-      }
-    };
-  }
-
-  // Compute similarity matrix between extracted facts
-  private computeFactConsistency(facts: string[]): number[][] {
-    // Simple Jaccard similarity for fact comparison
-    const computeSimilarity = (fact1: string, fact2: string): number => {
-      const set1 = new Set(fact1.toLowerCase().split(/\s+/));
-      const set2 = new Set(fact2.toLowerCase().split(/\s+/));
-
-      const intersection = new Set([...set1].filter(x => set2.has(x)));
-      const union = new Set([...set1, ...set2]);
-
-      return intersection.size / union.size;
+      verifiedResults: allExtractedFacts,
+      confidence
     };
 
-    // Create similarity matrix
-    const similarityMatrix: number[][] = [];
-    for (let i = 0; i < facts.length; i++) {
-      similarityMatrix[i] = [];
-      for (let j = 0; j < facts.length; j++) {
-        similarityMatrix[i][j] = i === j ? 1 : computeSimilarity(facts[i], facts[j]);
-      }
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      throw createValidationError(
+        'Invalid research verification input',
+        { issues: error.issues },
+        'research_verification'
+      );
     }
 
-    return similarityMatrix;
-  }
+    if (error instanceof AnalyticalError) {
+      throw error;
+    }
 
-  // MCP Server tool registration
-  registerTool(server: any): void {
-    Logger.info('Research Verification tool registered');
-    
-    // TODO: Implement specific registration logic if needed
+    throw createDataProcessingError(
+      `Research verification failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      { query: params.query, error },
+      'research_verification'
+    );
   }
 }
 
-// Singleton instance
-export const researchVerification = new ResearchVerificationTool();
+// Compute confidence score based on research consistency
+function computeConfidence(
+  facts: string[], 
+  factExtractions: ResearchConfidence['details']['factExtractions'], 
+  minThreshold: number
+): ResearchConfidence {
+  // Compute fact similarity and consistency
+  const factConsistencyMatrix = computeFactConsistency(facts);
+
+  // Calculate source-level confidences
+  const sourceConfidences = factExtractions.map(extraction => 
+    mathjs.mean(extraction.facts.map(f => f.confidence))
+  );
+
+  // Overall source confidence
+  const averageSourceConfidence = mathjs.mean(sourceConfidences);
+
+  // Compute consistency score
+  const consistencyScore = mathjs.mean(
+    factConsistencyMatrix.map(row => mathjs.mean(row))
+  );
+
+  // Final confidence computation
+  const confidenceScore = mathjs.round(
+    Math.min(1, 
+      consistencyScore * 
+      averageSourceConfidence * 
+      (1 + Math.log(factExtractions.length))
+    ), 
+    2
+  );
+
+  return {
+    score: Math.max(confidenceScore, minThreshold),
+    details: {
+      sourceConsistency: consistencyScore,
+      sourceCount: factExtractions.length,
+      uniqueSources: Array.from(new Set(factExtractions.map(e => e.source))),
+      conflictingClaims: [], // TODO: Implement more sophisticated conflict detection
+      factExtractions: factExtractions
+    }
+  };
+}
+
+// Compute similarity matrix between extracted facts
+function computeFactConsistency(facts: string[]): number[][] {
+  // Simple Jaccard similarity for fact comparison
+  const computeSimilarity = (fact1: string, fact2: string): number => {
+    const set1 = new Set(fact1.toLowerCase().split(/\s+/));
+    const set2 = new Set(fact2.toLowerCase().split(/\s+/));
+
+    const intersection = new Set([...set1].filter(x => set2.has(x)));
+    const union = new Set([...set1, ...set2]);
+
+    return intersection.size / union.size;
+  };
+
+  // Create similarity matrix
+  const similarityMatrix: number[][] = [];
+  for (let i = 0; i < facts.length; i++) {
+    similarityMatrix[i] = [];
+    for (let j = 0; j < facts.length; j++) {
+      similarityMatrix[i][j] = i === j ? 1 : computeSimilarity(facts[i], facts[j]);
+    }
+  }
+
+  return similarityMatrix;
+}
+
+// Export the main function with error handling wrapper
+export const researchVerification = withErrorHandling('research_verification', researchVerificationInternal);
