@@ -1,12 +1,21 @@
 # Analytical MCP Server
 
-A Model Context Protocol (MCP) server that provides statistical analysis, decision-making, and logical reasoning tools.
+[![CI/CD Status](https://github.com/quanticsoul4772/analytical-mcp/actions/workflows/claude.yml/badge.svg)](https://github.com/quanticsoul4772/analytical-mcp/actions/workflows/claude.yml)
+[![Test Coverage](https://img.shields.io/badge/coverage-63%25-yellow)](https://github.com/quanticsoul4772/analytical-mcp/actions)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.3.3-blue)](https://www.typescriptlang.org/)
+[![Node.js](https://img.shields.io/badge/Node.js-20%2B-green)](https://nodejs.org/)
+[![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
+A Model Context Protocol (MCP) server that provides statistical analysis, decision-making, and logical reasoning tools with comprehensive error handling and test coverage.
 
 ## Setup
 
 ### Prerequisites
 - Node.js >= 20.0.0
+- TypeScript 5.3+ (for development)
+- Jest testing framework (included in dev dependencies)
 - EXA_API_KEY environment variable (for research features)
+- ESLint and Prettier for code quality (configured)
 
 ### Installation
 
@@ -179,12 +188,43 @@ analytical-mcp/
 - Consistency checking
 - Research validation
 
+## Error Handling
+
+The server implements comprehensive error handling with standardized error codes:
+
+### Error Code Categories
+- **1xxx**: Validation errors (ERR_1001-1005)
+- **2xxx**: API errors (ERR_2001-2005) 
+- **3xxx**: Processing errors (ERR_3001-3005)
+- **4xxx**: Configuration errors (ERR_4001-4003)
+- **5xxx**: Tool execution errors (ERR_5001-5003)
+
+### Recovery Features
+- Automatic retry logic with exponential backoff
+- Graceful fallback for API failures
+- Enhanced error context for debugging
+- Tool-specific error handling
+
+For detailed error handling documentation, see [docs/ERROR_HANDLING.md](./docs/ERROR_HANDLING.md).
+
+### Quick Error Handling Example
+```javascript
+// All tools automatically handle errors with standardized codes
+try {
+  const result = await analytical.analyze_dataset({ data: invalidData });
+} catch (error) {
+  console.log(`Error: ${error.code} - ${error.message}`);
+  // Error includes context: toolName, recovery options, etc.
+}
+```
+
 ## Security & Privacy
 
 - Processing is done locally
 - Research features use Exa API (optional)
 - No data is stored permanently
 - Configurable caching with local-only storage
+- Secure error handling prevents information leakage
 
 ## License
 

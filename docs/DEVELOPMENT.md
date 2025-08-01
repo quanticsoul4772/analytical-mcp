@@ -41,6 +41,8 @@
 - Use TypeScript with strict typing and explicit function return types
 - Organize related functionality in modules within tools directory
 - Use Zod for input validation and type safety
+- Implement comprehensive error handling with standardized error codes
+- Use the `withErrorHandling()` wrapper for all new tools
 
 ### Formatting
 - 100 character line length
@@ -61,10 +63,111 @@
 ### Testing Standards
 - Jest with 90s timeout for API calls
 - Test setup in src/setupTests.ts
-- 90%+ test coverage target
+- 80%+ test coverage target (current: 63%)
+- Comprehensive error handling tests required
+- Test all error codes for each tool
 
 ### Mathematical Operations
 - Use mathjs library conventions for mathematical operations
+
+## Error Handling Patterns for New Tools
+
+### Using withErrorHandling() Wrapper
+
+All new tools should use the standardized error handling wrapper:
+
+```typescript
+import { withErrorHandling } from '../utils/errors';
+
+// Before (legacy pattern)
+export async function myTool(params: MyParams) {
+  // tool implementation
+}
+
+// After (recommended pattern)
+export const myTool = withErrorHandling('myTool', async (params: MyParams) => {
+  // tool implementation with automatic error handling
+});
+```
+
+### Validation Error Patterns
+
+Use standardized error creation functions:
+
+```typescript
+import { createValidationError, createAPIError, createDataProcessingError } from '../utils/errors';
+
+// Input validation
+if (!params.data || !Array.isArray(params.data)) {
+  throw createValidationError(
+    'Data must be a non-empty array',
+    { receivedType: typeof params.data },
+    'myTool'
+  );
+}
+
+// API error handling
+if (response.status === 429) {
+  throw createAPIError(
+    'API rate limit exceeded',
+    ErrorCodes.API_RATE_LIMIT,
+    { retryAfter: response.headers['retry-after'] },
+    'myTool'
+  );
+}
+
+// Processing error
+if (calculationResult === null) {
+  throw createDataProcessingError(
+    'Calculation failed due to insufficient data',
+    { dataSize: params.data.length },
+    'myTool'
+  );
+}
+```
+
+### Recovery Strategy Implementation
+
+Tools should implement appropriate recovery strategies:
+
+```typescript
+import { executeWithRetry, ErrorCodes } from '../utils/errors';
+
+// For API-dependent operations
+const result = await executeWithRetry(
+  () => callExternalAPI(params),
+  ErrorCodes.API_TIMEOUT
+);
+
+// For calculations with fallback
+try {
+  return advancedCalculation(data);
+} catch (error) {
+  if (error.code === ErrorCodes.ALGORITHM_CONVERGENCE_FAILED) {
+    return basicCalculation(data); // Fallback method
+  }
+  throw error;
+}
+```
+
+### Test-Driven Development Workflow
+
+1. **Write Error Tests First**
+```typescript
+describe('myTool Error Handling', () => {
+  it('should throw ERR_1001 for null input', async () => {
+    await expect(myTool(null))
+      .rejects
+      .toThrow(expect.objectContaining({
+        code: 'ERR_1001'
+      }));
+  });
+});
+```
+
+2. **Implement Tool Logic**
+3. **Add Success Path Tests**
+4. **Verify Error Context**
 
 ## Development Workflow
 

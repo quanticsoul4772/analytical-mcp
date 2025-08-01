@@ -1,5 +1,132 @@
 # Troubleshooting Guide
 
+## Error Code Troubleshooting
+
+### Quick Error Code Reference
+
+| Error Code | Category | Description | Quick Fix |
+|------------|----------|-------------|-----------|
+| ERR_1001 | Validation | Invalid input format | Check data types and format |
+| ERR_1002 | Validation | Missing required parameter | Verify all required fields |
+| ERR_1003 | Validation | Invalid data format | Ensure correct data structure |
+| ERR_1004 | Validation | Invalid parameter type | Check parameter types |
+| ERR_1005 | Validation | Parameter out of range | Verify value constraints |
+| ERR_2001 | API | Rate limit exceeded | Wait and retry, or check limits |
+| ERR_2002 | API | Authentication failed | Verify API keys |
+| ERR_2003 | API | Request timeout | Check network, retry |
+| ERR_2004 | API | Service unavailable | Check service status, use fallback |
+| ERR_2005 | API | Invalid response | Check API endpoint |
+| ERR_3001 | Processing | Calculation failed | Check data quality, try different method |
+| ERR_3002 | Processing | Memory limit exceeded | Reduce data size |
+| ERR_3003 | Processing | Operation timeout | Increase timeout or reduce complexity |
+| ERR_3004 | Processing | Insufficient data | Provide more data points |
+| ERR_3005 | Processing | Algorithm convergence failed | Adjust parameters |
+| ERR_4001 | Configuration | Missing configuration | Check environment variables |
+| ERR_4002 | Configuration | Invalid configuration | Validate config format |
+| ERR_4003 | Configuration | Config load failed | Check file permissions |
+| ERR_5001 | Tool | Tool not found | Verify tool registration |
+| ERR_5002 | Tool | Tool execution failed | Check tool dependencies |
+| ERR_5003 | Tool | Tool dependency missing | Install missing dependencies |
+
+### Error-Specific Troubleshooting
+
+#### Validation Errors (ERR_1xxx)
+
+**ERR_1001 - Invalid Input**
+```javascript
+// Common causes and solutions
+const invalidInputs = [
+  null,           // Solution: Provide valid data
+  undefined,      // Solution: Provide valid data
+  "string",       // Solution: Use correct data type
+  {},             // Solution: Use array for datasets
+  []              // Solution: Provide non-empty data
+];
+
+// Debugging
+console.log("Data type:", typeof yourData);
+console.log("Is array:", Array.isArray(yourData));
+console.log("Length:", yourData?.length);
+```
+
+**ERR_1002 - Missing Required Parameter**
+```javascript
+// Check required parameters for each tool
+const requiredParams = {
+  analyze_dataset: ['data'],
+  decision_analysis: ['options', 'criteria'],
+  hypothesis_testing: ['testType', 'data'],
+  verify_research: ['query']
+};
+```
+
+#### API Errors (ERR_2xxx)
+
+**ERR_2001 - Rate Limit Exceeded**
+```bash
+# Check API usage and limits
+curl -H "x-api-key: $EXA_API_KEY" \
+     -H "Content-Type: application/json" \
+     https://api.exa.ai/usage
+
+# Implement exponential backoff
+async function withRetry(fn, maxRetries = 3) {
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      return await fn();
+    } catch (error) {
+      if (error.code === 'ERR_2001' && i < maxRetries - 1) {
+        await new Promise(resolve => 
+          setTimeout(resolve, Math.pow(2, i) * 1000)
+        );
+        continue;
+      }
+      throw error;
+    }
+  }
+}
+```
+
+**ERR_2002 - Authentication Failed**
+```bash
+# Verify API key configuration
+echo "EXA_API_KEY: ${EXA_API_KEY:0:10}..." # Shows first 10 chars
+node -e "console.log('API Key configured:', !!process.env.EXA_API_KEY)"
+
+# Test API key validity
+npm run test:api-keys
+```
+
+#### Processing Errors (ERR_3xxx)
+
+**ERR_3004 - Insufficient Data**
+```javascript
+// Minimum data requirements by tool
+const minimumData = {
+  analyze_dataset: 3,      // Minimum 3 data points
+  regression_analysis: 5,   // Minimum 5 points for regression
+  hypothesis_testing: 10,   // Minimum 10 points for statistical tests
+  correlation_analysis: 15  // Minimum 15 points for correlation
+};
+
+// Check your data size
+if (data.length < minimumData.analyze_dataset) {
+  console.error(`Need at least ${minimumData.analyze_dataset} data points, got ${data.length}`);
+}
+```
+
+**ERR_3002 - Memory Limit**
+```bash
+# Increase Node.js memory limit
+node --max-old-space-size=8192 build/index.js
+
+# Or set in environment
+export NODE_OPTIONS="--max-old-space-size=8192"
+
+# Monitor memory usage
+npm run test:leak-detection
+```
+
 ## Common Issues
 
 ### Server Connection Issues
