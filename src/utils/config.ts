@@ -90,7 +90,12 @@ export const config = {
     numResults: Number(process.env.NLP_EXA_NUM_RESULTS) || 3,
     useWebResults: process.env.NLP_EXA_USE_WEB !== 'false',
     useNewsResults: process.env.NLP_EXA_USE_NEWS === 'true',
-  }
+  },
+
+  // Metrics server configuration
+  METRICS_ENABLED: process.env.METRICS_ENABLED || 'true',
+  METRICS_PORT: process.env.METRICS_PORT || '9090',
+  METRICS_HOST: process.env.METRICS_HOST || '0.0.0.0',
 };
 
 /**

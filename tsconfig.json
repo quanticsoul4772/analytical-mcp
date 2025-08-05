@@ -12,7 +12,7 @@
     "resolveJsonModule": true,
     "allowSyntheticDefaultImports": true,
     "lib": ["ES2022"],
-    "types": ["node", "jest"],
+    "types": ["node"],
     "declaration": true,
     "sourceMap": true,
     "isolatedModules": true,
@@ -20,5 +20,5 @@
     "noImplicitAny": true
   },
   "include": ["src/**/*"],
-  "exclude": ["node_modules", "build", "**/*.test.ts"]
+  "exclude": ["node_modules", "build", "**/*.test.ts", "src/integration/test-helper.ts"]
 }

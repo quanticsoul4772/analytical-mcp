@@ -95,6 +95,63 @@ docker-compose up -d
 ### Research Verification
 - **`analytical:verify_research`** - Cross-verify research claims from multiple sources
 
+## Observability & Metrics
+
+The Analytical MCP Server includes built-in observability features for monitoring circuit breakers and cache performance.
+
+### Metrics Endpoint
+
+When enabled, the server exposes metrics via HTTP on port 9090 (configurable):
+
+- **`http://localhost:9090/metrics`** - Prometheus-style metrics
+- **`http://localhost:9090/metrics?format=json`** - JSON format metrics
+- **`http://localhost:9090/health`** - Health check endpoint
+- **`http://localhost:9090/`** - Metrics server status page
+
+### Available Metrics
+
+#### Circuit Breaker Metrics
+- `analytical_mcp_circuit_breaker_state` - Current state (0=CLOSED, 1=HALF_OPEN, 2=OPEN)
+- `analytical_mcp_circuit_breaker_total_calls_total` - Total calls through circuit breaker
+- `analytical_mcp_circuit_breaker_rejected_calls_total` - Rejected calls by circuit breaker
+- `analytical_mcp_circuit_breaker_failure_count` - Current failure count
+- `analytical_mcp_circuit_breaker_success_count` - Current success count
+
+#### Cache Metrics
+- `analytical_mcp_cache_hits_total` - Cache hits by namespace
+- `analytical_mcp_cache_misses_total` - Cache misses by namespace
+- `analytical_mcp_cache_puts_total` - Cache puts by namespace
+- `analytical_mcp_cache_evictions_total` - Cache evictions by namespace
+- `analytical_mcp_cache_size` - Current cache size by namespace
+
+#### System Metrics
+- `analytical_mcp_uptime_seconds` - Server uptime in seconds
+- `analytical_mcp_memory_usage_bytes` - Memory usage (RSS, heap, external)
+- `analytical_mcp_cpu_usage_microseconds` - CPU time usage (user, system)
+
+### Configuration
+
+Enable metrics by setting environment variables:
+
+```bash
+METRICS_ENABLED=true        # Enable metrics server (default: true)
+METRICS_PORT=9090          # Metrics server port (default: 9090)
+METRICS_HOST=0.0.0.0       # Metrics server host (default: 0.0.0.0)
+```
+
+### Usage Examples
+
+```bash
+# Get Prometheus metrics
+curl http://localhost:9090/metrics
+
+# Get JSON metrics
+curl http://localhost:9090/metrics?format=json
+
+# Health check
+curl http://localhost:9090/health
+```
+
 ## Usage Examples
 
 ### Dataset Analysis
