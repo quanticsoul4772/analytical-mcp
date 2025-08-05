@@ -266,7 +266,7 @@ export class CircuitBreaker {
     try {
       const result = await Promise.race([
         operation(),
-        this.timeoutPromise()
+        this.timeoutPromise<T>()
       ]);
 
       this.onSuccess();
