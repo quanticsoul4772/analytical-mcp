@@ -83,6 +83,7 @@ export class TextPreprocessingProvider {
     } catch (error) {
       Logger.error('Text preprocessing failed', error);
       throw new DataProcessingError(
+        'ERR_1001',
         'Failed to preprocess text',
         { originalText: text, error: error instanceof Error ? error.message : String(error) }
       );

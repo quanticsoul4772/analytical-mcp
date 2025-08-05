@@ -26,12 +26,14 @@ export async function analyzeDataset(data: Dataset, analysisType: string): Promi
     // Validate inputs
     if (!Array.isArray(data) || data.length === 0) {
       throw new ValidationError(
+        'ERR_1001',
         'Invalid data format. Please provide an array of numeric values or data objects.'
       );
     }
 
     if (!['summary', 'stats'].includes(analysisType)) {
       throw new ValidationError(
+        'ERR_1001',
         `Invalid analysis type: ${analysisType}. Supported types are 'summary' and 'stats'.`
       );
     }
@@ -48,6 +50,7 @@ export async function analyzeDataset(data: Dataset, analysisType: string): Promi
 
         if (!numericProperty) {
           throw new ValidationError(
+            'ERR_1001',
             'Could not find numeric property in data objects for analysis.'
           );
         }
@@ -61,7 +64,7 @@ export async function analyzeDataset(data: Dataset, analysisType: string): Promi
 
       // Validate numeric data
       if (numericData.some((val) => typeof val !== 'number' || isNaN(val))) {
-        throw new ValidationError('Dataset contains non-numeric values.');
+        throw new ValidationError('ERR_1001', 'Dataset contains non-numeric values.');
       }
     } catch (error) {
       if (error instanceof ValidationError) {
@@ -70,6 +73,7 @@ export async function analyzeDataset(data: Dataset, analysisType: string): Promi
 
       Logger.error('Error processing dataset', error);
       throw new DataProcessingError(
+        'ERR_3001',
         `Failed to process dataset: ${error instanceof Error ? error.message : String(error)}`
       );
     }
@@ -127,6 +131,7 @@ export async function analyzeDataset(data: Dataset, analysisType: string): Promi
       } catch (error) {
         Logger.error('Error during statistical calculations', error);
         throw new DataProcessingError(
+          'ERR_3001',
           `Statistical calculation failed: ${error instanceof Error ? error.message : String(error)}`
         );
       }
@@ -168,6 +173,7 @@ ${numericData.slice(0, 5).join(', ')}${numericData.length > 5 ? ', ...' : ''}
       } catch (error) {
         Logger.error('Error during summary calculations', error);
         throw new DataProcessingError(
+          'ERR_3001',
           `Summary calculation failed: ${error instanceof Error ? error.message : String(error)}`
         );
       }
@@ -177,6 +183,7 @@ ${numericData.slice(0, 5).join(', ')}${numericData.length > 5 ? ', ...' : ''}
     if (!(error instanceof ValidationError) && !(error instanceof DataProcessingError)) {
       Logger.error('Unexpected error in dataset analysis', error);
       throw new DataProcessingError(
+        'ERR_3001',
         `Dataset analysis failed: ${error instanceof Error ? error.message : String(error)}`
       );
     }

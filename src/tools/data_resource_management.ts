@@ -28,9 +28,11 @@ export async function dataResourceManagement(
   } catch (error) {
     if (error instanceof z.ZodError) {
       Logger.error('Resource management validation failed', error);
-      throw new ValidationError(`Invalid parameters for resource management: ${error.message}`, {
-        issues: error.issues,
-      });
+      throw new ValidationError(
+        'ERR_1001',
+        `Invalid parameters for resource management: ${error.message}`,
+        { issues: error.issues }
+      );
     }
     throw error;
   }
@@ -69,6 +71,7 @@ export async function dataResourceManagement(
       filePath,
     });
     throw new DataProcessingError(
+      'ERR_3001',
       `Failed to manage resource: ${error instanceof Error ? error.message : String(error)}`,
       { resourceType, filePath }
     );

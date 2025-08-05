@@ -216,6 +216,7 @@ export class RelationshipExtractor {
     } catch (error) {
       Logger.error('Relationship extraction failed', error);
       throw new DataProcessingError(
+        'ERR_1001',
         'Failed to extract relationships',
         { originalText: text, error: error instanceof Error ? error.message : String(error) }
       );

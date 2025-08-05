@@ -7,7 +7,7 @@
  */
 
 import { Logger } from './logger.js';
-import { APIError } from './errors.js';
+import { APIError, LegacyAPIError } from './errors.js';
 
 // Interface for ApiKey in rotation pool
 interface ApiKey {
@@ -109,7 +109,7 @@ export class RateLimitManager {
     // Check if we have keys for this provider
     const apiKeys = this.apiKeys.get(provider);
     if (!apiKeys || apiKeys.length === 0) {
-      throw new APIError(`No API keys registered for ${provider}`, 401, false, endpoint);
+      throw new APIError('ERR_1002', `No API keys registered for ${provider}`);
     }
 
     // Apply endpoint throttling if configured
@@ -132,12 +132,12 @@ export class RateLimitManager {
     // Get an available API key
     let currentKeyIndex = this.getNextApiKeyIndex(provider);
     if (currentKeyIndex === -1) {
-      throw new APIError(`No available API keys for ${provider}`, 429, false, endpoint);
+      throw new APIError('ERR_1002', `No available API keys for ${provider}`);
     }
     
     const apiKey = apiKeys[currentKeyIndex];
     if (!apiKey) {
-      throw new APIError(`Invalid API key index for ${provider}`, 500, false, endpoint);
+      throw new APIError('ERR_1002', `Invalid API key index for ${provider}`);
     }
     
     let currentKey = apiKey.key;
@@ -146,10 +146,8 @@ export class RateLimitManager {
       // Check if we've exceeded the overall timeout
       if (Date.now() - startTime > timeoutMs) {
         throw new APIError(
-          `Request timed out after ${timeoutMs}ms for ${endpoint}`,
-          408,
-          false,
-          endpoint
+          'ERR_1002',
+          `Request timed out after ${timeoutMs}ms for ${endpoint}`
         );
       }
 
@@ -180,7 +178,7 @@ export class RateLimitManager {
         attempts++;
 
         // Handle rate limit errors
-        if (error instanceof APIError && (error.status === 429 || error.status === 403)) {
+        if (error instanceof LegacyAPIError && (error.status === 429 || error.status === 403)) {
           Logger.warn(
             `Rate limit hit for ${provider} on ${endpoint}, attempt ${attempts}/${maxRetries}`
           );
@@ -198,7 +196,7 @@ export class RateLimitManager {
             } else {
               const nextApiKey = apiKeys[currentKeyIndex];
               if (!nextApiKey) {
-                throw new APIError(`Invalid API key index for ${provider}`, 500, false, endpoint);
+                throw new APIError('ERR_1002', `Invalid API key index for ${provider}`);
               }
               currentKey = nextApiKey.key;
               Logger.debug(`Switched to API key ${currentKeyIndex} for ${provider}`);
@@ -232,10 +230,8 @@ export class RateLimitManager {
 
     // If we've exhausted all retries
     throw new APIError(
-      `Rate limit exceeded for ${endpoint} after ${maxRetries} attempts`,
-      429,
-      false,
-      endpoint
+      'ERR_1002',
+      `Rate limit exceeded for ${endpoint} after ${maxRetries} attempts`
     );
   }
 

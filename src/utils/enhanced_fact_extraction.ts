@@ -225,6 +225,7 @@ export class EnhancedFactExtractor {
     } catch (error) {
       Logger.error('Enhanced fact extraction failed', error);
       throw new DataProcessingError(
+        'ERR_1001',
         'Failed to extract facts',
         { originalText: text, error: error instanceof Error ? error.message : String(error) }
       );

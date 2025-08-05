@@ -7,7 +7,7 @@
 
 import { Logger } from './logger.js';
 import { ValidationHelpers } from './validation_helpers.js';
-import { ValidationError, DataProcessingError, APIError } from './errors.js';
+import { ValidationError, DataProcessingError, APIError, LegacyAPIError } from './errors.js';
 import { exaResearch } from './exa_research.js';
 import { rateLimitManager } from './rate_limit_manager.js';
 
@@ -135,7 +135,7 @@ export class DataEnrichmentProvider {
         throw error; // Validation errors should propagate
       }
 
-      if (error instanceof APIError) {
+      if (error instanceof LegacyAPIError) {
         // For API errors, return original data with minimal insights
         Logger.warn(`API error during enrichment: ${error.message}`, {
           status: error.status,
@@ -152,6 +152,7 @@ export class DataEnrichmentProvider {
 
       // For other errors, wrap in DataProcessingError
       throw new DataProcessingError(
+        'ERR_1001',
         `Failed to enrich analytical context: ${error instanceof Error ? error.message : 'Unknown error'}`,
         { context, dataLength: originalData?.length }
       );

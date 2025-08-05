@@ -1,0 +1,170 @@
+name: Feature Request
+description: Suggest a new feature or enhancement
+title: "[Feature]: "
+labels: ["enhancement", "needs-triage"]
+assignees: []
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for suggesting a new feature! Please provide detailed information to help us understand your request.
+
+  - type: textarea
+    id: feature-description
+    attributes:
+      label: Feature Description
+      description: A clear and concise description of the feature you'd like to see added.
+      placeholder: Describe the feature...
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem-statement
+    attributes:
+      label: Problem Statement
+      description: What problem would this feature solve? What is the current limitation?
+      placeholder: |
+        Is your feature request related to a problem? Please describe.
+        A clear and concise description of what the problem is. Ex. I'm always frustrated when [...]
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposed-solution
+    attributes:
+      label: Proposed Solution
+      description: Describe the solution you'd like to see implemented.
+      placeholder: |
+        A clear and concise description of what you want to happen.
+        Include any specific implementation details if you have them.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: feature-category
+    attributes:
+      label: Feature Category
+      description: Which category does this feature request fall into?
+      options:
+        - "New Analysis Tool"
+        - "Data Processing Enhancement"
+        - "Research & Verification"
+        - "Logical Reasoning & Argumentation"
+        - "Data Visualization"
+        - "Machine Learning & Statistics"
+        - "Performance & Optimization"
+        - "API & Integration"
+        - "Documentation & Examples"
+        - "Developer Experience"
+        - "Testing & Quality Assurance"
+        - "Security & Reliability"
+        - "Other (please specify in description)"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      description: How important is this feature to you?
+      options:
+        - "High - This would significantly improve my workflow"
+        - "Medium - This would be a nice improvement"
+        - "Low - This would be a minor convenience"
+    validations:
+      required: true
+
+  - type: textarea
+    id: use-cases
+    attributes:
+      label: Use Cases
+      description: Describe specific scenarios where this feature would be useful.
+      placeholder: |
+        Provide concrete examples of how this feature would be used:
+        1. Use case 1: ...
+        2. Use case 2: ...
+        3. Use case 3: ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives Considered
+      description: Have you considered any alternative solutions or workarounds?
+      placeholder: |
+        A clear and concise description of any alternative solutions or features you've considered.
+        What workarounds are you currently using, if any?
+
+  - type: textarea
+    id: implementation-notes
+    attributes:
+      label: Implementation Notes
+      description: If you have ideas about how this could be implemented, please share them.
+      placeholder: |
+        Optional: Technical details, API design suggestions, or implementation approaches.
+        This helps us understand your vision for the feature.
+
+  - type: textarea
+    id: mockups-examples
+    attributes:
+      label: Mockups or Examples
+      description: If applicable, add mockups, screenshots, or examples to illustrate your feature request.
+      placeholder: |
+        You can drag and drop images here, or provide links to external mockups/examples.
+        Code examples showing how the feature might be used are also helpful.
+
+  - type: checkboxes
+    id: related-features
+    attributes:
+      label: Related Features
+      description: Check any existing features that are related to this request
+      options:
+        - label: Dataset Analysis
+        - label: Decision Analysis
+        - label: Research & Verification
+        - label: Logical Reasoning
+        - label: Data Visualization
+        - label: Statistical Analysis
+        - label: Machine Learning
+        - label: Natural Language Processing
+        - label: API Integration
+        - label: Caching & Performance
+
+  - type: dropdown
+    id: willing-to-contribute
+    attributes:
+      label: Contribution
+      description: Would you be willing to contribute to implementing this feature?
+      options:
+        - "Yes, I'd like to implement this feature"
+        - "Yes, I'd like to help with testing"
+        - "Yes, I'd like to help with documentation"
+        - "Maybe, depending on complexity"
+        - "No, but I'd be happy to provide feedback"
+    validations:
+      required: true
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional Context
+      description: Add any other context, links, or references about the feature request here.
+      placeholder: |
+        Links to related issues, external libraries, research papers, or other relevant information.
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Pre-submission Checklist
+      description: Please confirm the following before submitting
+      options:
+        - label: I have searched existing issues to make sure this feature hasn't been requested already
+          required: true
+        - label: I have provided a clear description of the problem and proposed solution
+          required: true
+        - label: I have described specific use cases for this feature
+          required: true
+        - label: I have considered alternatives and explained why this feature is needed
+          required: true

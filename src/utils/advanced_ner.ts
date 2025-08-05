@@ -87,7 +87,7 @@ export class AdvancedNER {
   async recognizeEntities(text: string): Promise<RecognizedEntity[]> {
     const textValidation = ValidationHelpers.validateNonEmptyString(text);
     if (!textValidation.isValid) {
-      throw new DataProcessingError('Invalid input text for entity recognition', { text });
+      throw new DataProcessingError('ERR_3001', 'Invalid input text for entity recognition', { text });
     }
 
     try {
@@ -98,6 +98,7 @@ export class AdvancedNER {
     } catch (error) {
       Logger.error('Entity recognition failed', error);
       throw new DataProcessingError(
+        'ERR_3001',
         'Failed to recognize entities',
         { originalText: text, error: error instanceof Error ? error.message : String(error) }
       );

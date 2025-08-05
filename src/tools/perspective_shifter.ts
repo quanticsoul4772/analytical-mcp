@@ -56,9 +56,11 @@ async function generatePerspectives(
   } catch (error) {
     if (error instanceof z.ZodError) {
       Logger.error('Perspective shifter validation failed', error);
-      throw new ValidationError(`Invalid parameters for perspective shifting: ${error.message}`, {
-        issues: error.issues,
-      });
+      throw new ValidationError(
+        'ERR_1001',
+        `Invalid parameters for perspective shifting: ${error.message}`,
+        { issues: error.issues }
+      );
     }
     throw error;
   }
@@ -111,8 +113,8 @@ async function generatePerspectives(
   } catch (error) {
     if (error instanceof APIError) {
       Logger.error('API error during perspective shifting', error, {
-        status: error.status,
-        endpoint: error.endpoint,
+        status: error.context?.status,
+        endpoint: error.context?.endpoint,
       });
       throw error; // Rethrow API errors as they are already properly formatted
     }
@@ -124,6 +126,7 @@ async function generatePerspectives(
     });
 
     throw new DataProcessingError(
+      'ERR_3001',
       `Perspective shifting failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
       { shiftType, problemLength: problem.length }
     );

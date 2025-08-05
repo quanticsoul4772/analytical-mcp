@@ -147,14 +147,18 @@ export class ResearchVerificationTool {
       Logger.error('Research verification failed', error);
       
       if (error instanceof z.ZodError) {
-        throw new ValidationError(`Invalid research verification input: ${error.message}`, {
-          issues: error.issues
-        });
+        throw new ValidationError(
+          'ERR_1001',
+          `Invalid research verification input: ${error.message}`,
+          { issues: error.issues }
+        );
       }
 
-      throw new DataProcessingError(`Research verification failed: ${error instanceof Error ? error.message : 'Unknown error'}`, {
-        originalInput: input
-      });
+      throw new DataProcessingError(
+        'ERR_3001',
+        `Research verification failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        { originalInput: input }
+      );
     }
   }
 

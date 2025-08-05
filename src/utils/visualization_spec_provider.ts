@@ -88,7 +88,7 @@ export class VisualizationSpecProvider {
   ): any {
     ValidationHelpers.throwIfInvalid(ValidationHelpers.validateDataArray(variables));
     if (variables.length < 2) {
-      throw new ValidationError('Scatter plot requires at least 2 variables');
+      throw new ValidationError('ERR_1001', 'Scatter plot requires at least 2 variables');
     }
 
     const spec = {
@@ -173,14 +173,14 @@ export class VisualizationSpecProvider {
     data: Record<string, any>[]
   ): void {
     if (!baseSpec || typeof baseSpec !== 'object') {
-      throw new ValidationError('Base specification is required and must be an object.');
+      throw new ValidationError('ERR_1001', 'Base specification is required and must be an object.');
     }
     
     ValidationHelpers.throwIfInvalid(ValidationHelpers.validateDataArray(variables));
     ValidationHelpers.throwIfInvalid(ValidationHelpers.validateDataArray(data));
     
     if (variables.length < 2) {
-      throw new ValidationError('Line chart requires at least 2 variables.');
+      throw new ValidationError('ERR_1001', 'Line chart requires at least 2 variables.');
     }
   }
 
@@ -256,14 +256,14 @@ export class VisualizationSpecProvider {
     data: Record<string, any>[]
   ): void {
     if (!baseSpec || typeof baseSpec !== 'object') {
-      throw new ValidationError('Base specification is required and must be an object.');
+      throw new ValidationError('ERR_1001', 'Base specification is required and must be an object.');
     }
     
     ValidationHelpers.throwIfInvalid(ValidationHelpers.validateDataArray(variables));
     ValidationHelpers.throwIfInvalid(ValidationHelpers.validateDataArray(data));
     
     if (variables.length < 2) {
-      throw new ValidationError('Bar chart requires at least 2 variables.');
+      throw new ValidationError('ERR_1001', 'Bar chart requires at least 2 variables.');
     }
   }
 
@@ -536,13 +536,13 @@ export class VisualizationSpecProvider {
     variables: string[]
   ): void {
     if (!baseSpec || typeof baseSpec !== 'object') {
-      throw new ValidationError('Base specification is required and must be an object.');
+      throw new ValidationError('ERR_1001', 'Base specification is required and must be an object.');
     }
     
     ValidationHelpers.throwIfInvalid(ValidationHelpers.validateDataArray(variables));
     
     if (variables.length === 0) {
-      throw new ValidationError('Violin plot requires at least 1 variable.');
+      throw new ValidationError('ERR_1001', 'Violin plot requires at least 1 variable.');
     }
   }
 

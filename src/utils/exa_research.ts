@@ -84,9 +84,11 @@ class ExaResearchTool {
       }
     } catch (error) {
       if (error instanceof z.ZodError) {
-        throw new ValidationError(`Invalid Exa configuration: ${error.message}`, {
-          issues: error.issues,
-        });
+        throw new ValidationError(
+          'ERR_1001',
+          `Invalid Exa configuration: ${error.message}`,
+          { issues: error.issues }
+        );
       }
       throw error;
     }
@@ -102,10 +104,8 @@ class ExaResearchTool {
         'Research integration is disabled. Enable it with ENABLE_RESEARCH_INTEGRATION=true'
       );
       throw new APIError(
-        'Research integration is disabled in configuration',
-        403,
-        false,
-        'exa/search'
+        'ERR_1002',
+        'Research integration is disabled in configuration'
       );
     }
 
@@ -121,17 +121,21 @@ class ExaResearchTool {
     } catch (error) {
       if (error instanceof z.ZodError) {
         Logger.error('Search query validation failed', error);
-        throw new ValidationError(`Invalid search query: ${error.message}`, {
-          issues: error.issues,
-          query,
-        });
+        throw new ValidationError(
+          'ERR_1001',
+          `Invalid search query: ${error.message}`,
+          { issues: error.issues, query }
+        );
       }
       throw error;
     }
 
     if (!this.apiKey) {
       Logger.error('Missing API key for Exa search');
-      throw new APIError('Cannot perform search: Missing API key', 401, false, 'exa/search');
+      throw new APIError(
+        'ERR_1002',
+        'Cannot perform search: Missing API key'
+      );
     }
 
     // Check cache first
@@ -165,10 +169,8 @@ class ExaResearchTool {
 
           if (!response.ok) {
             throw new APIError(
-              `Exa search failed: ${response.statusText}`,
-              response.status,
-              RETRYABLE_STATUS_CODES.includes(response.status),
-              'exa/search'
+              'ERR_1002',
+              `Exa search failed: ${response.statusText}`
             );
           }
 
@@ -204,10 +206,8 @@ class ExaResearchTool {
       }
 
       throw new APIError(
-        `Exa search failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        undefined,
-        false,
-        'exa/search'
+        'ERR_1002',
+        `Exa search failed: ${error instanceof Error ? error.message : 'Unknown error'}`
       );
     }
   }
@@ -292,6 +292,7 @@ class ExaResearchTool {
         return this.fallbackExtractKeyFacts(results, maxFacts);
       } catch (fallbackError) {
         throw new DataProcessingError(
+          'ERR_1001',
           `Failed to extract facts: ${error instanceof Error ? error.message : 'Unknown error'}`,
           { resultsCount: results?.length }
         );
@@ -360,14 +361,19 @@ class ExaResearchTool {
 
     if (!originalData || !Array.isArray(originalData)) {
       Logger.warn('Invalid data provided for validation', { originalData });
-      throw new ValidationError('Invalid data format for validation: expected array', {
-        providedType: typeof originalData,
-      });
+      throw new ValidationError(
+        'ERR_1001',
+        'Invalid data format for validation: expected array',
+        { providedType: typeof originalData }
+      );
     }
 
     if (!context || typeof context !== 'string' || context.trim().length === 0) {
       Logger.warn('Invalid context provided for validation');
-      throw new ValidationError('Empty or invalid context for validation');
+      throw new ValidationError(
+        'ERR_1001',
+        'Empty or invalid context for validation'
+      );
     }
 
     // Check cache first
@@ -454,10 +460,7 @@ class ExaResearchTool {
 
       // For API errors, return original data with empty context
       if (error instanceof APIError) {
-        Logger.warn(`API error during validation: ${error.message}`, {
-          status: error.status,
-          endpoint: error.endpoint,
-        });
+        Logger.warn(`API error during validation: ${error.message}`);
         return {
           validatedData: originalData,
           researchContext: [],
@@ -466,6 +469,7 @@ class ExaResearchTool {
 
       // For other errors, wrap in a DataProcessingError
       throw new DataProcessingError(
+        'ERR_1001',
         `Data validation failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
         { context, dataLength: originalData.length }
       );

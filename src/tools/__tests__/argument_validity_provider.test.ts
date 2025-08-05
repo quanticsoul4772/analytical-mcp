@@ -435,7 +435,7 @@ describe('ArgumentValidityProvider', () => {
     });
 
     it('should handle multiple rapid analyses', () => {
-      const arguments = [
+      const testArguments = [
         'If this, then that.',
         'Because reason, therefore conclusion.',
         'Research shows evidence supports this view.',
@@ -443,7 +443,7 @@ describe('ArgumentValidityProvider', () => {
       ];
 
       const startTime = Date.now();
-      const results = arguments.map(arg => provider.analyzeArgumentValidity(arg));
+      const results = testArguments.map(arg => provider.analyzeArgumentValidity(arg));
       const endTime = Date.now();
 
       expect(results).toHaveLength(4);
@@ -454,7 +454,7 @@ describe('ArgumentValidityProvider', () => {
     });
 
     it('should handle rapid pattern detection calls', () => {
-      const arguments = [
+      const testArguments = [
         'If condition, then result.',
         'Because premise, conclusion follows.',
         'Evidence shows this approach works.',

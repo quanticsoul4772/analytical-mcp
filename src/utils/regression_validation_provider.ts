@@ -25,7 +25,7 @@ export class RegressionValidationProvider {
     ValidationHelpers.throwIfInvalid(ValidationHelpers.validateDataArray(independentVariables));
     
     if (independentVariables.length === 0) {
-      throw new ValidationError('At least one independent variable must be provided.');
+      throw new ValidationError('ERR_1001', 'At least one independent variable must be provided.');
     }
   }
 
@@ -38,6 +38,7 @@ export class RegressionValidationProvider {
     const supportedTypes = ['linear', 'polynomial', 'logistic', 'multivariate'];
     if (!supportedTypes.includes(regressionType)) {
       throw new ValidationError(
+        'ERR_1001',
         `Invalid regression type: ${regressionType}. Supported types: ${supportedTypes.join(', ')}.`
       );
     }
@@ -53,6 +54,7 @@ export class RegressionValidationProvider {
     if (regressionType === 'polynomial') {
       if (polynomialDegree === undefined || polynomialDegree < 1) {
         throw new ValidationError(
+          'ERR_1001',
           'Polynomial degree must be provided and at least 1 for polynomial regression.'
         );
       }
@@ -68,12 +70,12 @@ export class RegressionValidationProvider {
     dependentVariable: string
   ): void {
     if (data.length === 0) {
-      throw new ValidationError('Dataset cannot be empty.');
+      throw new ValidationError('ERR_1001', 'Dataset cannot be empty.');
     }
 
     const firstRow = data[0];
     if (!firstRow) {
-      throw new ValidationError('Dataset contains invalid data points.');
+      throw new ValidationError('ERR_1001', 'Dataset contains invalid data points.');
     }
 
     const availableColumns = Object.keys(firstRow);
@@ -82,6 +84,7 @@ export class RegressionValidationProvider {
     for (const variable of allVariables) {
       if (!availableColumns.includes(variable)) {
         throw new ValidationError(
+          'ERR_1001',
           `Variable '${variable}' not found in dataset. Available columns: ${availableColumns.join(', ')}.`
         );
       }
@@ -147,7 +150,7 @@ export class RegressionValidationProvider {
       return { X, y, featureNames };
     } catch (error) {
       Logger.error('Data preprocessing failed', error);
-      throw new ValidationError('Failed to preprocess data for regression analysis.');
+      throw new ValidationError('ERR_1001', 'Failed to preprocess data for regression analysis.');
     }
   }
 
@@ -183,7 +186,7 @@ export class RegressionValidationProvider {
     ValidationHelpers.throwIfInvalid(ValidationHelpers.validateDataArray(independentVariables));
     
     if (!regressionType) {
-      throw new ValidationError('Regression type is required');
+      throw new ValidationError('ERR_1001', 'Regression type is required');
     }
   }
 
@@ -201,7 +204,7 @@ export class RegressionValidationProvider {
     ValidationHelpers.throwIfInvalid(ValidationHelpers.validateNonEmptyString(featureName));
     
     if (degree < 1) {
-      throw new ValidationError('Polynomial degree must be at least 1.');
+      throw new ValidationError('ERR_1001', 'Polynomial degree must be at least 1.');
     }
   }
 
