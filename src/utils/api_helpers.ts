@@ -3,7 +3,7 @@
  * Provides robust API handling capabilities for external service interaction
  */
 
-import { APIError, ConfigurationError } from './errors.js';
+import { APIError, ConfigurationError, LegacyAPIError } from './errors.js';
 import { Logger } from './logger.js';
 import { config } from './config.js';
 
@@ -73,7 +73,7 @@ export const RETRYABLE_STATUS_CODES = [
  */
 export function isRetryableError(error: any): boolean {
   // Already identified as retryable via our custom error
-  if (error instanceof APIError && error.retryable) {
+  if (error instanceof LegacyAPIError && error.retryable) {
     return true;
   }
 
@@ -130,7 +130,7 @@ export function checkApiKeys(): void {
   if (missingKeys.length > 0) {
     const errorMessage = `Missing required API key(s): ${missingKeys.join(', ')}. Ensure these are set in your system environment variables.`;
     Logger.error(errorMessage);
-    throw new ConfigurationError(errorMessage);
+    throw new ConfigurationError('ERR_4001', errorMessage);
   }
 
   Logger.debug('All required API keys validated successfully');
@@ -170,9 +170,9 @@ export async function executeApiRequest<T>(
         return await apiRequestFn();
       } catch (error) {
         // Create a properly structured API error
-        let apiError: APIError;
+        let apiError: LegacyAPIError;
 
-        if (error instanceof APIError) {
+        if (error instanceof LegacyAPIError) {
           // Already an APIError, just update the endpoint if not set
           if (endpoint && !error.endpoint) {
             error.endpoint = endpoint;
@@ -182,7 +182,7 @@ export async function executeApiRequest<T>(
           // Convert to APIError for consistency
           const status = (error as any).status || undefined;
           const isRetryable = retryableCheck(error);
-          apiError = new APIError(
+          apiError = new LegacyAPIError(
             `${context} failed: ${error instanceof Error ? error.message : String(error)}`,
             status,
             isRetryable,

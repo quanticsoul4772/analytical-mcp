@@ -51,10 +51,11 @@ export function wrapToolHandler<TParams, TResult>(
               params,
             });
 
-            throw new ValidationError(`Invalid parameters for ${toolName}: ${error.message}`, {
-              issues: error.issues,
-              params,
-            });
+            throw new ValidationError(
+              'ERR_1001',
+              `Invalid parameters for ${toolName}: ${error.message}`,
+              { issues: error.issues, params }
+            );
           }
           throw error;
         }
@@ -90,8 +91,9 @@ export function wrapToolHandler<TParams, TResult>(
 
       // Convert to a ToolExecutionError for consistency
       const toolError = new ToolExecutionError(
-        toolName,
-        error instanceof Error ? error.message : String(error)
+        'ERR_1003',
+        error instanceof Error ? error.message : String(error),
+        toolName
       );
 
       // Copy the stack trace if available
@@ -137,6 +139,7 @@ export function wrapDataProcessor<TInput, TOutput>(
       );
 
       throw new DataProcessingError(
+        'ERR_1001',
         `Data processing failed in ${processorName}: ${error instanceof Error ? error.message : String(error)}`,
         { dataType: typeof data }
       );

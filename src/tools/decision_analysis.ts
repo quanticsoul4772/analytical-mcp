@@ -48,21 +48,21 @@ export async function decisionAnalysis(
 
     // Validate inputs
     if (!options || !Array.isArray(options) || options.length === 0) {
-      throw new ValidationError('At least one option must be provided');
+      throw new ValidationError('ERR_1001', 'At least one option must be provided');
     }
 
     if (!criteria || !Array.isArray(criteria) || criteria.length === 0) {
-      throw new ValidationError('At least one criterion must be provided');
+      throw new ValidationError('ERR_1001', 'At least one criterion must be provided');
     }
 
     // Check for empty strings in options
     if (options.some((opt) => typeof opt !== 'string' || opt.trim() === '')) {
-      throw new ValidationError('All options must be non-empty strings');
+      throw new ValidationError('ERR_1001', 'All options must be non-empty strings');
     }
 
     // Check for empty strings in criteria
     if (criteria.some((crit) => typeof crit !== 'string' || crit.trim() === '')) {
-      throw new ValidationError('All criteria must be non-empty strings');
+      throw new ValidationError('ERR_1001', 'All criteria must be non-empty strings');
     }
 
     // Use equal weights if none provided
@@ -71,6 +71,7 @@ export async function decisionAnalysis(
     // Validate weights length
     if (normalizedWeights.length !== criteria.length) {
       throw new ValidationError(
+        'ERR_1001',
         `Weights length (${normalizedWeights.length}) must match criteria length (${criteria.length})`
       );
     }
@@ -78,7 +79,7 @@ export async function decisionAnalysis(
     // Validate weights are numbers and sum to approximately 1
     if (weights) {
       if (weights.some((w) => typeof w !== 'number' || isNaN(w))) {
-        throw new ValidationError('All weights must be valid numbers');
+        throw new ValidationError('ERR_1001', 'All weights must be valid numbers');
       }
 
       const weightSum = weights.reduce((sum, w) => sum + w, 0);
@@ -221,6 +222,7 @@ export async function decisionAnalysis(
     } catch (error) {
       Logger.error('Error generating decision analysis results', error);
       throw new DataProcessingError(
+        'ERR_3001',
         `Failed to generate decision analysis: ${error instanceof Error ? error.message : String(error)}`
       );
     }
@@ -229,6 +231,7 @@ export async function decisionAnalysis(
     if (!(error instanceof ValidationError) && !(error instanceof DataProcessingError)) {
       Logger.error('Unexpected error in decision analysis', error);
       throw new DataProcessingError(
+        'ERR_3001',
         `Decision analysis failed: ${error instanceof Error ? error.message : String(error)}`
       );
     }

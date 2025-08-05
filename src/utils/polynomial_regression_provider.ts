@@ -34,7 +34,7 @@ export class PolynomialRegressionProvider {
     ValidationHelpers.throwIfInvalid(ValidationHelpers.validateNonEmptyString(featureName));
     
     if (degree < 1) {
-      throw new ValidationError('Polynomial degree must be at least 1.');
+      throw new ValidationError('ERR_1001', 'Polynomial degree must be at least 1.');
     }
   }
 
@@ -143,6 +143,7 @@ export class PolynomialRegressionProvider {
   ): string {
     if (independentVariables.length !== 1) {
       throw new ValidationError(
+        'ERR_1001',
         'Polynomial regression requires exactly one independent variable.'
       );
     }

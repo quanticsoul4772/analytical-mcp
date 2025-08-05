@@ -487,7 +487,7 @@ describe('ArgumentStructureProvider', () => {
     });
 
     it('should handle multiple rapid analyses', () => {
-      const arguments = [
+      const testArguments = [
         'Simple argument.',
         'Premise. Conclusion.',
         'If this, then that. Therefore, result.',
@@ -495,7 +495,7 @@ describe('ArgumentStructureProvider', () => {
       ];
 
       const startTime = Date.now();
-      const results = arguments.map(arg => provider.analyzeArgumentStructure(arg));
+      const results = testArguments.map(arg => provider.analyzeArgumentStructure(arg));
       const endTime = Date.now();
 
       expect(results).toHaveLength(4);

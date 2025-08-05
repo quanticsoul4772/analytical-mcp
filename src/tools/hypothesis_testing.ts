@@ -60,9 +60,11 @@ async function hypothesisTesting(
   } catch (error) {
     if (error instanceof z.ZodError) {
       Logger.error('Hypothesis testing validation failed', error);
-      throw new ValidationError(`Invalid parameters for hypothesis testing: ${error.message}`, {
-        issues: error.issues,
-      });
+      throw new ValidationError(
+        'ERR_1001',
+        `Invalid parameters for hypothesis testing: ${error.message}`,
+        { issues: error.issues }
+      );
     }
     throw error;
   }
@@ -123,6 +125,7 @@ async function hypothesisTesting(
       dataLength: data.length,
     });
     throw new DataProcessingError(
+      'ERR_3001',
       `Hypothesis testing failed: ${error instanceof Error ? error.message : String(error)}`,
       { testType }
     );

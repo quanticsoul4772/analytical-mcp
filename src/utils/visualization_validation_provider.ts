@@ -18,7 +18,7 @@ export class VisualizationValidationProvider {
     ValidationHelpers.throwIfInvalid(ValidationHelpers.validateNonEmptyString(type));
     const validTypes = ['scatter', 'line', 'bar', 'histogram', 'box', 'heatmap', 'pie', 'violin', 'correlation'];
     if (!validTypes.includes(type)) {
-      throw new ValidationError(`Invalid visualization type: ${type}. Must be one of: ${validTypes.join(', ')}`);
+      throw new ValidationError('ERR_1001', `Invalid visualization type: ${type}. Must be one of: ${validTypes.join(', ')}`);
     }
   }
 
@@ -35,14 +35,14 @@ export class VisualizationValidationProvider {
     data: Record<string, any>[]
   ): void {
     if (!baseSpec || typeof baseSpec !== 'object') {
-      throw new ValidationError('Base specification is required and must be an object.');
+      throw new ValidationError('ERR_1001', 'Base specification is required and must be an object.');
     }
     
     ValidationHelpers.throwIfInvalid(ValidationHelpers.validateDataArray(variables));
     ValidationHelpers.throwIfInvalid(ValidationHelpers.validateDataArray(data));
     
     if (variables.length < 2) {
-      throw new ValidationError('Line chart requires at least 2 variables.');
+      throw new ValidationError('ERR_1001', 'Line chart requires at least 2 variables.');
     }
   }
 
@@ -59,14 +59,14 @@ export class VisualizationValidationProvider {
     data: Record<string, any>[]
   ): void {
     if (!baseSpec || typeof baseSpec !== 'object') {
-      throw new ValidationError('Base specification is required and must be an object.');
+      throw new ValidationError('ERR_1001', 'Base specification is required and must be an object.');
     }
     
     ValidationHelpers.throwIfInvalid(ValidationHelpers.validateDataArray(variables));
     ValidationHelpers.throwIfInvalid(ValidationHelpers.validateDataArray(data));
     
     if (variables.length < 2) {
-      throw new ValidationError('Bar chart requires at least 2 variables.');
+      throw new ValidationError('ERR_1001', 'Bar chart requires at least 2 variables.');
     }
   }
 
@@ -86,11 +86,11 @@ export class VisualizationValidationProvider {
     ValidationHelpers.throwIfInvalid(ValidationHelpers.validateDataArray(data));
     
     if (variables.length < 2) {
-      throw new ValidationError('Heatmap requires at least 2 variables for X and Y axes.');
+      throw new ValidationError('ERR_1001', 'Heatmap requires at least 2 variables for X and Y axes.');
     }
     
     if (variables.length > 3) {
-      throw new ValidationError('Heatmap supports at most 3 variables (X, Y, and optional color).');
+      throw new ValidationError('ERR_1001', 'Heatmap supports at most 3 variables (X, Y, and optional color).');
     }
   }
 
@@ -105,13 +105,13 @@ export class VisualizationValidationProvider {
     variables: string[]
   ): void {
     if (!baseSpec || typeof baseSpec !== 'object') {
-      throw new ValidationError('Base specification is required and must be an object.');
+      throw new ValidationError('ERR_1001', 'Base specification is required and must be an object.');
     }
     
     ValidationHelpers.throwIfInvalid(ValidationHelpers.validateDataArray(variables));
     
     if (variables.length < 1) {
-      throw new ValidationError('Violin plot requires at least 1 variable.');
+      throw new ValidationError('ERR_1001', 'Violin plot requires at least 1 variable.');
     }
   }
 
@@ -128,7 +128,7 @@ export class VisualizationValidationProvider {
     ValidationHelpers.throwIfInvalid(ValidationHelpers.validateDataArray(variables));
     
     if (variables.length < 2) {
-      throw new ValidationError('Correlation analysis requires at least 2 variables.');
+      throw new ValidationError('ERR_1001', 'Correlation analysis requires at least 2 variables.');
     }
   }
 
@@ -164,11 +164,11 @@ export class VisualizationValidationProvider {
     ValidationHelpers.throwIfInvalid(ValidationHelpers.validateDataArray(data));
     
     if (variables.length < 2) {
-      throw new ValidationError('Scatter plot requires at least 2 variables (X and Y).');
+      throw new ValidationError('ERR_1001', 'Scatter plot requires at least 2 variables (X and Y).');
     }
     
     if (variables.length > 4) {
-      throw new ValidationError('Scatter plot supports at most 4 variables (X, Y, size, color).');
+      throw new ValidationError('ERR_1001', 'Scatter plot supports at most 4 variables (X, Y, size, color).');
     }
   }
 
@@ -186,7 +186,7 @@ export class VisualizationValidationProvider {
     ValidationHelpers.throwIfInvalid(ValidationHelpers.validateDataArray(data));
     
     if (variables.length !== 1) {
-      throw new ValidationError('Histogram requires exactly 1 variable.');
+      throw new ValidationError('ERR_1001', 'Histogram requires exactly 1 variable.');
     }
   }
 
@@ -204,7 +204,7 @@ export class VisualizationValidationProvider {
     ValidationHelpers.throwIfInvalid(ValidationHelpers.validateDataArray(data));
     
     if (variables.length < 1 || variables.length > 2) {
-      throw new ValidationError('Box plot requires 1-2 variables (value and optional grouping).');
+      throw new ValidationError('ERR_1001', 'Box plot requires 1-2 variables (value and optional grouping).');
     }
   }
 
@@ -222,7 +222,7 @@ export class VisualizationValidationProvider {
     ValidationHelpers.throwIfInvalid(ValidationHelpers.validateDataArray(data));
     
     if (variables.length < 1 || variables.length > 2) {
-      throw new ValidationError('Pie chart requires 1-2 variables (category and optional value).');
+      throw new ValidationError('ERR_1001', 'Pie chart requires 1-2 variables (category and optional value).');
     }
   }
 }

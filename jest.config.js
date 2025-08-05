@@ -46,12 +46,42 @@ export default {
     {
       displayName: 'unit',
       testMatch: ['<rootDir>/src/**/__tests__/**/*.test.ts'],
-      testTimeout: 10000, // Shorter timeout for unit tests
+      preset: 'ts-jest/presets/default-esm',
+      testEnvironment: 'node',
+      transform: {
+        '^.+\\.tsx?$': [
+          'ts-jest',
+          {
+            useESM: true,
+            isolatedModules: true,
+          },
+        ],
+      },
+      extensionsToTreatAsEsm: ['.ts'],
+      moduleNameMapper: {
+        '^(\\.{1,2}/.*)\\.js$': '$1',
+      },
+      setupFilesAfterEnv: ['<rootDir>/src/setupTests.ts'],
     },
     {
       displayName: 'integration', 
       testMatch: ['<rootDir>/src/integration/**/*.test.ts'],
-      testTimeout: 60000, // Longer timeout for integration tests
+      preset: 'ts-jest/presets/default-esm',
+      testEnvironment: 'node',
+      transform: {
+        '^.+\\.tsx?$': [
+          'ts-jest',
+          {
+            useESM: true,
+            isolatedModules: true,
+          },
+        ],
+      },
+      extensionsToTreatAsEsm: ['.ts'],
+      moduleNameMapper: {
+        '^(\\.{1,2}/.*)\\.js$': '$1',
+      },
+      setupFilesAfterEnv: ['<rootDir>/src/setupTests.ts'],
       maxWorkers: 1,      // Sequential execution for integration tests
     }
   ]

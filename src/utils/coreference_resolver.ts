@@ -77,6 +77,7 @@ export class CoreferenceResolver {
     } catch (error) {
       Logger.error('Coreference resolution failed', error);
       throw new DataProcessingError(
+        'ERR_1001',
         'Failed to resolve coreferences',
         { originalText: text, error: error instanceof Error ? error.message : String(error) }
       );

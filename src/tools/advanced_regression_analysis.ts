@@ -181,7 +181,7 @@ class AdvancedRegressionAnalysisCoordinator {
     const regressionHandler = providerMapping[regressionType];
     
     if (!regressionHandler) {
-      throw new ValidationError(`Unsupported regression type: ${regressionType}`);
+      throw new ValidationError('ERR_1001', `Unsupported regression type: ${regressionType}`);
     }
 
     const { provider, method } = regressionHandler;

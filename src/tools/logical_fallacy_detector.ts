@@ -122,7 +122,7 @@ async function detectFallacies(
   try {
     // Performance optimization: early validation of input length
     if (!text || text.trim().length === 0) {
-      throw new ValidationError('Empty or invalid text provided for fallacy detection');
+      throw new ValidationError('ERR_1001', 'Empty or invalid text provided for fallacy detection');
     }
 
     Logger.debug(`Analyzing text for logical fallacies`, {
@@ -145,10 +145,9 @@ async function detectFallacies(
       if (error instanceof z.ZodError) {
         Logger.error('Validation error in logical fallacy detector', error);
         throw new ValidationError(
+          'ERR_1001',
           `Invalid parameters for logical fallacy detection: ${error.message}`,
-          {
-            issues: error.issues,
-          }
+          { issues: error.issues }
         );
       }
       throw error;
@@ -199,6 +198,7 @@ async function detectFallacies(
     } catch (error) {
       Logger.error('Error during fallacy pattern matching', error);
       throw new DataProcessingError(
+        'ERR_3001',
         `Error analyzing text for fallacies: ${error instanceof Error ? error.message : String(error)}`,
         { textLength: text.length }
       );
@@ -261,6 +261,7 @@ async function detectFallacies(
     // For unknown errors, wrap in a DataProcessingError for consistent handling
     Logger.error('Unexpected error in logical fallacy detector', error);
     throw new DataProcessingError(
+      'ERR_3001',
       `Logical fallacy detection failed: ${error instanceof Error ? error.message : String(error)}`,
       { textLength: text?.length }
     );

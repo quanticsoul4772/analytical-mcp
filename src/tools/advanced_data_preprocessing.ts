@@ -42,9 +42,11 @@ async function advancedDataPreprocessing(
   } catch (error) {
     if (error instanceof z.ZodError) {
       Logger.error('Data preprocessing validation failed', error);
-      throw new ValidationError(`Invalid parameters for data preprocessing: ${error.message}`, {
-        issues: error.issues,
-      });
+      throw new ValidationError(
+        'ERR_1001',
+        `Invalid parameters for data preprocessing: ${error.message}`,
+        { issues: error.issues }
+      );
     }
     throw error;
   }
@@ -153,6 +155,7 @@ async function advancedDataPreprocessing(
       dataLength: data.length,
     });
     throw new DataProcessingError(
+      'ERR_3001',
       `Preprocessing failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
       { preprocessingType }
     );

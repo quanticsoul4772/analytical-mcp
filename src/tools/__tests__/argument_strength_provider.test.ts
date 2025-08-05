@@ -269,7 +269,7 @@ describe('ArgumentStrengthProvider', () => {
     });
 
     it('should handle multiple rapid calls', async () => {
-      const arguments = [
+      const testArguments = [
         'Research shows evidence',
         'Data indicates 75% success',
         'Experts agree on consensus',
@@ -277,7 +277,7 @@ describe('ArgumentStrengthProvider', () => {
       ];
 
       const startTime = Date.now();
-      const results = arguments.map(arg => provider.analyzeArgumentStrength(arg));
+      const results = testArguments.map(arg => provider.analyzeArgumentStrength(arg));
       const endTime = Date.now();
 
       expect(results).toHaveLength(4);

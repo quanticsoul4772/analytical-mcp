@@ -1,0 +1,152 @@
+name: Bug Report
+description: Report a bug or unexpected behavior
+title: "[Bug]: "
+labels: ["bug", "needs-triage"]
+assignees: []
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug! Please fill out the information below to help us understand and reproduce the issue.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Bug Description
+      description: A clear and concise description of what the bug is.
+      placeholder: Describe the bug...
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps-to-reproduce
+    attributes:
+      label: Steps to Reproduce
+      description: Steps to reproduce the behavior
+      placeholder: |
+        1. Go to '...'
+        2. Click on '....'
+        3. Scroll down to '....'
+        4. See error
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected-behavior
+    attributes:
+      label: Expected Behavior
+      description: A clear and concise description of what you expected to happen.
+      placeholder: What should have happened?
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual-behavior
+    attributes:
+      label: Actual Behavior
+      description: A clear and concise description of what actually happened.
+      placeholder: What actually happened?
+    validations:
+      required: true
+
+  - type: textarea
+    id: error-logs
+    attributes:
+      label: Error Logs or Stack Trace
+      description: If applicable, add error logs or stack traces to help explain your problem.
+      placeholder: Paste error logs here...
+      render: text
+
+  - type: dropdown
+    id: tool-affected
+    attributes:
+      label: Affected Tool/Component
+      description: Which tool or component is affected by this bug?
+      options:
+        - "analyze_dataset"
+        - "decision_analysis"
+        - "exa_research"
+        - "research_verification"
+        - "logical_fallacy_detector"
+        - "hypothesis_testing"
+        - "data_visualization_generator"
+        - "ml_model_evaluation"
+        - "advanced_data_preprocessing"
+        - "logical_argument_analyzer"
+        - "perspective_shifter"
+        - "recommendation_provider"
+        - "Other (please specify in description)"
+        - "General/Infrastructure"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severity
+      description: How severe is this bug?
+      options:
+        - "Critical - System is unusable"
+        - "High - Major functionality affected"
+        - "Medium - Some functionality affected"
+        - "Low - Minor issue or cosmetic"
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: What version of the Analytical MCP Server are you using?
+      placeholder: "v0.1.0"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: node-version
+    attributes:
+      label: Node.js Version
+      description: What version of Node.js are you using?
+      options:
+        - "20.x"
+        - "18.x"
+        - "Other (please specify in description)"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: operating-system
+    attributes:
+      label: Operating System
+      description: What operating system are you using?
+      options:
+        - "Windows"
+        - "macOS"
+        - "Linux (Ubuntu)"
+        - "Linux (Other)"
+        - "Other (please specify in description)"
+    validations:
+      required: true
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional Context
+      description: Add any other context about the problem here.
+      placeholder: Any additional information that might be helpful...
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Pre-submission Checklist
+      description: Please confirm the following before submitting
+      options:
+        - label: I have searched existing issues to make sure this bug hasn't been reported already
+          required: true
+        - label: I have provided all the required information above
+          required: true
+        - label: I am using a supported version of Node.js (18.x or 20.x)
+          required: true
+        - label: I have reviewed the documentation and troubleshooting guide
+          required: false

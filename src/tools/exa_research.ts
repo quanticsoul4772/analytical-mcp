@@ -67,10 +67,14 @@ export class EnhancedFactExtractor {
       };
     } catch (error) {
       Logger.error('Fact extraction failed', error);
-      throw new DataProcessingError('Failed to extract facts', { 
-        originalText: text,
-        error: error instanceof Error ? error.message : 'Unknown error'
-      });
+      throw new DataProcessingError(
+        'ERR_3001',
+        'Failed to extract facts', 
+        { 
+          originalText: text,
+          error: error instanceof Error ? error.message : 'Unknown error'
+        }
+      );
     }
   }
 
