@@ -6,9 +6,9 @@ import {
   ResilienceError,
   DEFAULT_RETRY_CONFIG,
   DEFAULT_CIRCUIT_BREAKER_CONFIG,
-  CircuitBreakerState,
   createResilientWrapper
 } from '../api_resilience';
+import { CircuitBreakerState } from '../resilience_types';
 
 // Mock logger to avoid console noise during tests 
 jest.doMock('../../utils/logger', () => ({

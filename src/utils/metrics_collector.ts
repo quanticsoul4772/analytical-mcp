@@ -8,7 +8,7 @@
 import { Logger } from './logger.js';
 import { cacheManager, CacheStats } from './cache_manager.js';
 import { researchCache } from './research_cache.js';
-import { CircuitBreakerMetrics, CircuitBreakerState } from './api_resilience.js';
+import { CircuitBreakerMetrics, CircuitBreakerState, MetricsCollectorInterface } from './resilience_types.js';
 
 /**
  * Combined metrics interface
@@ -65,7 +65,7 @@ class CircuitBreakerRegistry {
 /**
  * Main metrics collector service
  */
-export class MetricsCollector {
+export class MetricsCollector implements MetricsCollectorInterface {
   private startTime: number;
   private cpuUsageStart: NodeJS.CpuUsage;
   private circuitBreakerRegistry: CircuitBreakerRegistry;
