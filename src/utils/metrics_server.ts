@@ -20,6 +20,7 @@ export interface MetricsServerConfig {
   enabled: boolean;
   rateLimit?: number;
   trustedProxies?: string[];
+  maxMetricsBytes?: number;
 }
 
 /**
@@ -46,6 +47,7 @@ export class MetricsServer {
       enabled: process.env.METRICS_ENABLED === 'true' || config?.enabled === true,
       rateLimit: parseInt(process.env.METRICS_RATE_LIMIT || config?.rateLimit?.toString() || '60', 10),
       trustedProxies: config?.trustedProxies || [],
+      maxMetricsBytes: parseInt(process.env.MAX_METRICS_BYTES || config?.maxMetricsBytes?.toString() || '1048576', 10), // 1MB default
     };
 
     Logger.debug('MetricsServer configured', {
@@ -53,6 +55,7 @@ export class MetricsServer {
       host: this.config.host,
       enabled: this.config.enabled,
       rateLimit: this.config.rateLimit,
+      maxMetricsBytes: this.config.maxMetricsBytes,
     });
   }
 
@@ -355,9 +358,18 @@ export class MetricsServer {
           break;
       }
 
+      const contentLength = Buffer.byteLength(content);
+
+      // Check if content exceeds maximum allowed size
+      if (contentLength > this.config.maxMetricsBytes!) {
+        Logger.warn(`Metrics response size (${contentLength} bytes) exceeds limit (${this.config.maxMetricsBytes} bytes)`);
+        this.sendError(res, 413, 'Payload Too Large');
+        return;
+      }
+
       res.writeHead(200, {
         'Content-Type': contentType,
-        'Content-Length': Buffer.byteLength(content),
+        'Content-Length': contentLength,
       });
       res.end(content);
 

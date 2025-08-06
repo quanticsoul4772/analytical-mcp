@@ -56,6 +56,13 @@ describe('MetricsServer', () => {
       expect(config.rateLimit).toBe(60);
     });
 
+    it('should use default max metrics bytes of 1MB', () => {
+      delete process.env.MAX_METRICS_BYTES;
+      metricsServer = new MetricsServer();
+      const config = metricsServer.getConfig();
+      expect(config.maxMetricsBytes).toBe(1048576); // 1MB
+    });
+
     it('should use METRICS_RATE_LIMIT environment variable', () => {
       process.env.METRICS_RATE_LIMIT = '120';
       metricsServer = new MetricsServer();
