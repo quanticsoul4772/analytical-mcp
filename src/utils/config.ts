@@ -10,6 +10,28 @@ import { Logger } from './logger.js';
 // Load environment variables from .env file
 dotenv.config();
 
+/**
+ * Validates a port number string and returns a valid port number
+ * @param portStr - The port string to validate
+ * @returns Valid port number
+ * @throws Error if port is invalid
+ */
+function validatePort(portStr: string): number {
+  const port = parseInt(portStr, 10);
+  
+  if (isNaN(port)) {
+    console.error(`Invalid metrics port: ${portStr}`);
+    process.exit(1);
+  }
+  
+  if (port < 1 || port > 65535) {
+    console.error(`Invalid metrics port: ${portStr} (must be between 1 and 65535)`);
+    process.exit(1);
+  }
+  
+  return port;
+}
+
 // Environment-specific configuration
 export enum Environment {
   DEVELOPMENT = 'development',
@@ -94,7 +116,7 @@ export const config = {
 
   // Metrics server configuration
   METRICS_ENABLED: process.env.METRICS_ENABLED || 'true',
-  METRICS_PORT: process.env.METRICS_PORT || '9090',
+  METRICS_PORT: validatePort(process.env.METRICS_PORT || '9090').toString(),
   METRICS_HOST: process.env.METRICS_HOST || '0.0.0.0',
 };
 
