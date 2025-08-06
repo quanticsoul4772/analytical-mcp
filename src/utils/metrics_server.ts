@@ -102,6 +102,23 @@ export class MetricsServer {
   }
 
   /**
+   * Get the actual port the server is listening on
+   * This is useful when port is set to 0 (dynamic port allocation)
+   */
+  getPort(): number | null {
+    if (!this.server || !this.server.listening) {
+      return null;
+    }
+    
+    const address = this.server.address();
+    if (address && typeof address === 'object' && 'port' in address) {
+      return address.port;
+    }
+    
+    return null;
+  }
+
+  /**
    * Handle HTTP requests
    */
   private handleRequest(req: http.IncomingMessage, res: http.ServerResponse): void {
