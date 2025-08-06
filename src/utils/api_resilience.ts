@@ -388,7 +388,20 @@ export class ResilientApiWrapper {
         this.metricsCollector.registerCircuitBreaker(name, () => this.circuitBreaker.getMetrics());
         Logger.debug(`Registered circuit breaker with metrics collector: ${name}`);
       } catch (error) {
-        Logger.warn(`Failed to register circuit breaker with metrics collector: ${name}`, error);
+        const allowFailure = process.env.ALLOW_METRICS_FAILURE === 'true';
+        Logger.error(`Failed to register circuit breaker with metrics collector: ${name}`, error);
+        
+        if (!allowFailure) {
+          throw new ResilienceError(
+            'ERR_METRICS_REGISTRATION_FAILED',
+            `Metrics registration failed for circuit breaker '${name}'. Set ALLOW_METRICS_FAILURE=true to continue with degraded observability.`,
+            false,
+            undefined,
+            error instanceof Error ? error : new Error(String(error))
+          );
+        } else {
+          Logger.warn(`Continuing with degraded observability due to ALLOW_METRICS_FAILURE=true`);
+        }
       }
     }
   }
@@ -435,7 +448,20 @@ export class ResilientApiWrapper {
         this.metricsCollector.unregisterCircuitBreaker(this.name);
         Logger.debug(`Unregistered circuit breaker from metrics collector: ${this.name}`);
       } catch (error) {
-        Logger.warn(`Failed to unregister circuit breaker from metrics collector: ${this.name}`, error);
+        const allowFailure = process.env.ALLOW_METRICS_FAILURE === 'true';
+        Logger.error(`Failed to unregister circuit breaker from metrics collector: ${this.name}`, error);
+        
+        if (!allowFailure) {
+          throw new ResilienceError(
+            'ERR_METRICS_UNREGISTRATION_FAILED',
+            `Metrics unregistration failed for circuit breaker '${this.name}'. Set ALLOW_METRICS_FAILURE=true to continue with degraded observability.`,
+            false,
+            undefined,
+            error instanceof Error ? error : new Error(String(error))
+          );
+        } else {
+          Logger.warn(`Continuing with degraded observability due to ALLOW_METRICS_FAILURE=true`);
+        }
       }
     }
   }
