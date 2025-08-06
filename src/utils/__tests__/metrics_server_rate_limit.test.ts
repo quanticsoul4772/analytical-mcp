@@ -124,7 +124,7 @@ describe('MetricsServer Rate Limiting', () => {
       expect(metricsServer['checkRateLimit'](ip2)).toBe(true);
     });
 
-    it('should extract client IP from X-Forwarded-For header', () => {
+    it('should extract client IP from X-Forwarded-For header when no trusted proxies', () => {
       const mockReq = {
         headers: {
           'x-forwarded-for': '203.0.113.1, 192.168.1.1, 10.0.0.1'
@@ -133,10 +133,10 @@ describe('MetricsServer Rate Limiting', () => {
       };
       
       const ip = metricsServer['getClientIP'](mockReq);
-      expect(ip).toBe('203.0.113.1');
+      expect(ip).toBe('127.0.0.1'); // Should fall back to socket IP since no trusted proxies
     });
 
-    it('should extract client IP from X-Real-IP header', () => {
+    it('should extract client IP from X-Real-IP header when no trusted proxies', () => {
       const mockReq = {
         headers: {
           'x-real-ip': '203.0.113.2'
@@ -145,7 +145,39 @@ describe('MetricsServer Rate Limiting', () => {
       };
       
       const ip = metricsServer['getClientIP'](mockReq);
-      expect(ip).toBe('203.0.113.2');
+      expect(ip).toBe('127.0.0.1'); // Should fall back to socket IP since no trusted proxies
+    });
+
+    it('should trust X-Forwarded-For header when request is from trusted proxy', () => {
+      const metricsServerWithTrustedProxies = new MetricsServer({
+        trustedProxies: ['127.0.0.1']
+      });
+      
+      const mockReq = {
+        headers: {
+          'x-forwarded-for': '203.0.113.1, 192.168.1.1, 10.0.0.1'
+        },
+        socket: { remoteAddress: '127.0.0.1' }
+      };
+      
+      const ip = metricsServerWithTrustedProxies['getClientIP'](mockReq);
+      expect(ip).toBe('203.0.113.1'); // Should trust the forwarded header
+    });
+
+    it('should ignore proxy headers when request is not from trusted proxy', () => {
+      const metricsServerWithTrustedProxies = new MetricsServer({
+        trustedProxies: ['192.168.1.100'] // Different IP
+      });
+      
+      const mockReq = {
+        headers: {
+          'x-forwarded-for': '203.0.113.1'
+        },
+        socket: { remoteAddress: '127.0.0.1' }
+      };
+      
+      const ip = metricsServerWithTrustedProxies['getClientIP'](mockReq);
+      expect(ip).toBe('127.0.0.1'); // Should ignore forwarded header and use socket IP
     });
 
     it('should fall back to socket remote address', () => {

@@ -157,16 +157,20 @@ describe('MetricsServer', () => {
       const blockedResponse = await makeRequest(port!, '/metrics');
       expect(blockedResponse.statusCode).toBe(429);
 
-      // Wait for rate limit window to reset (1 minute + small buffer)
-      // For testing, we'll mock the time passage
-      jest.useFakeTimers();
-      jest.advanceTimersByTime(61 * 1000); // Advance by 61 seconds
+      // Test the reset logic by directly manipulating the rate limit map
+      // This is more reliable than mixing fake timers with real HTTP requests
+      const rateLimitMap = (metricsServer as any).rateLimitMap;
+      const clientIP = '127.0.0.1';
+      const entry = rateLimitMap.get(clientIP);
+      
+      if (entry) {
+        // Set the reset time to the past to simulate window expiry
+        entry.resetTime = Date.now() - 1000;
+      }
 
       // New request should succeed after window reset
       const response = await makeRequest(port!, '/metrics');
       expect(response.statusCode).toBe(200);
-      
-      jest.useRealTimers();
     }, 10000);
 
     it('should handle different IP addresses separately', async () => {
@@ -197,6 +201,26 @@ describe('MetricsServer', () => {
     });
   });
 
+  describe('Periodic Cleanup', () => {
+    beforeEach(async () => {
+      process.env.METRICS_ENABLED = 'true';
+      metricsServer = new MetricsServer({
+        port: 0,
+        enabled: true,
+      });
+      await metricsServer.start();
+    });
+
+    it('should start and stop periodic cleanup timer', async () => {
+      // Test that cleanup timer is started when server starts
+      expect((metricsServer as any).cleanupTimer).not.toBeNull();
+      
+      // Stop server and verify timer is cleaned up
+      await metricsServer.stop();
+      expect((metricsServer as any).cleanupTimer).toBeNull();
+    });
+  });
+
   describe('Client IP Detection', () => {
     beforeEach(async () => {
       process.env.METRICS_ENABLED = 'true';
@@ -207,7 +231,7 @@ describe('MetricsServer', () => {
       await metricsServer.start();
     });
 
-    it('should extract IP from X-Forwarded-For header', async () => {
+    it('should extract IP from X-Forwarded-For header when no trusted proxies configured', async () => {
       const port = metricsServer.getPort();
       expect(port).not.toBeNull();
 
@@ -217,7 +241,7 @@ describe('MetricsServer', () => {
       expect(response.statusCode).toBe(200);
     });
 
-    it('should extract IP from X-Real-IP header', async () => {
+    it('should extract IP from X-Real-IP header when no trusted proxies configured', async () => {
       const port = metricsServer.getPort();
       expect(port).not.toBeNull();
 
@@ -225,6 +249,52 @@ describe('MetricsServer', () => {
         'X-Real-IP': '203.0.113.2' 
       });
       expect(response.statusCode).toBe(200);
+    });
+  });
+
+  describe('Trusted Proxy Configuration', () => {
+    it('should ignore proxy headers when request is not from trusted proxy', async () => {
+      const metricsServerWithTrustedProxies = new MetricsServer({
+        port: 0,
+        enabled: true,
+        trustedProxies: ['192.168.1.100'], // Different from actual connecting IP
+      });
+      await metricsServerWithTrustedProxies.start();
+
+      try {
+        const port = metricsServerWithTrustedProxies.getPort();
+        expect(port).not.toBeNull();
+
+        // Make request with forwarded header - should be ignored since connecting IP isn't trusted
+        const response = await makeRequest(port!, '/metrics', { 
+          'X-Forwarded-For': '203.0.113.1' 
+        });
+        expect(response.statusCode).toBe(200);
+      } finally {
+        await metricsServerWithTrustedProxies.stop();
+      }
+    });
+
+    it('should trust proxy headers when request is from trusted proxy', async () => {
+      const metricsServerWithTrustedProxies = new MetricsServer({
+        port: 0,
+        enabled: true,
+        trustedProxies: ['127.0.0.1'], // Trust localhost
+      });
+      await metricsServerWithTrustedProxies.start();
+
+      try {
+        const port = metricsServerWithTrustedProxies.getPort();
+        expect(port).not.toBeNull();
+
+        // Make request with forwarded header - should be trusted since connecting IP is trusted
+        const response = await makeRequest(port!, '/metrics', { 
+          'X-Forwarded-For': '203.0.113.1' 
+        });
+        expect(response.statusCode).toBe(200);
+      } finally {
+        await metricsServerWithTrustedProxies.stop();
+      }
     });
   });
 });

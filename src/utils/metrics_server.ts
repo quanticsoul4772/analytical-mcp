@@ -19,6 +19,7 @@ export interface MetricsServerConfig {
   host: string;
   enabled: boolean;
   rateLimit?: number;
+  trustedProxies?: string[];
 }
 
 /**
@@ -36,6 +37,7 @@ export class MetricsServer {
   private server: http.Server | null = null;
   private config: MetricsServerConfig;
   private rateLimitMap: Map<string, RateLimitEntry> = new Map();
+  private cleanupTimer: NodeJS.Timeout | null = null;
 
   constructor(config?: Partial<MetricsServerConfig>) {
     this.config = {
@@ -43,6 +45,7 @@ export class MetricsServer {
       host: process.env.METRICS_HOST || config?.host || '127.0.0.1',
       enabled: process.env.METRICS_ENABLED === 'true' || config?.enabled === true,
       rateLimit: parseInt(process.env.METRICS_RATE_LIMIT || config?.rateLimit?.toString() || '60', 10),
+      trustedProxies: config?.trustedProxies || [],
     };
 
     Logger.debug('MetricsServer configured', {
@@ -77,6 +80,7 @@ export class MetricsServer {
 
       this.server.listen(this.config.port, this.config.host, () => {
         Logger.info(`Metrics server started on http://${this.config.host}:${this.config.port}`);
+        this.startPeriodicCleanup();
         resolve();
       });
     });
@@ -93,6 +97,7 @@ export class MetricsServer {
     return new Promise((resolve) => {
       this.server!.close(() => {
         Logger.info('Metrics server stopped');
+        this.stopPeriodicCleanup();
         this.server = null;
         resolve();
       });
@@ -174,6 +179,26 @@ export class MetricsServer {
       if (now > entry.resetTime) {
         this.rateLimitMap.delete(ip);
       }
+    }
+  }
+
+  /**
+   * Start periodic cleanup of expired rate limit entries
+   */
+  private startPeriodicCleanup(): void {
+    // Clean up expired entries every 5 minutes
+    this.cleanupTimer = setInterval(() => {
+      this.cleanupRateLimitMap(Date.now());
+    }, 5 * 60 * 1000);
+  }
+
+  /**
+   * Stop periodic cleanup timer
+   */
+  private stopPeriodicCleanup(): void {
+    if (this.cleanupTimer) {
+      clearInterval(this.cleanupTimer);
+      this.cleanupTimer = null;
     }
   }
 
@@ -276,21 +301,30 @@ export class MetricsServer {
    * Get client IP address from request
    */
   private getClientIP(req: http.IncomingMessage): string {
-    // Check for forwarded headers first (for proxy/load balancer scenarios)
-    const forwarded = req.headers['x-forwarded-for'];
-    if (forwarded) {
-      // Take the first IP in the chain
-      const ips = Array.isArray(forwarded) ? forwarded[0] : forwarded;
-      return ips.split(',')[0].trim();
-    }
+    const socketIP = req.socket.remoteAddress || 'unknown';
     
-    const realIP = req.headers['x-real-ip'];
-    if (realIP && !Array.isArray(realIP)) {
-      return realIP;
+    // Only trust proxy headers if the request is coming from a trusted proxy
+    if (this.config.trustedProxies && this.config.trustedProxies.length > 0) {
+      const isTrustedProxy = this.config.trustedProxies.includes(socketIP);
+      
+      if (isTrustedProxy) {
+        // Check for forwarded headers first (for proxy/load balancer scenarios)
+        const forwarded = req.headers['x-forwarded-for'];
+        if (forwarded) {
+          // Take the first IP in the chain
+          const ips = Array.isArray(forwarded) ? forwarded[0] : forwarded;
+          return ips.split(',')[0].trim();
+        }
+        
+        const realIP = req.headers['x-real-ip'];
+        if (realIP && !Array.isArray(realIP)) {
+          return realIP;
+        }
+      }
     }
     
     // Fall back to socket remote address
-    return req.socket.remoteAddress || 'unknown';
+    return socketIP;
   }
 
   /**
