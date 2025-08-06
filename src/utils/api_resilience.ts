@@ -6,6 +6,7 @@
  */
 
 import { Logger } from './logger.js';
+import { metricsCollector } from './metrics_collector.js';
 
 /**
  * Configuration for retry behavior
@@ -387,14 +388,24 @@ export class CircuitBreaker {
 export class ResilientApiWrapper {
   private retryManager: RetryManager;
   private circuitBreaker: CircuitBreaker;
+  private name: string;
 
   constructor(
     retryConfig: Partial<RetryConfig> = {},
     circuitBreakerConfig: Partial<CircuitBreakerConfig> = {},
     name: string = 'ResilientAPI'
   ) {
+    this.name = name;
     this.retryManager = new RetryManager({ ...DEFAULT_RETRY_CONFIG, ...retryConfig });
     this.circuitBreaker = new CircuitBreaker({ ...DEFAULT_CIRCUIT_BREAKER_CONFIG, ...circuitBreakerConfig }, name);
+    
+    // Register with metrics collector
+    try {
+      metricsCollector.registerCircuitBreaker(name, () => this.circuitBreaker.getMetrics());
+      Logger.debug(`Registered circuit breaker with metrics collector: ${name}`);
+    } catch (error) {
+      Logger.warn(`Failed to register circuit breaker with metrics collector: ${name}`, error);
+    }
   }
 
   /**
@@ -428,6 +439,18 @@ export class ResilientApiWrapper {
    */
   reset(): void {
     this.circuitBreaker.reset();
+  }
+
+  /**
+   * Cleanup and unregister from metrics collector
+   */
+  cleanup(): void {
+    try {
+      metricsCollector.unregisterCircuitBreaker(this.name);
+      Logger.debug(`Unregistered circuit breaker from metrics collector: ${this.name}`);
+    } catch (error) {
+      Logger.warn(`Failed to unregister circuit breaker from metrics collector: ${this.name}`, error);
+    }
   }
 }
 

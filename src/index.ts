@@ -15,6 +15,7 @@ import { Logger } from './utils/logger.js';
 import { config } from './utils/config.js';
 import { cacheManager } from './utils/cache_manager.js';
 import { ResearchCacheNamespace } from './utils/research_cache.js';
+import { metricsServer } from './utils/metrics_server.js';
 
 // Initialize logger with fallback values
 Logger.initializeFromEnvironment(config.NODE_ENV || 'production', config.LOG_LEVEL || 'INFO');
@@ -22,15 +23,28 @@ Logger.initializeFromEnvironment(config.NODE_ENV || 'production', config.LOG_LEV
 // Configure global error handlers
 process.on('uncaughtException', (error) => {
   Logger.error('Uncaught exception', error);
-  // Don't exit immediately in production to allow graceful shutdown
-  if (config.NODE_ENV !== 'production') {
-    process.exit(1);
-  }
+  // Clean shutdown
+  gracefulShutdown().finally(() => {
+    if (config.NODE_ENV !== 'production') {
+      process.exit(1);
+    }
+  });
 });
 
 process.on('unhandledRejection', (reason) => {
   Logger.error('Unhandled rejection', reason instanceof Error ? reason : new Error(String(reason)));
   // Don't exit immediately in production
+});
+
+// Handle graceful shutdown
+process.on('SIGINT', () => {
+  Logger.info('Received SIGINT, shutting down gracefully...');
+  gracefulShutdown().finally(() => process.exit(0));
+});
+
+process.on('SIGTERM', () => {
+  Logger.info('Received SIGTERM, shutting down gracefully...');
+  gracefulShutdown().finally(() => process.exit(0));
 });
 
 /**
@@ -82,6 +96,41 @@ async function initializeCache(): Promise<void> {
 }
 
 /**
+ * Initialize the metrics server if enabled
+ */
+async function initializeMetricsServer(): Promise<void> {
+  if (config.METRICS_ENABLED === 'true') {
+    try {
+      await metricsServer.start();
+      Logger.info(`Metrics server started on port ${config.METRICS_PORT}`);
+    } catch (error) {
+      Logger.warn('Failed to start metrics server, continuing without metrics endpoint', error);
+    }
+  } else {
+    Logger.debug('Metrics server is disabled, skipping initialization');
+  }
+}
+
+/**
+ * Graceful shutdown handler
+ */
+async function gracefulShutdown(): Promise<void> {
+  try {
+    Logger.info('Starting graceful shutdown...');
+    
+    // Stop metrics server
+    if (metricsServer.isRunning()) {
+      await metricsServer.stop();
+      Logger.info('Metrics server stopped');
+    }
+    
+    Logger.info('Graceful shutdown completed');
+  } catch (error) {
+    Logger.error('Error during graceful shutdown', error);
+  }
+}
+
+/**
  * Main server startup function
  */
 async function main() {
@@ -96,6 +145,11 @@ async function main() {
     // Initialize cache (non-critical)
     await initializeCache().catch((error) => {
       Logger.warn('Cache initialization failed, continuing without cache', error);
+    });
+
+    // Initialize metrics server (non-critical)
+    await initializeMetricsServer().catch((error) => {
+      Logger.warn('Metrics server initialization failed, continuing without metrics endpoint', error);
     });
 
     // Connect using stdio transport
