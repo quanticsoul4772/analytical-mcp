@@ -7,7 +7,8 @@
 
 import nock from 'nock';
 import fetch from 'node-fetch';
-import { ResilientApiWrapper, CircuitBreakerState, ResilienceError } from '../utils/api_resilience.js';
+import { ResilientApiWrapper, ResilienceError } from '../utils/api_resilience.js';
+import { CircuitBreakerState } from '../utils/resilience_types.js';
 
 // Make fetch available globally for tests
 (global as any).fetch = fetch;

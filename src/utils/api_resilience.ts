@@ -6,7 +6,7 @@
  */
 
 import { Logger } from './logger.js';
-import { metricsCollector } from './metrics_collector.js';
+import { CircuitBreakerState, CircuitBreakerMetrics, MetricsCollectorInterface } from './resilience_types.js';
 
 /**
  * Configuration for retry behavior
@@ -34,14 +34,6 @@ export const DEFAULT_RETRY_CONFIG: RetryConfig = {
   retryableErrors: ['ECONNRESET', 'ETIMEDOUT', 'ENOTFOUND', 'EAI_AGAIN']
 };
 
-/**
- * Circuit breaker states
- */
-export enum CircuitBreakerState {
-  CLOSED = 'CLOSED',     // Normal operation
-  OPEN = 'OPEN',         // Failing, reject calls
-  HALF_OPEN = 'HALF_OPEN' // Testing recovery
-}
 
 /**
  * Configuration for circuit breaker
@@ -74,18 +66,6 @@ export interface RetryResult<T> {
   totalDelayMs: number;
 }
 
-/**
- * Circuit breaker metrics
- */
-export interface CircuitBreakerMetrics {
-  state: CircuitBreakerState;
-  failureCount: number;
-  successCount: number;
-  lastFailureTime?: Date;
-  lastSuccessTime?: Date;
-  totalCalls: number;
-  rejectedCalls: number;
-}
 
 /**
  * Enhanced error class for API resilience
@@ -389,22 +369,27 @@ export class ResilientApiWrapper {
   private retryManager: RetryManager;
   private circuitBreaker: CircuitBreaker;
   private name: string;
+  private metricsCollector?: MetricsCollectorInterface;
 
   constructor(
     retryConfig: Partial<RetryConfig> = {},
     circuitBreakerConfig: Partial<CircuitBreakerConfig> = {},
-    name: string = 'ResilientAPI'
+    name: string = 'ResilientAPI',
+    metricsCollector?: MetricsCollectorInterface
   ) {
     this.name = name;
     this.retryManager = new RetryManager({ ...DEFAULT_RETRY_CONFIG, ...retryConfig });
     this.circuitBreaker = new CircuitBreaker({ ...DEFAULT_CIRCUIT_BREAKER_CONFIG, ...circuitBreakerConfig }, name);
+    this.metricsCollector = metricsCollector;
     
-    // Register with metrics collector
-    try {
-      metricsCollector.registerCircuitBreaker(name, () => this.circuitBreaker.getMetrics());
-      Logger.debug(`Registered circuit breaker with metrics collector: ${name}`);
-    } catch (error) {
-      Logger.warn(`Failed to register circuit breaker with metrics collector: ${name}`, error);
+    // Register with metrics collector if provided
+    if (this.metricsCollector) {
+      try {
+        this.metricsCollector.registerCircuitBreaker(name, () => this.circuitBreaker.getMetrics());
+        Logger.debug(`Registered circuit breaker with metrics collector: ${name}`);
+      } catch (error) {
+        Logger.warn(`Failed to register circuit breaker with metrics collector: ${name}`, error);
+      }
     }
   }
 
@@ -445,11 +430,13 @@ export class ResilientApiWrapper {
    * Cleanup and unregister from metrics collector
    */
   cleanup(): void {
-    try {
-      metricsCollector.unregisterCircuitBreaker(this.name);
-      Logger.debug(`Unregistered circuit breaker from metrics collector: ${this.name}`);
-    } catch (error) {
-      Logger.warn(`Failed to unregister circuit breaker from metrics collector: ${this.name}`, error);
+    if (this.metricsCollector) {
+      try {
+        this.metricsCollector.unregisterCircuitBreaker(this.name);
+        Logger.debug(`Unregistered circuit breaker from metrics collector: ${this.name}`);
+      } catch (error) {
+        Logger.warn(`Failed to unregister circuit breaker from metrics collector: ${this.name}`, error);
+      }
     }
   }
 }
@@ -460,7 +447,8 @@ export class ResilientApiWrapper {
 export function createResilientWrapper(
   name: string,
   retryConfig?: Partial<RetryConfig>,
-  circuitBreakerConfig?: Partial<CircuitBreakerConfig>
+  circuitBreakerConfig?: Partial<CircuitBreakerConfig>,
+  metricsCollector?: MetricsCollectorInterface
 ): ResilientApiWrapper {
-  return new ResilientApiWrapper(retryConfig, circuitBreakerConfig, name);
+  return new ResilientApiWrapper(retryConfig, circuitBreakerConfig, name, metricsCollector);
 }
