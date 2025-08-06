@@ -117,7 +117,7 @@ export const config = {
   // Metrics server configuration
   METRICS_ENABLED: process.env.METRICS_ENABLED || 'true',
   METRICS_PORT: validatePort(process.env.METRICS_PORT || '9090').toString(),
-  METRICS_HOST: process.env.METRICS_HOST || '0.0.0.0',
+  METRICS_HOST: process.env.METRICS_HOST || '127.0.0.1',
 };
 
 /**

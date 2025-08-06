@@ -136,7 +136,7 @@ Enable metrics by setting environment variables:
 ```bash
 METRICS_ENABLED=true        # Enable metrics server (default: true)
 METRICS_PORT=9090          # Metrics server port (default: 9090)
-METRICS_HOST=0.0.0.0       # Metrics server host (default: 0.0.0.0)
+METRICS_HOST=127.0.0.1     # Metrics server host (default: 127.0.0.1, use 0.0.0.0 to bind to all interfaces)
 ```
 
 ### Usage Examples

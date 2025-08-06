@@ -30,7 +30,7 @@ export class MetricsServer {
   constructor(config?: Partial<MetricsServerConfig>) {
     this.config = {
       port: parseInt(process.env.METRICS_PORT || config?.port?.toString() || '9090', 10),
-      host: process.env.METRICS_HOST || config?.host || '0.0.0.0',
+      host: process.env.METRICS_HOST || config?.host || '127.0.0.1',
       enabled: process.env.METRICS_ENABLED === 'true' || config?.enabled === true,
     };
 
