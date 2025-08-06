@@ -18,6 +18,16 @@ export interface MetricsServerConfig {
   port: number;
   host: string;
   enabled: boolean;
+  rateLimit?: number;
+  trustedProxies?: string[];
+}
+
+/**
+ * Rate limit tracking for IP addresses
+ */
+interface RateLimitEntry {
+  count: number;
+  resetTime: number;
 }
 
 /**
@@ -26,18 +36,23 @@ export interface MetricsServerConfig {
 export class MetricsServer {
   private server: http.Server | null = null;
   private config: MetricsServerConfig;
+  private rateLimitMap: Map<string, RateLimitEntry> = new Map();
+  private cleanupTimer: NodeJS.Timeout | null = null;
 
   constructor(config?: Partial<MetricsServerConfig>) {
     this.config = {
       port: parseInt(process.env.METRICS_PORT || config?.port?.toString() || '9090', 10),
       host: process.env.METRICS_HOST || config?.host || '127.0.0.1',
       enabled: process.env.METRICS_ENABLED === 'true' || config?.enabled === true,
+      rateLimit: parseInt(process.env.METRICS_RATE_LIMIT || config?.rateLimit?.toString() || '60', 10),
+      trustedProxies: config?.trustedProxies || [],
     };
 
     Logger.debug('MetricsServer configured', {
       port: this.config.port,
       host: this.config.host,
       enabled: this.config.enabled,
+      rateLimit: this.config.rateLimit,
     });
   }
 
@@ -65,6 +80,7 @@ export class MetricsServer {
 
       this.server.listen(this.config.port, this.config.host, () => {
         Logger.info(`Metrics server started on http://${this.config.host}:${this.config.port}`);
+        this.startPeriodicCleanup();
         resolve();
       });
     });
@@ -81,6 +97,7 @@ export class MetricsServer {
     return new Promise((resolve) => {
       this.server!.close(() => {
         Logger.info('Metrics server stopped');
+        this.stopPeriodicCleanup();
         this.server = null;
         resolve();
       });
@@ -116,6 +133,73 @@ export class MetricsServer {
     }
     
     return null;
+  }
+
+  /**
+   * Check rate limit for IP address
+   */
+  private checkRateLimit(ip: string): boolean {
+    const now = Date.now();
+    const windowMs = 60 * 1000; // 1 minute window
+    
+    // Clean up expired entries
+    this.cleanupRateLimitMap(now);
+    
+    const entry = this.rateLimitMap.get(ip);
+    
+    if (!entry) {
+      // First request from this IP
+      this.rateLimitMap.set(ip, {
+        count: 1,
+        resetTime: now + windowMs,
+      });
+      return true;
+    }
+    
+    if (now > entry.resetTime) {
+      // Reset window
+      entry.count = 1;
+      entry.resetTime = now + windowMs;
+      return true;
+    }
+    
+    if (entry.count >= this.config.rateLimit!) {
+      return false; // Rate limit exceeded
+    }
+    
+    entry.count++;
+    return true;
+  }
+
+  /**
+   * Clean up expired rate limit entries to prevent memory leaks
+   */
+  private cleanupRateLimitMap(now: number): void {
+    for (const [ip, entry] of this.rateLimitMap.entries()) {
+      if (now > entry.resetTime) {
+        this.rateLimitMap.delete(ip);
+      }
+    }
+  }
+
+  /**
+   * Start periodic cleanup of expired rate limit entries
+   */
+  private startPeriodicCleanup(): void {
+    // Clean up expired entries every 5 minutes
+    this.cleanupTimer = setInterval(() => {
+      this.cleanupRateLimitMap(Date.now());
+    }, 5 * 60 * 1000);
+  }
+
+  /**
+   * Stop periodic cleanup timer
+   */
+  private stopPeriodicCleanup(): void {
+    if (this.cleanupTimer) {
+      clearInterval(this.cleanupTimer);
+      this.cleanupTimer = null;
+    }
   }
 
   /**
@@ -156,7 +240,7 @@ export class MetricsServer {
       // Route requests
       switch (path) {
         case '/metrics':
-          this.handleMetricsRequest(res, format);
+          this.handleMetricsRequestWithRateLimit(req, res, format);
           break;
         case '/health':
           this.handleHealthRequest(res);
@@ -177,6 +261,78 @@ export class MetricsServer {
       Logger.error('Error handling metrics request', error);
       this.sendError(res, 500, 'Internal Server Error');
     }
+  }
+
+  /**
+   * Handle /metrics endpoint with rate limiting
+   */
+  private handleMetricsRequestWithRateLimit(req: http.IncomingMessage, res: http.ServerResponse, format: string): void {
+    // Extract client IP address
+    const clientIP = this.getClientIP(req);
+    
+    // Check rate limit
+    if (!this.checkRateLimit(clientIP)) {
+      const resetTime = this.getRateLimitResetTime(clientIP);
+      
+      Logger.warn(`Rate limit exceeded for IP ${clientIP} on /metrics endpoint`);
+      
+      // Set rate limit headers
+      res.setHeader('X-RateLimit-Limit', this.config.rateLimit!.toString());
+      res.setHeader('X-RateLimit-Remaining', '0');
+      res.setHeader('X-RateLimit-Reset', Math.ceil(resetTime / 1000).toString());
+      res.setHeader('Retry-After', Math.ceil((resetTime - Date.now()) / 1000).toString());
+      
+      this.sendError(res, 429, 'Too Many Requests');
+      return;
+    }
+    
+    // Add rate limit headers for successful requests
+    const entry = this.rateLimitMap.get(clientIP);
+    if (entry) {
+      res.setHeader('X-RateLimit-Limit', this.config.rateLimit!.toString());
+      res.setHeader('X-RateLimit-Remaining', Math.max(0, this.config.rateLimit! - entry.count).toString());
+      res.setHeader('X-RateLimit-Reset', Math.ceil(entry.resetTime / 1000).toString());
+    }
+    
+    this.handleMetricsRequest(res, format);
+  }
+
+  /**
+   * Get client IP address from request
+   */
+  private getClientIP(req: http.IncomingMessage): string {
+    const socketIP = req.socket.remoteAddress || 'unknown';
+    
+    // Only trust proxy headers if the request is coming from a trusted proxy
+    if (this.config.trustedProxies && this.config.trustedProxies.length > 0) {
+      const isTrustedProxy = this.config.trustedProxies.includes(socketIP);
+      
+      if (isTrustedProxy) {
+        // Check for forwarded headers first (for proxy/load balancer scenarios)
+        const forwarded = req.headers['x-forwarded-for'];
+        if (forwarded) {
+          // Take the first IP in the chain
+          const ips = Array.isArray(forwarded) ? forwarded[0] : forwarded;
+          return ips.split(',')[0].trim();
+        }
+        
+        const realIP = req.headers['x-real-ip'];
+        if (realIP && !Array.isArray(realIP)) {
+          return realIP;
+        }
+      }
+    }
+    
+    // Fall back to socket remote address
+    return socketIP;
+  }
+
+  /**
+   * Get rate limit reset time for IP
+   */
+  private getRateLimitResetTime(ip: string): number {
+    const entry = this.rateLimitMap.get(ip);
+    return entry ? entry.resetTime : Date.now() + 60000;
   }
 
   /**
