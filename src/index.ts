@@ -102,7 +102,8 @@ async function initializeMetricsServer(): Promise<void> {
   if (config.METRICS_ENABLED === 'true') {
     try {
       await metricsServer.start();
-      Logger.info(`Metrics server started on port ${config.METRICS_PORT}`);
+      const actualPort = metricsServer.getPort();
+      Logger.info(`Metrics server started on port ${actualPort || config.METRICS_PORT}`);
     } catch (error) {
       Logger.warn('Failed to start metrics server, continuing without metrics endpoint', error);
     }
