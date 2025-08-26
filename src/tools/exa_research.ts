@@ -128,7 +128,7 @@ export class EnhancedFactExtractor {
       fact: sentence.trim(),
       type: 'statement' as const,
       confidence: this.computeSentenceConfidence(sentence),
-      entities: []
+      entities: [] as string[]
     }));
   }
 
