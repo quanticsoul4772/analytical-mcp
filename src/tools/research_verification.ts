@@ -277,17 +277,33 @@ export class ResearchVerificationTool {
       ['before', 'after'], ['true', 'false'], ['yes', 'no']
     ];
 
+    // Add bounds checking to prevent performance issues with large fact sets
+    const MAX_FACTS_PER_SOURCE = 50; // Limit facts per source
+    const MAX_TOTAL_COMPARISONS = 1000; // Limit total comparisons
+
+    let totalComparisons = 0;
+
     // Compare facts across different sources
     for (let i = 0; i < factExtractions.length; i++) {
       for (let j = i + 1; j < factExtractions.length; j++) {
-        const source1Facts = factExtractions[i].facts;
-        const source2Facts = factExtractions[j].facts;
+        const source1Facts = factExtractions[i].facts.slice(0, MAX_FACTS_PER_SOURCE);
+        const source2Facts = factExtractions[j].facts.slice(0, MAX_FACTS_PER_SOURCE);
         const source1 = factExtractions[i].source;
         const source2 = factExtractions[j].source;
 
         // Compare each fact from source1 with facts from source2
         for (const factObj1 of source1Facts) {
           for (const factObj2 of source2Facts) {
+            // Check bounds to prevent excessive computation
+            if (totalComparisons >= MAX_TOTAL_COMPARISONS) {
+              Logger.warn('Conflict detection reached comparison limit', {
+                limit: MAX_TOTAL_COMPARISONS,
+                sourcesCompared: i + 1,
+                totalSources: factExtractions.length
+              });
+              break;
+            }
+            totalComparisons++;
             const fact1 = factObj1.fact;
             const fact2 = factObj2.fact;
             // Skip if facts are too similar (likely saying the same thing)
@@ -342,8 +358,14 @@ export class ResearchVerificationTool {
               });
             }
           }
+          // Break from factObj1 loop if limit reached
+          if (totalComparisons >= MAX_TOTAL_COMPARISONS) break;
         }
+        // Break from source2 loop if limit reached  
+        if (totalComparisons >= MAX_TOTAL_COMPARISONS) break;
       }
+      // Break from source1 loop if limit reached
+      if (totalComparisons >= MAX_TOTAL_COMPARISONS) break;
     }
 
     return conflicts;

@@ -269,6 +269,11 @@ export async function batchWithErrorHandling<T, R>(
   const executing: Promise<void>[] = [];
 
   for (const item of items) {
+    // Wait for a slot to become available if we're at the concurrency limit
+    if (executing.length >= concurrency) {
+      await Promise.race(executing).catch(() => {});
+    }
+
     const promise = (async () => {
       try {
         const result = await operation(item);
@@ -284,36 +289,16 @@ export async function batchWithErrorHandling<T, R>(
         if (stopOnError) {
           throw error;
         }
+      } finally {
+        // Remove this promise from the executing array when done
+        const index = executing.indexOf(promise);
+        if (index > -1) {
+          executing.splice(index, 1);
+        }
       }
     })();
 
     executing.push(promise);
-
-    if (executing.length >= concurrency) {
-      await Promise.race(executing).catch(() => {});
-    }
-
-    const p = (async () => {
-      try {
-        const result = await operation(item);
-        results.push({ success: true, result, item });
-      } catch (error) {
-        const err = error instanceof Error ? error : new Error(String(error));
-        results.push({ success: false, error: err, item });
-
-        Logger.warn(`${operationName} failed for item`, {
-          error: err.message,
-        });
-
-        if (stopOnError) {
-          throw error;
-        }
-      } finally {
-        executing.splice(executing.indexOf(promise), 1);
-      }
-    })();
-
-    executing.push(p);
   }
 
   await Promise.all(executing);
