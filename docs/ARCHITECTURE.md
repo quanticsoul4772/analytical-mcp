@@ -56,7 +56,7 @@ Cross-cutting concerns and utilities:
 │  - analyze_dataset              - logical_argument_analyzer      │
 │  - advanced_regression          - logical_fallacy_detector       │
 │  - hypothesis_testing           - perspective_shifter            │
-│  - data_visualization                                            │
+│  - data_visualization_generator                                  │
 │                                 Decision Support                 │
 │  Research Verification          - decision_analysis              │
 │  - verify_research                                               │
