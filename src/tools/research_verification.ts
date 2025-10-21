@@ -194,13 +194,21 @@ export class ResearchVerificationTool {
       2
     );
 
+    // Detect conflicting claims
+    const conflictDetails = this.detectConflictingClaims(factExtractions);
+
+    // Convert conflict details to string format for compatibility
+    const conflictingClaims = conflictDetails.map(conflict =>
+      `"${conflict.claim1}" (${conflict.source1}) vs "${conflict.claim2}" (${conflict.source2}): ${conflict.conflictReason}`
+    );
+
     return {
       score: Math.max(confidenceScore, minThreshold),
       details: {
         sourceConsistency: consistencyScore,
         sourceCount: factExtractions.length,
         uniqueSources: Array.from(new Set(factExtractions.map(e => e.source))),
-        conflictingClaims: [], // TODO: Implement more sophisticated conflict detection
+        conflictingClaims,
         factExtractions: factExtractions
       }
     };
@@ -231,11 +239,161 @@ export class ResearchVerificationTool {
     return similarityMatrix;
   }
 
+  /**
+   * Detect conflicting claims across fact extractions
+   * Identifies facts that contradict each other based on negation patterns and low similarity
+   */
+  private detectConflictingClaims(factExtractions: Array<{
+    source: string;
+    facts: Array<{ fact: string; type: string; confidence: number }>;
+    sourceConfidence: number;
+  }>): Array<{
+    claim1: string;
+    claim2: string;
+    source1: string;
+    source2: string;
+    conflictReason: string;
+  }> {
+    const conflicts: Array<{
+      claim1: string;
+      claim2: string;
+      source1: string;
+      source2: string;
+      conflictReason: string;
+    }> = [];
+
+    // Common negation patterns that indicate potential conflicts
+    const negationPatterns = [
+      { pattern: /\b(not|never|no|none|cannot|can't|won't|wouldn't|shouldn't|isn't|aren't|wasn't|weren't)\b/i, weight: 1.0 },
+      { pattern: /\b(false|incorrect|wrong|untrue|inaccurate|deny|denies|denied)\b/i, weight: 0.8 },
+      { pattern: /\b(opposite|contrary|contradicts|contradicted|disputes|disputed)\b/i, weight: 0.9 },
+    ];
+
+    // Antonym pairs that suggest conflicts
+    const antonymPairs = [
+      ['increase', 'decrease'], ['rise', 'fall'], ['more', 'less'],
+      ['higher', 'lower'], ['greater', 'smaller'], ['positive', 'negative'],
+      ['success', 'failure'], ['growth', 'decline'], ['improve', 'worsen'],
+      ['before', 'after'], ['true', 'false'], ['yes', 'no']
+    ];
+
+    // Compare facts across different sources
+    for (let i = 0; i < factExtractions.length; i++) {
+      for (let j = i + 1; j < factExtractions.length; j++) {
+        const source1Facts = factExtractions[i].facts;
+        const source2Facts = factExtractions[j].facts;
+        const source1 = factExtractions[i].source;
+        const source2 = factExtractions[j].source;
+
+        // Compare each fact from source1 with facts from source2
+        for (const factObj1 of source1Facts) {
+          for (const factObj2 of source2Facts) {
+            const fact1 = factObj1.fact;
+            const fact2 = factObj2.fact;
+            // Skip if facts are too similar (likely saying the same thing)
+            const similarity = this.computeTextSimilarity(fact1, fact2);
+            if (similarity > 0.7) continue;
+
+            // Check for negation patterns
+            const fact1Lower = fact1.toLowerCase();
+            const fact2Lower = fact2.toLowerCase();
+            let hasNegation = false;
+            let negationScore = 0;
+
+            for (const { pattern, weight } of negationPatterns) {
+              const fact1HasNegation = pattern.test(fact1);
+              const fact2HasNegation = pattern.test(fact2);
+
+              if (fact1HasNegation !== fact2HasNegation) {
+                hasNegation = true;
+                negationScore = Math.max(negationScore, weight);
+              }
+            }
+
+            // Check for antonym pairs
+            let hasAntonyms = false;
+            for (const [word1, word2] of antonymPairs) {
+              const hasAntonymConflict =
+                (fact1Lower.includes(word1) && fact2Lower.includes(word2)) ||
+                (fact1Lower.includes(word2) && fact2Lower.includes(word1));
+
+              if (hasAntonymConflict) {
+                hasAntonyms = true;
+                break;
+              }
+            }
+
+            // Check if facts share common entities/subjects but differ in claims
+            const sharedWords = this.getSharedSignificantWords(fact1, fact2);
+            const hasSharedContext = sharedWords.length >= 2;
+
+            // Determine if this is a conflict
+            if (hasSharedContext && (hasNegation || hasAntonyms)) {
+              const reason = hasNegation
+                ? `Negation detected (confidence: ${(negationScore * 100).toFixed(0)}%)`
+                : 'Contradictory terms detected';
+
+              conflicts.push({
+                claim1: fact1,
+                claim2: fact2,
+                source1,
+                source2,
+                conflictReason: reason
+              });
+            }
+          }
+        }
+      }
+    }
+
+    return conflicts;
+  }
+
+  /**
+   * Compute text similarity using Jaccard index
+   */
+  private computeTextSimilarity(text1: string, text2: string): number {
+    const set1 = new Set(text1.toLowerCase().split(/\s+/));
+    const set2 = new Set(text2.toLowerCase().split(/\s+/));
+
+    const intersection = new Set([...set1].filter(x => set2.has(x)));
+    const union = new Set([...set1, ...set2]);
+
+    return intersection.size / union.size;
+  }
+
+  /**
+   * Get shared significant words between two texts
+   * Filters out common stop words
+   */
+  private getSharedSignificantWords(text1: string, text2: string): string[] {
+    const stopWords = new Set([
+      'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for',
+      'of', 'with', 'by', 'from', 'up', 'about', 'into', 'through', 'during',
+      'is', 'are', 'was', 'were', 'be', 'been', 'being', 'have', 'has', 'had',
+      'do', 'does', 'did', 'will', 'would', 'could', 'should', 'may', 'might',
+      'can', 'this', 'that', 'these', 'those', 'i', 'you', 'he', 'she', 'it',
+      'we', 'they', 'them', 'their', 'what', 'which', 'who', 'when', 'where',
+      'why', 'how'
+    ]);
+
+    const words1 = text1.toLowerCase().split(/\s+/).filter(w =>
+      w.length > 2 && !stopWords.has(w)
+    );
+    const words2 = text2.toLowerCase().split(/\s+/).filter(w =>
+      w.length > 2 && !stopWords.has(w)
+    );
+
+    const set1 = new Set(words1);
+    const set2 = new Set(words2);
+
+    return [...set1].filter(w => set2.has(w));
+  }
+
   // MCP Server tool registration
   registerTool(server: any): void {
     Logger.info('Research Verification tool registered');
-    
-    // TODO: Implement specific registration logic if needed
+    // Registration is handled in tools/index.ts
   }
 }
 

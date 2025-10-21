@@ -18,17 +18,19 @@ dotenv.config();
  */
 function validatePort(portStr: string): number {
   const port = parseInt(portStr, 10);
-  
+
   if (isNaN(port)) {
-    console.error(`Invalid metrics port: ${portStr}`);
-    process.exit(1);
+    const error = new Error(`Invalid metrics port: ${portStr}`);
+    Logger.error('Port validation failed', error);
+    throw error;
   }
-  
+
   if (port < 1 || port > 65535) {
-    console.error(`Invalid metrics port: ${portStr} (must be between 1 and 65535)`);
-    process.exit(1);
+    const error = new Error(`Invalid metrics port: ${portStr} (must be between 1 and 65535)`);
+    Logger.error('Port validation failed', error);
+    throw error;
   }
-  
+
   return port;
 }
 
