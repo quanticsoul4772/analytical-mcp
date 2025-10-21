@@ -193,11 +193,9 @@ Handles external API interactions:
 - sentiment 5.0.2 (sentiment analysis)
 
 ### NLP Libraries
-- compromise 14.12.0 (natural language processing)
-- pos 0.4.2 (part-of-speech tagging)
-- wink-nlp 2.4.0 (NLP toolkit)
-- wink-pos-tagger 2.2.2 (POS tagging)
-- wink-lemmatizer 3.0.4 (lemmatization)
+- wink-nlp 2.4.0 (NLP toolkit for tokenization, POS tagging, and lemmatization)
+- compromise 14.12.0 (natural language processing and entity extraction)
+- sentiment 5.0.2 (sentiment analysis)
 - spellchecker 3.7.1 (spell checking)
 
 ### Data Processing
