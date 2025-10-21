@@ -290,12 +290,30 @@ export async function batchWithErrorHandling<T, R>(
     executing.push(promise);
 
     if (executing.length >= concurrency) {
-      await Promise.race(executing);
-      executing.splice(
-        executing.findIndex((p) => p === promise),
-        1
-      );
+      await Promise.race(executing).catch(() => {});
     }
+
+    const p = (async () => {
+      try {
+        const result = await operation(item);
+        results.push({ success: true, result, item });
+      } catch (error) {
+        const err = error instanceof Error ? error : new Error(String(error));
+        results.push({ success: false, error: err, item });
+
+        Logger.warn(`${operationName} failed for item`, {
+          error: err.message,
+        });
+
+        if (stopOnError) {
+          throw error;
+        }
+      } finally {
+        executing.splice(executing.indexOf(promise), 1);
+      }
+    })();
+
+    executing.push(p);
   }
 
   await Promise.all(executing);
