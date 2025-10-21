@@ -104,14 +104,14 @@ export class CacheManager {
   }
 
   /**
-   * Get an item from the cache
+   * Get an item from the cache (synchronous for backward compatibility)
    */
   get<T>(key: string, options: CacheOptions = {}): T | null {
     // Early return if caching is disabled via feature flag
     if (!isFeatureEnabled('caching')) {
       return null;
     }
-    
+
     const resolvedOptions = this.resolveOptions(options);
     const cacheKey = this.getCacheKey(key, resolvedOptions.namespace!);
 
@@ -160,10 +160,72 @@ export class CacheManager {
       }
     }
 
+    // If not in memory and persistent cache is enabled, load asynchronously in background
+    if (this.persistentCacheEnabled && resolvedOptions.persistent) {
+      // Trigger async load but don't wait for it in sync method
+      this.loadFromDiskAsync<T>(cacheKey).then(persistentEntry => {
+        if (persistentEntry) {
+          const now = Date.now();
+          const age = now - persistentEntry.timestamp;
+
+          // Check if the loaded entry is still valid
+          if (age < persistentEntry.ttl) {
+            // Store in memory cache for future access
+            this.cache.set(cacheKey, persistentEntry);
+            this.stats[statsKey].size = this.cache.size;
+          }
+        }
+      }).catch(error => {
+        Logger.warn(`Failed to load cache entry from disk: ${cacheKey}`, error);
+      });
+    }
+
+    // Not found or expired
+    this.stats[statsKey].misses++;
+    return null;
+  }
+
+  /**
+   * Get an item from the cache (async version with disk support)
+   */
+  async getAsync<T>(key: string, options: CacheOptions = {}): Promise<T | null> {
+    // Early return if caching is disabled via feature flag
+    if (!isFeatureEnabled('caching')) {
+      return null;
+    }
+
+    const resolvedOptions = this.resolveOptions(options);
+    const cacheKey = this.getCacheKey(key, resolvedOptions.namespace!);
+
+    // Check in-memory cache first
+    const entry = this.cache.get(cacheKey);
+    const statsKey = resolvedOptions.namespace || 'default';
+
+    // Initialize stats for namespace if needed
+    if (!this.stats[statsKey]) {
+      this.stats[statsKey] = this.createEmptyStats();
+    }
+
+    if (entry) {
+      const now = Date.now();
+      const age = now - entry.timestamp;
+
+      // Check if the entry is still valid
+      if (age < entry.ttl) {
+        this.stats[statsKey].hits++;
+        return entry.data;
+      } else {
+        // Entry is expired, remove it
+        this.cache.delete(cacheKey);
+        this.stats[statsKey].evictions++;
+        this.stats[statsKey].size = this.cache.size;
+      }
+    }
+
     // If not in memory and persistent cache is enabled, try to load from disk
     if (this.persistentCacheEnabled && resolvedOptions.persistent) {
       try {
-        const persistentEntry = this.loadFromDisk<T>(cacheKey);
+        const persistentEntry = await this.loadFromDiskAsync<T>(cacheKey);
         if (persistentEntry) {
           const now = Date.now();
           const age = now - persistentEntry.timestamp;
@@ -510,9 +572,9 @@ export class CacheManager {
   }
 
   /**
-   * Load cache entry from disk
+   * Load cache entry from disk (async version for better performance)
    */
-  private loadFromDisk<T>(key: string): CacheEntry<T> | null {
+  private async loadFromDiskAsync<T>(key: string): Promise<CacheEntry<T> | null> {
     if (!this.persistentCacheEnabled) {
       return null;
     }
@@ -521,13 +583,14 @@ export class CacheManager {
       const cacheFilePath = this.getCacheFilePath(key);
 
       // Check if file exists
-      // Note: fs.accessSync is synchronous, but this is a private method and won't be called frequently
-      if (!fs.access(cacheFilePath).catch(() => false)) {
+      try {
+        await fs.access(cacheFilePath);
+      } catch {
         return null;
       }
 
-      // Read and parse file (sync version for simplicity in this internal method)
-      const content = require('fs').readFileSync(cacheFilePath, 'utf-8');
+      // Read and parse file asynchronously
+      const content = await fs.readFile(cacheFilePath, 'utf-8');
       return JSON.parse(content);
     } catch (error) {
       return null;

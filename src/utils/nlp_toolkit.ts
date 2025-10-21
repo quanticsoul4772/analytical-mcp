@@ -6,7 +6,6 @@ import sentiment from 'sentiment';
 // import winkLemmatizer from 'wink-lemmatizer';
 // import winkPOSTagger from 'wink-pos-tagger';
 import spellchecker from 'spellchecker';
-import tokenize from 'tokenize-text';
 
 import { Logger } from './logger.js';
 
