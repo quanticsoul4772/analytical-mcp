@@ -1,6 +1,10 @@
 # API Reference
 
+This document provides detailed specifications for all tools exposed by the Analytical MCP Server.
+
 ## Tool Specifications
+
+All tools are accessed with the `analytical:` prefix when used through Claude Desktop (e.g., `analytical:analyze_dataset`).
 
 ### analytical:analyze_dataset
 

@@ -1,7 +1,7 @@
 {
   "name": "analytical-mcp-server",
   "version": "0.1.0",
-  "description": "A specialized MCP server focused on enhancing AI capabilities for structured problem-solving, analytical reasoning, and decision-making",
+  "description": "MCP server providing statistical analysis, decision support, logical reasoning, and research verification tools",
   "private": true,
   "type": "module",
   "bin": {
