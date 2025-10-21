@@ -273,9 +273,15 @@ export function timed(operationName?: string) {
     const originalMethod = descriptor.value;
     const name = operationName || `${target.constructor.name}.${propertyKey}`;
 
-    descriptor.value = async function (...args: any[]) {
+    descriptor.value = function (...args: any[]) {
       const monitor = getGlobalMonitor();
-      return monitor.timeAsync(name, () => originalMethod.apply(this, args));
+      const isAsync = originalMethod.constructor.name === 'AsyncFunction';
+
+      if (isAsync) {
+        return monitor.timeAsync(name, () => originalMethod.apply(this, args));
+      } else {
+        return monitor.time(name, () => originalMethod.apply(this, args));
+      }
     };
 
     return descriptor;
