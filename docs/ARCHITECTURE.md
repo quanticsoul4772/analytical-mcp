@@ -41,6 +41,8 @@ Cross-cutting concerns and utilities:
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
+│ Legend: ┌─┐ = Module/Layer, ▼ = Data flow, │ = Separation        │
+├─────────────────────────────────────────────────────────────────┤
 │                     MCP Protocol Layer                           │
 │  ┌───────────────────────────────────────────────────────────┐  │
 │  │  McpServer (stdio transport)                              │  │
@@ -107,7 +109,7 @@ The tool registration system uses the MCP SDK to expose nine tools to Claude. Ea
 ### Caching Architecture
 The system implements three specialized cache layers:
 
-1. Base Cache (cache_manager.ts, 575 lines)
+1. Base Cache (cache_manager.ts, 638 lines)
    - File-based persistent storage
    - Namespace isolation
    - TTL management
@@ -127,7 +129,7 @@ The system implements three specialized cache layers:
    - Integration with cache_manager
 
 ### Error Handling System
-Location: `src/utils/error_wrapper.ts` (380 lines)
+Location: `src/utils/error_wrapper.ts` (399 lines)
 
 Provides enterprise-grade error handling patterns:
 - Retry logic with exponential backoff
@@ -138,7 +140,7 @@ Provides enterprise-grade error handling patterns:
 - Async memoization with TTL
 
 ### Performance Monitoring
-Location: `src/utils/performance_monitor.ts` (386 lines)
+Location: `src/utils/performance_monitor.ts` (398 lines)
 
 Comprehensive performance tracking:
 - Execution time measurement (sync and async)
