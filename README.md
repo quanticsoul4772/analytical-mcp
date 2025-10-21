@@ -1,6 +1,6 @@
 # Analytical MCP Server
 
-A Model Context Protocol (MCP) server that provides statistical analysis, decision-making, and logical reasoning tools.
+Model Context Protocol server providing statistical analysis, decision support, logical reasoning, and research verification tools for Claude.
 
 ## Setup
 
@@ -213,14 +213,14 @@ analytical-mcp/
 ## Tool Categories
 
 ### Statistical Analysis
-- Descriptive statistics (mean, median, standard deviation, quartiles)
+- Descriptive statistics: mean, median, standard deviation, quartiles
 - Correlation analysis
-- Regression analysis (linear, polynomial, logistic)
-- Hypothesis testing (t-tests, chi-square, ANOVA)
+- Regression analysis: linear, polynomial, logistic
+- Hypothesis testing: t-tests, chi-square, ANOVA
 
 ### Decision Support
 - Multi-criteria decision analysis
-- Weighted scoring systems
+- Weighted scoring
 - Trade-off analysis
 - Risk assessment
 
@@ -228,46 +228,49 @@ analytical-mcp/
 - Argument structure analysis
 - Fallacy detection
 - Perspective generation
-- Critical thinking support
+- Critical analysis
 
 ### Research Integration
 - Multi-source verification
 - Fact extraction
 - Consistency checking
-- Research validation
+- Confidence scoring
 
-## Security & Privacy
+## Security and Privacy
 
-- Processing is done locally
-- Research features use Exa API (optional)
-- No data is stored permanently
-- Configurable caching with local-only storage
+- All processing occurs locally
+- Research features use Exa API (optional, requires API key)
+- No permanent data storage
+- Optional file-based caching stored locally only
+- API keys managed via environment variables
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+MIT License. See LICENSE file for details.
 
 ## Contributing
 
 1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/feature-name`)
-3. Commit your changes (`git commit -m 'Add feature description'`)
-4. Push to the branch (`git push origin feature/feature-name`)
-5. Open a Pull Request
+2. Create feature branch: `git checkout -b feature/your-feature`
+3. Make changes and commit: `git commit -m 'Add feature description'`
+4. Push to branch: `git push origin feature/your-feature`
+5. Open pull request
 
-For detailed contribution guidelines, see [docs/DEVELOPMENT.md](./docs/DEVELOPMENT.md).
+See [docs/DEVELOPMENT.md](./docs/DEVELOPMENT.md) for detailed development guidelines, code standards, and testing requirements.
 
 ## Troubleshooting
 
 ### Common Issues
 
-**JSON parsing errors**: Ensure all logging goes to stderr, not stdout. The MCP protocol uses stdout for communication.
+**JSON parsing errors**: All logging must go to stderr, not stdout. MCP protocol uses stdout for communication. Use the Logger class, not console.log.
 
-**Tools not appearing**: Verify the server is properly configured in Claude Desktop and restart the application.
+**Tools not appearing**: Verify server configuration in Claude Desktop settings and restart Claude Desktop application.
 
-**Research features disabled**: Check that EXA_API_KEY is set in your environment configuration.
+**Research features disabled**: Set EXA_API_KEY in your environment or .env file.
 
-**Console output issues**: The project uses a Logger class for all output. Utility scripts in the tools/ directory integrate with the Logger system for consistent formatting.
+**Server not starting**: Check Node.js version is 20 or higher and all dependencies are installed with `npm install`.
+
+See [docs/TROUBLESHOOTING.md](./docs/TROUBLESHOOTING.md) for detailed troubleshooting guidance.
 
 ### Debug Mode
 Start the server with the MCP inspector:
