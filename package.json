@@ -72,7 +72,7 @@
   "devDependencies": {
     "@types/jest": "^29.5.12",
     "@types/natural": "^5.1.5",
-    "@types/node": "^24.12.2",
+    "@types/node": "^25.6.0",
     "@types/node-fetch": "^2.6.13",
     "@types/papaparse": "^5.3.14",
     "@types/sentiment": "^5.0.2",
