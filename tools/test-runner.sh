@@ -1,21 +1,19 @@
 #!/bin/bash
 
 # Analytical MCP Server - Test Runner
-# Consolidated test script for all integration and unit tests
+# Thin wrapper over npm test scripts.
 
 set -e
 
-# Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
-NC='\033[0m' # No Color
+NC='\033[0m'
 
-# Function to run a test with status reporting
 run_test() {
     local test_name="$1"
     local test_command="$2"
-    
+
     echo -e "${YELLOW}Running $test_name...${NC}"
     if eval "$test_command"; then
         echo -e "${GREEN}✅ $test_name passed${NC}"
@@ -26,53 +24,30 @@ run_test() {
     fi
 }
 
-# Available test suites
 case "${1:-all}" in
-    "api-keys")
-        run_test "API Key Tests" "npm run test:api-keys"
-        ;;
-    "server")
-        run_test "Server Tests" "npm run test:server"
+    "unit")
+        run_test "Unit Tests" "npm run test:unit"
         ;;
     "integration")
         run_test "Integration Tests" "npm run test:integration"
         ;;
-    "exa")
-        run_test "Exa Research Tests" "npm run test:exa"
-        ;;
-    "research")
-        run_test "Research Tests" "npm run test:research"
-        ;;
-    "data-pipeline")
-        run_test "Data Pipeline Tests" "npm run test:data-pipeline"
-        ;;
-    "market-analysis")
-        run_test "Market Analysis Tests" "npm run test:market-analysis"
+    "integration:no-api")
+        run_test "Integration Tests (no-api)" "npm run test:integration:no-api"
         ;;
     "all")
-        echo -e "${YELLOW}Running all test suites...${NC}"
-        
-        run_test "API Key Tests" "npm run test:api-keys"
-        run_test "Server Tests" "npm run test:server" 
+        run_test "Unit Tests" "npm run test:unit"
         run_test "Integration Tests" "npm run test:integration"
-        run_test "Research Tests" "npm run test:research"
-        run_test "Data Pipeline Tests" "npm run test:data-pipeline"
-        
         echo -e "${GREEN}All tests completed!${NC}"
         ;;
     "help"|"-h"|"--help")
         echo "Usage: $0 [test-suite]"
         echo ""
         echo "Available test suites:"
-        echo "  api-keys      - Test API key validation"
-        echo "  server        - Test server functionality"
-        echo "  integration   - Run integration tests"
-        echo "  exa           - Test Exa research integration"
-        echo "  research      - Test research verification"
-        echo "  data-pipeline - Test data processing pipeline"
-        echo "  market-analysis - Test market analysis workflows"
-        echo "  all           - Run all test suites (default)"
-        echo "  help          - Show this help message"
+        echo "  unit               - Run unit tests"
+        echo "  integration        - Run integration tests (requires EXA_API_KEY)"
+        echo "  integration:no-api - Run integration tests excluding live-API tests"
+        echo "  all                - Run unit + integration (default)"
+        echo "  help               - Show this help message"
         ;;
     *)
         echo -e "${RED}Unknown test suite: $1${NC}"
