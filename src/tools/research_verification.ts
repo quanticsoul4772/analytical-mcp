@@ -54,74 +54,50 @@ export class ResearchVerificationTool {
       const uniqueSources = new Set<string>();
       const conflictingClaims: string[] = [];
 
-      // Primary query search
-      const primaryResults = await exaResearch.search({
-        query: params.query,
-        numResults: params.sources,
-        includeContents: true,
-        useWebResults: true,
-        useNewsResults: false
-      });
+      // Run primary + verification queries in parallel; preserve original source-label semantics
+      const searchTasks = [
+        { query: params.query, defaultSource: 'Unknown Source' },
+        ...(params.verificationQueries ?? []).map((q) => ({
+          query: q,
+          defaultSource: 'Verification Source',
+        })),
+      ];
 
-      // Extract and analyze facts from primary search
-      for (const result of primaryResults.results) {
-        const sourceTitle = result.title || 'Unknown Source';
-        uniqueSources.add(sourceTitle);
-
-        // Use enhanced fact extractor
-        const extraction = enhancedFactExtractor.extractFacts(
-          result.contents || '', 
-          params.factExtractionOptions
-        );
-
-        // Add to fact extractions
-        factExtractions.push({
-          source: sourceTitle,
-          facts: extraction.facts.map(f => ({
-            fact: f.fact,
-            type: f.type,
-            confidence: f.confidence
-          })),
-          sourceConfidence: extraction.confidence
-        });
-
-        // Collect facts
-        allExtractedFacts.push(...extraction.facts.map(f => f.fact));
-      }
-
-      // Verification queries processing
-      if (params.verificationQueries) {
-        for (const verificationQuery of params.verificationQueries) {
-          const verificationSearch = await exaResearch.search({
-            query: verificationQuery,
+      const searchResults = await Promise.all(
+        searchTasks.map((t) =>
+          exaResearch.search({
+            query: t.query,
             numResults: params.sources,
             includeContents: true,
             useWebResults: true,
-            useNewsResults: false
+            useNewsResults: false,
+          })
+        )
+      );
+
+      // Aggregate in original order so factExtractions matches the previous serial output
+      for (let i = 0; i < searchResults.length; i++) {
+        const defaultSource = searchTasks[i].defaultSource;
+        for (const result of searchResults[i].results) {
+          const sourceTitle = result.title || defaultSource;
+          uniqueSources.add(sourceTitle);
+
+          const extraction = enhancedFactExtractor.extractFacts(
+            result.contents || '',
+            params.factExtractionOptions
+          );
+
+          factExtractions.push({
+            source: sourceTitle,
+            facts: extraction.facts.map((f) => ({
+              fact: f.fact,
+              type: f.type,
+              confidence: f.confidence,
+            })),
+            sourceConfidence: extraction.confidence,
           });
 
-          for (const result of verificationSearch.results) {
-            const sourceTitle = result.title || 'Verification Source';
-            uniqueSources.add(sourceTitle);
-
-            const extraction = enhancedFactExtractor.extractFacts(
-              result.contents || '', 
-              params.factExtractionOptions
-            );
-
-            factExtractions.push({
-              source: sourceTitle,
-              facts: extraction.facts.map(f => ({
-                fact: f.fact,
-                type: f.type,
-                confidence: f.confidence
-              })),
-              sourceConfidence: extraction.confidence
-            });
-
-            // Add verification facts
-            allExtractedFacts.push(...extraction.facts.map(f => f.fact));
-          }
+          allExtractedFacts.push(...extraction.facts.map((f) => f.fact));
         }
       }
 
