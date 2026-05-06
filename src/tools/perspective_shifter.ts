@@ -76,21 +76,23 @@ async function generatePerspectives(
       domains.push(`custom_domain_${domains.length + 1}`);
     }
 
-    const perspectives: string[] = [];
+    const selectedDomains = domains.slice(0, numberOfPerspectives);
 
-    for (const domain of domains.slice(0, numberOfPerspectives)) {
-      const researchQuery = `Analyze the problem "${problem}" from the perspective of a ${domain}`;
+    // Run one Exa search per domain in parallel
+    const searchResults = await Promise.all(
+      selectedDomains.map((domain) =>
+        exaResearch.search({
+          query: `Analyze the problem "${problem}" from the perspective of a ${domain}`,
+          numResults: 2,
+          useWebResults: true,
+          useNewsResults: false,
+          includeContents: true,
+        })
+      )
+    );
 
-      // Use Exa research to get diverse perspectives
-      const searchResults = await exaResearch.search({
-        query: researchQuery,
-        numResults: 2,
-        useWebResults: true,
-        useNewsResults: false,
-        includeContents: true,
-      });
-
-      const perspectiveInsights = exaResearch.extractKeyFacts(searchResults.results);
+    const perspectives = selectedDomains.map((domain, i) => {
+      const perspectiveInsights = exaResearch.extractKeyFacts(searchResults[i].results);
 
       const perspectiveSection: string[] = [
         `### ${domain.toUpperCase()} Perspective\n\n`,
@@ -104,8 +106,8 @@ async function generatePerspectives(
         );
       }
 
-      perspectives.push(perspectiveSection.join(''));
-    }
+      return perspectiveSection.join('');
+    });
 
     result += perspectives.join('\n\n');
 
