@@ -34,82 +34,81 @@ const logicalFallacyDetectorSchemaDefinition = z.object({
 // Export the schema
 export const logicalFallacyDetectorSchema = logicalFallacyDetectorSchemaDefinition;
 
-// Comprehensive list of logical fallacies
-function getFallacyDefinitions(): FallacyDefinition[] {
-  return [
-    {
-      name: 'Ad Hominem',
-      category: 'relevance',
-      description:
-        'Attacking the person making the argument rather than addressing the argument itself',
-      signals: [
-        /\b(stupid|idiot|fool|ignorant|young)\b/i,
-        /too \w+ to understand/i,
-        /attack on character/i,
-        /personal insult/i,
-      ],
-      confidence: 0.7,
-      examples: {
-        bad: "You can't trust her climate policy because she's just a young activist.",
-        good: "Let's evaluate the climate policy based on its merits, evidence, and potential impact.",
-      },
+// Comprehensive list of logical fallacies. Built once at module load — the regex
+// literals are otherwise re-instantiated on every call to detectFallacies().
+const FALLACY_DEFINITIONS: FallacyDefinition[] = [
+  {
+    name: 'Ad Hominem',
+    category: 'relevance',
+    description:
+      'Attacking the person making the argument rather than addressing the argument itself',
+    signals: [
+      /\b(stupid|idiot|fool|ignorant|young)\b/i,
+      /too \w+ to understand/i,
+      /attack on character/i,
+      /personal insult/i,
+    ],
+    confidence: 0.7,
+    examples: {
+      bad: "You can't trust her climate policy because she's just a young activist.",
+      good: "Let's evaluate the climate policy based on its merits, evidence, and potential impact.",
     },
-    {
-      name: 'Straw Man',
-      category: 'relevance',
-      description: "Misrepresenting an opponent's argument to make it easier to attack",
-      signals: [/that means you want/i, /so you're saying/i, /exaggerated interpretation/i],
-      confidence: 0.6,
-      examples: {
-        bad: 'You support gun control? So you want to completely abolish the Second Amendment!',
-        good: "Let's discuss the specific gun control measures you're proposing and their potential impacts.",
-      },
+  },
+  {
+    name: 'Straw Man',
+    category: 'relevance',
+    description: "Misrepresenting an opponent's argument to make it easier to attack",
+    signals: [/that means you want/i, /so you're saying/i, /exaggerated interpretation/i],
+    confidence: 0.6,
+    examples: {
+      bad: 'You support gun control? So you want to completely abolish the Second Amendment!',
+      good: "Let's discuss the specific gun control measures you're proposing and their potential impacts.",
     },
-    {
-      name: 'False Dichotomy',
-      category: 'informal',
-      description: 'Presenting only two alternatives when more exist',
-      signals: [/\b(either|or)\b/i, /only two choices/i, /black and white/i],
-      confidence: 0.5,
-      examples: {
-        bad: 'We must either cut taxes dramatically or the economy will collapse.',
-        good: "Let's explore multiple economic strategies, including targeted tax adjustments, spending reforms, and regulatory approaches.",
-      },
+  },
+  {
+    name: 'False Dichotomy',
+    category: 'informal',
+    description: 'Presenting only two alternatives when more exist',
+    signals: [/\b(either|or)\b/i, /only two choices/i, /black and white/i],
+    confidence: 0.5,
+    examples: {
+      bad: 'We must either cut taxes dramatically or the economy will collapse.',
+      good: "Let's explore multiple economic strategies, including targeted tax adjustments, spending reforms, and regulatory approaches.",
     },
-    {
-      name: 'Slippery Slope',
-      category: 'informal',
-      description:
-        'Arguing that a small first step will inevitably lead to a chain of related events',
-      signals: [/will lead to/i, /next thing you know/i, /eventually/i],
-      confidence: 0.6,
-      examples: {
-        bad: 'If we legalize same-sex marriage, next people will want to marry animals!',
-        good: "Let's examine the specific legal and social implications of marriage equality based on existing marriage laws.",
-      },
+  },
+  {
+    name: 'Slippery Slope',
+    category: 'informal',
+    description:
+      'Arguing that a small first step will inevitably lead to a chain of related events',
+    signals: [/will lead to/i, /next thing you know/i, /eventually/i],
+    confidence: 0.6,
+    examples: {
+      bad: 'If we legalize same-sex marriage, next people will want to marry animals!',
+      good: "Let's examine the specific legal and social implications of marriage equality based on existing marriage laws.",
     },
-    {
-      name: 'Appeal to Authority',
-      category: 'relevance',
-      description: 'Claiming something is true because an authority figure says so',
-      signals: [
-        /expert/i,
-        /experts claim/i,
-        /according to/i,
-        /celebrity/i,
-        /doctor/i,
-        /so it must be/i,
-        /must be/i,
-        /authoritative/i,
-      ],
-      confidence: 0.4, // Lowered to match test case with 0.3 threshold
-      examples: {
-        bad: 'This diet must work because a celebrity doctor recommends it.',
-        good: "Let's review peer-reviewed scientific studies and medical research about this diet's effectiveness.",
-      },
+  },
+  {
+    name: 'Appeal to Authority',
+    category: 'relevance',
+    description: 'Claiming something is true because an authority figure says so',
+    signals: [
+      /expert/i,
+      /experts claim/i,
+      /according to/i,
+      /celebrity/i,
+      /doctor/i,
+      /so it must be/i,
+      /must be/i,
+      /authoritative/i,
+    ],
+    confidence: 0.4, // Lowered to match test case with 0.3 threshold
+    examples: {
+      bad: 'This diet must work because a celebrity doctor recommends it.',
+      good: "Let's review peer-reviewed scientific studies and medical research about this diet's effectiveness.",
     },
-  ];
-}
+  },
+];
 
 // Internal implementation of logical fallacy detector
 async function detectFallacies(
@@ -157,13 +156,10 @@ async function detectFallacies(
     let report = `# Logical Fallacy Analysis\n\n`;
     report += `## Original Text:\n> ${text}\n\n`;
 
-    // Get fallacy definitions
-    const fallacyDefinitions = getFallacyDefinitions();
-
     // Filter fallacies based on categories
     const fallenciesToCheck = categories.includes('all')
-      ? fallacyDefinitions
-      : fallacyDefinitions.filter((f) => categories.includes(f.category));
+      ? FALLACY_DEFINITIONS
+      : FALLACY_DEFINITIONS.filter((f) => categories.includes(f.category));
 
     Logger.debug(`Checking for ${fallenciesToCheck.length} potential fallacy types`);
 

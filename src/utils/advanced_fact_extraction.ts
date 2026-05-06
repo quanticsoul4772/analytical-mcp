@@ -55,6 +55,11 @@ export class FactExtractor {
     'established',
   ];
 
+  // Word-boundary regexes for FACT_VERBS, compiled once and reused per call.
+  private static FACT_VERB_REGEXES = FactExtractor.FACT_VERBS.map(
+    (verb) => new RegExp(`\\b${verb}\\b`, 'i')
+  );
+
   // Words that often indicate important factual statements
   private static IMPORTANCE_MARKERS = [
     'significant',
@@ -252,9 +257,7 @@ export class FactExtractor {
    */
   private containsFactVerb(sentence: string): boolean {
     const sentenceLower = sentence.toLowerCase();
-    return FactExtractor.FACT_VERBS.some((verb) =>
-      new RegExp(`\\b${verb}\\b`, 'i').test(sentenceLower)
-    );
+    return FactExtractor.FACT_VERB_REGEXES.some((re) => re.test(sentenceLower));
   }
 
   /**
