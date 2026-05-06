@@ -88,8 +88,8 @@ npx tsc --version
 
 **Solutions:**
 ```bash
-# Run tests with environment
-npm run test:api-keys
+# Verify API key is loaded before running tests
+npm run check-api-keys
 
 # Use test runner
 ./tools/test-runner.sh integration
@@ -241,7 +241,7 @@ npm run build && npm run inspector
 node -e "console.log(process.env.EXA_API_KEY ? 'API key set' : 'API key missing')"
 
 # Test tool registration
-npm run test:server
+npm run test:integration
 
 # Check dependencies
 npm audit
@@ -289,9 +289,9 @@ For specific issues:
 ```bash
 # Fix tool registration issues
 npm run build
-./tools/test-runner.sh server
+./tools/test-runner.sh integration
 
 # Fix research features
 # Verify EXA_API_KEY in .env
-./tools/test-runner.sh research
+./tools/test-runner.sh integration
 ```

@@ -46,37 +46,16 @@ Use the test helpers in `src/integration/test-helper.ts` to:
 2. Reset mocks between tests: `resetAllMocks()`
 3. Mock API keys: `mockApiKeys()`
 
-### Running Specific Tests
-
-We've added several scripts to run specific integration tests:
+### Running Tests
 
 ```bash
-# Run all integration tests with detailed summary
-./tools/run-all-integration-tests.sh
+# Via the test runner wrapper
+./tools/test-runner.sh integration
+./tools/test-runner.sh integration:no-api
 
-# Run individual test suites
-./tools/run-exa-tests.sh
-./tools/run-research-tests.sh
-./tools/run-server-tests.sh
-./tools/run-api-key-tests.sh
-./tools/run-data-pipeline-tests.sh
-./tools/run-market-analysis-tests.sh
-```
-
-For Windows users:
-```batch
-.\tools\run-all-integration-tests.bat
-```
-
-You can also use npm scripts directly:
-```bash
-npm run test:exa
-npm run test:research
-npm run test:server
-npm run test:api-keys
-npm run test:data-pipeline
-npm run test:market-analysis
-npm run test:config
+# Or via npm scripts directly
+npm run test:integration
+npm run test:integration:no-api
 ```
 
 Example test:
