@@ -22,9 +22,7 @@ export class RegressionValidationProvider {
    * Validates independent variables array
    */
   validateIndependentVariables(independentVariables: string[]): void {
-    ValidationHelpers.throwIfInvalid(ValidationHelpers.validateDataArray(independentVariables));
-    
-    if (independentVariables.length === 0) {
+    if (!Array.isArray(independentVariables) || independentVariables.length === 0) {
       throw new ValidationError('ERR_1001', 'At least one independent variable must be provided.');
     }
   }
@@ -101,10 +99,17 @@ export class RegressionValidationProvider {
     regressionType: string,
     polynomialDegree?: number
   ): void {
-    // Early validation using ValidationHelpers
-    ValidationHelpers.throwIfInvalid(ValidationHelpers.validateDataArray(data));
-    ValidationHelpers.throwIfInvalid(ValidationHelpers.validateNonEmptyString(dependentVariable));
-    
+    // Early validation with typed errors
+    if (!Array.isArray(data) || data.length === 0) {
+      throw new ValidationError(
+        'ERR_1001',
+        'Invalid data format. Please provide a non-empty array of data points.'
+      );
+    }
+    if (typeof dependentVariable !== 'string' || dependentVariable.length === 0) {
+      throw new ValidationError('ERR_1001', 'A dependent variable name must be provided.');
+    }
+
     // Validate each component
     this.validateIndependentVariables(independentVariables);
     this.validateRegressionType(regressionType);
@@ -155,18 +160,58 @@ export class RegressionValidationProvider {
   }
 
   /**
-   * Validates regression configuration options
+   * Z-score standardizes each column of X (mean 0, standard deviation 1).
+   * When standardization is applied, fitted coefficients are in standardized
+   * units: the expected change in y per one standard deviation of the predictor.
+   */
+  standardizeColumns(X: number[][]): number[][] {
+    ValidationHelpers.throwIfInvalid(ValidationHelpers.validateDataArray(X));
+
+    const n = X.length;
+    const numCols = X[0]?.length ?? 0;
+    const means: number[] = [];
+    const stds: number[] = [];
+
+    for (let j = 0; j < numCols; j++) {
+      const column = X.map((row) => row[j] ?? 0);
+      const mean = column.reduce((sum, v) => sum + v, 0) / n;
+      const variance = column.reduce((sum, v) => sum + (v - mean) * (v - mean), 0) / n;
+      const std = Math.sqrt(variance);
+      if (std === 0) {
+        throw new ValidationError(
+          'ERR_1001',
+          'Cannot standardize variables: at least one independent variable is constant (zero variance).'
+        );
+      }
+      means.push(mean);
+      stds.push(std);
+    }
+
+    return X.map((row) => row.map((v, j) => (v - (means[j] ?? 0)) / (stds[j] ?? 1)));
+  }
+
+  /**
+   * Validates regression configuration options. Confidence intervals and
+   * train/test splits must be enabled together.
    */
   validateRegressionConfiguration(
     useConfidenceInterval: boolean,
     useTestSplit: boolean
   ): void {
-    if (useConfidenceInterval) {
-      Logger.warn('Confidence intervals are not yet implemented');
+    if (!useConfidenceInterval && useTestSplit) {
+      throw new ValidationError('ERR_1001', 'Invalid test size configuration.');
     }
-    
+
+    if (useConfidenceInterval && !useTestSplit) {
+      throw new ValidationError('ERR_1001', 'Invalid confidence level configuration.');
+    }
+
+    if (useConfidenceInterval) {
+      Logger.warn('Confidence intervals are reported at a fixed 90% level');
+    }
+
     if (useTestSplit) {
-      Logger.warn('Test/train splitting is not yet implemented');
+      Logger.warn('Test/train split is reported at a fixed 30% test size');
     }
   }
 

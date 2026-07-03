@@ -5,15 +5,21 @@ import sentiment from 'sentiment';
 // Commented out to avoid runtime errors
 // import winkLemmatizer from 'wink-lemmatizer';
 // import winkPOSTagger from 'wink-pos-tagger';
-import spellchecker from 'spellchecker';
+import fs from 'fs';
+import path from 'path';
+import { createRequire } from 'module';
+import nspell from 'nspell';
 
 import { Logger } from './logger.js';
+
+const require = createRequire(import.meta.url);
 
 export class NLPToolkit {
   private tokenizer: natural.WordTokenizer;
   private sentimentAnalyzer: sentiment;
   private lemmatizer: any = null;
   private posTagger: any = null;
+  private spell: ReturnType<typeof nspell> | null = null;
 
   constructor() {
     this.tokenizer = new natural.WordTokenizer();
@@ -26,6 +32,18 @@ export class NLPToolkit {
     } catch (error) {
       Logger.debug('Optional NLP dependencies not available', error);
     }
+  }
+
+  // Lazily load the hunspell dictionary (pure JS via nspell; the previous
+  // native `spellchecker` package no longer compiles on Node >= 22)
+  private getSpell(): ReturnType<typeof nspell> {
+    if (!this.spell) {
+      const dictDir = path.dirname(require.resolve('dictionary-en/package.json'));
+      const aff = fs.readFileSync(path.join(dictDir, 'index.aff'));
+      const dic = fs.readFileSync(path.join(dictDir, 'index.dic'));
+      this.spell = nspell(aff, dic);
+    }
+    return this.spell;
   }
 
   // Tokenization
@@ -104,12 +122,13 @@ export class NLPToolkit {
   // Spell Checking
   spellCheck(text: string): Array<{word: string, suggestions: string[]}> {
     try {
+      const spell = this.getSpell();
       const tokens = this.tokenize(text);
       return tokens
-        .filter(token => spellchecker.isMisspelled(token))
+        .filter(token => !spell.correct(token))
         .map(token => ({
           word: token,
-          suggestions: spellchecker.getCorrectionsForMisspelling(token)
+          suggestions: spell.suggest(token)
         }));
     } catch (error) {
       Logger.error('Spell checking failed', error);

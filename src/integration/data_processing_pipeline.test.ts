@@ -79,9 +79,8 @@ describe('Data Processing Pipeline Integration Tests', () => {
       'two-sided'
     );
 
-    expect(hypothesisResults).toContain('Hypothesis Test Results');
-    expect(hypothesisResults).toContain('t-test');
-    expect(hypothesisResults).toContain('p-value');
+    expect(hypothesisResults).toContain('Independent T-Test Results (Welch)');
+    expect(hypothesisResults).toContain('P-Value');
   });
 
   it('should validate inputs across the entire pipeline', async () => {
@@ -146,17 +145,22 @@ describe('Data Processing Pipeline Integration Tests', () => {
       .split(',')
       .map((val) => parseFloat(val.trim()));
 
-    // Use the standardized values for hypothesis testing
+    // An independent t-test needs two groups; a single group must be rejected
+    await expect(
+      hypothesisTesting('t_test_independent', [standardizedValues], undefined, 0.05, 'two-sided')
+    ).rejects.toThrow(ValidationError);
+
+    // Split the standardized values into two halves for a valid comparison
+    const midpoint = Math.floor(standardizedValues.length / 2);
     const hypothesisResults = await hypothesisTesting(
       't_test_independent',
-      [standardizedValues],
+      [standardizedValues.slice(0, midpoint), standardizedValues.slice(midpoint)],
       undefined,
       0.05,
       'two-sided'
     );
 
-    expect(hypothesisResults).toContain('Hypothesis Testing Report');
-    expect(hypothesisResults).toContain('T-Test Results');
+    expect(hypothesisResults).toContain('Independent T-Test Results (Welch)');
 
     // The standardized data should have mean close to 0
     // Extract the test statistic from the results

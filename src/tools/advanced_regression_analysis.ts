@@ -115,10 +115,7 @@ class AdvancedRegressionAnalysisCoordinator {
    */
   private validateAllInputs(options: RegressionAnalysisOptions): void {
     // Apply ValidationHelpers early return patterns
-    ValidationHelpers.throwIfInvalid(ValidationHelpers.validateDataArray(options.data));
     ValidationHelpers.throwIfInvalid(ValidationHelpers.validateNonEmptyString(options.regressionType));
-    ValidationHelpers.throwIfInvalid(ValidationHelpers.validateNonEmptyString(options.dependentVariable));
-    ValidationHelpers.throwIfInvalid(ValidationHelpers.validateDataArray(options.independentVariables));
 
     // Use validation provider for comprehensive validation
     this.validationProvider.validateInputs(
@@ -127,6 +124,12 @@ class AdvancedRegressionAnalysisCoordinator {
       options.dependentVariable,
       options.regressionType,
       options.polynomialDegree
+    );
+
+    // Confidence interval and test split options must be enabled together
+    this.validationProvider.validateRegressionConfiguration(
+      options.useConfidenceInterval ?? false,
+      options.useTestSplit ?? false
     );
   }
 
@@ -185,10 +188,18 @@ class AdvancedRegressionAnalysisCoordinator {
     }
 
     const { provider, method } = regressionHandler;
-    
+
     // Execute regression using appropriate provider
-    if (regressionType === 'polynomial' && polynomialDegree) {
-      return provider[method](X, y, featureNames, polynomialDegree, includeCoefficients, includeMetrics);
+    if (regressionType === 'polynomial') {
+      if (featureNames.length !== 1) {
+        throw new ValidationError(
+          'ERR_1001',
+          'Polynomial regression requires exactly one independent variable.'
+        );
+      }
+      const featureName = featureNames[0] ?? 'feature1';
+      const degree = polynomialDegree ?? 2;
+      return provider[method](X, y, featureName, degree, includeCoefficients, includeMetrics);
     } else {
       return provider[method](X, y, featureNames, includeCoefficients, includeMetrics);
     }
@@ -214,20 +225,27 @@ class AdvancedRegressionAnalysisCoordinator {
    */
   private buildCompleteResult(
     regressionResult: string,
-    independentVariables: string[],
-    dependentVariable: string,
-    regressionType: string
+    options: RegressionAnalysisOptions
   ): string {
-    // Add analysis header
-    let result = this.visualizationProvider.generateAnalysisHeader(
-      independentVariables,
+    const { regressionType, independentVariables, dependentVariable } = options;
+
+    // Add analysis header (title, description, and variable summary)
+    let result = this.visualizationProvider.generateResultHeader(
+      regressionType,
       dependentVariable,
-      regressionType
+      independentVariables,
+      {
+        polynomialDegree:
+          regressionType === 'polynomial' ? (options.polynomialDegree ?? 2) : undefined,
+        standardizeVariables: options.standardizeVariables,
+        useConfidenceInterval: options.useConfidenceInterval,
+        useTestSplit: options.useTestSplit
+      }
     );
-    
+
     // Add regression result
     result += regressionResult;
-    
+
     // Add interpretation and visualization using visualization provider
     result = this.visualizationProvider.formatAnalysisResult(
       result,
@@ -235,7 +253,7 @@ class AdvancedRegressionAnalysisCoordinator {
       dependentVariable,
       regressionType
     );
-    
+
     return result;
   }
 
@@ -254,16 +272,18 @@ class AdvancedRegressionAnalysisCoordinator {
         independentVariables,
         dependentVariable,
         polynomialDegree = 2,
+        standardizeVariables = false,
         includeMetrics = true,
         includeCoefficients = true
       } = options;
-      
+
       // Step 3: Log analysis start
       this.logRegressionStart(regressionType, independentVariables, dependentVariable);
-      
-      // Step 4: Preprocess data
-      const { X, y, featureNames } = this.preprocessData(data, independentVariables, dependentVariable);
-      
+
+      // Step 4: Preprocess data (optionally z-score standardizing the predictors)
+      const { X: rawX, y, featureNames } = this.preprocessData(data, independentVariables, dependentVariable);
+      const X = standardizeVariables ? this.validationProvider.standardizeColumns(rawX) : rawX;
+
       // Step 5: Execute regression analysis using appropriate provider
       const regressionResult = this.executeRegressionAnalysis(
         regressionType,
@@ -274,14 +294,9 @@ class AdvancedRegressionAnalysisCoordinator {
         includeMetrics,
         polynomialDegree
       );
-      
+
       // Step 6: Build complete result with interpretation and visualization
-      const completeResult = this.buildCompleteResult(
-        regressionResult,
-        independentVariables,
-        dependentVariable,
-        regressionType
-      );
+      const completeResult = this.buildCompleteResult(regressionResult, options);
       
       Logger.debug('Completed regression analysis successfully', { 
         regressionType,

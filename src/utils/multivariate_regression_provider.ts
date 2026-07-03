@@ -1,6 +1,6 @@
 /**
  * Multivariate Regression Provider
- * 
+ *
  * Handles multivariate regression analysis operations.
  * Focused responsibility: Multiple variable regression calculations and formatting.
  */
@@ -8,6 +8,8 @@
 import { ValidationHelpers } from './validation_helpers.js';
 import { Logger } from './logger.js';
 import { RegressionMetricsProvider } from './regression_metrics_provider.js';
+import { fitOls } from './linear_regression_provider.js';
+import { DataProcessingError } from './errors.js';
 
 /**
  * MultivariateRegressionProvider - Focused class for multivariate regression operations
@@ -30,68 +32,46 @@ export class MultivariateRegressionProvider {
     ValidationHelpers.throwIfInvalid(ValidationHelpers.validateDataArray(X));
     ValidationHelpers.throwIfInvalid(ValidationHelpers.validateDataArray(y));
     ValidationHelpers.throwIfInvalid(ValidationHelpers.validateDataArray(featureNames));
-    
+
     if (X.length !== y.length) {
       throw new Error('Input matrix X and target vector y must have the same number of samples');
     }
-    
+
     if (X.length > 0 && X[0]?.length !== featureNames.length) {
       throw new Error('Number of features in X must match the length of featureNames');
     }
   }
 
   /**
-   * Generates a correlation matrix for multivariate regression
+   * Generates the Pearson correlation matrix of all variables (predictors and Y)
    */
-  generateCorrelationMatrix(featureNames: string[]): string {
+  generateCorrelationMatrix(X: number[][], y: number[], featureNames: string[]): string {
+    ValidationHelpers.throwIfInvalid(ValidationHelpers.validateDataArray(X));
+    ValidationHelpers.throwIfInvalid(ValidationHelpers.validateDataArray(y));
     ValidationHelpers.throwIfInvalid(ValidationHelpers.validateDataArray(featureNames));
-    
+
+    const columns = featureNames.map((_, j) => X.map((row) => row[j] ?? 0));
+    columns.push(y);
+    const allVars = [...featureNames, 'Y'];
+
     let matrix = `**Correlation Matrix:**\n\n`;
     matrix += `| Variable | ${featureNames.join(' | ')} | Y |\n`;
     matrix += `| -------- | ${featureNames.map(() => '------- |').join(' ')} ------- |\n`;
 
-    const allVars = [...featureNames, 'Y'];
     for (let i = 0; i < allVars.length; i++) {
       matrix += `| ${allVars[i]} |`;
       for (let j = 0; j < allVars.length; j++) {
         if (i === j) {
           matrix += ` 1.000 |`;
         } else {
-          // Generate realistic correlation values
-          const corr = (Math.random() * 1.6 - 0.8).toFixed(3);
-          matrix += ` ${corr} |`;
+          const corr = this.metricsProvider.pearsonCorrelation(columns[i] ?? [], columns[j] ?? []);
+          matrix += ` ${corr.toFixed(3)} |`;
         }
       }
       matrix += '\n';
     }
 
     return matrix + '\n';
-  }
-
-  /**
-   * Generates coefficients and predictions for multivariate regression
-   */
-  private generateMultivariateCoefficientsAndPredictions(
-    X: number[][],
-    y: number[],
-    featureNames: string[]
-  ): { coefficients: number[]; predictions: number[] } {
-    // Generate realistic coefficients for demonstration
-    const intercept = Math.random() * 2 - 1;
-    const coefficients = [intercept, ...featureNames.map(() => Math.random() * 2 - 1)];
-
-    // Calculate predictions using matrix operations
-    const predictions = X.map((x) => {
-      return intercept + x.reduce((sum, val, idx) => sum + val * (coefficients[idx + 1] ?? 0), 0);
-    });
-
-    Logger.debug('Generated multivariate coefficients and predictions', { 
-      coefficientsCount: coefficients.length,
-      predictionsCount: predictions.length,
-      features: featureNames.length
-    });
-
-    return { coefficients, predictions };
   }
 
   /**
@@ -123,7 +103,7 @@ export class MultivariateRegressionProvider {
     coefficients: number[],
     featureNames: string[]
   ): string {
-    return '**Coefficients:**\n\n' + 
+    return '**Coefficients:**\n\n' +
            this.metricsProvider.formatCoefficientsTable(coefficients, featureNames) + '\n';
   }
 
@@ -136,28 +116,12 @@ export class MultivariateRegressionProvider {
     numFeatures: number
   ): string {
     const metrics = this.metricsProvider.calculateRegressionMetrics(y, predictions, numFeatures);
-    return '**Model Fit Statistics:**\n\n' + 
+    return '**Model Fit Statistics:**\n\n' +
            this.metricsProvider.formatMetricsTable(metrics);
   }
 
   /**
-   * Creates section mapping for multivariate regression formatting
-   */
-  private createMultivariateSectionMapping(): Record<string, any> {
-    return {
-      correlation: (featureNames: string[]) => 
-        this.generateCorrelationMatrix(featureNames),
-      equation: (featureNames: string[], coefficients: number[]) => 
-        this.formatMultivariateEquationSection(featureNames, coefficients),
-      coefficients: (coefficients: number[], featureNames: string[]) => 
-        this.formatMultivariateCoefficientsSection(coefficients, featureNames),
-      metrics: (y: number[], predictions: number[], numFeatures: number) => 
-        this.formatMultivariateMetricsSection(y, predictions, numFeatures)
-    };
-  }
-
-  /**
-   * Performs multivariate regression analysis
+   * Performs multivariate regression analysis: OLS fit plus a correlation matrix
    */
   performMultivariateRegression(
     X: number[][],
@@ -168,36 +132,28 @@ export class MultivariateRegressionProvider {
   ): string {
     // Apply ValidationHelpers early return patterns
     this.validateMultivariateRegressionInputs(X, y, featureNames);
-    
-    try {
-      // Generate coefficients and predictions using extracted helper
-      const { coefficients, predictions } = this.generateMultivariateCoefficientsAndPredictions(X, y, featureNames);
-      
-      // Build result using section mapping pattern
-      const sectionMapping = this.createMultivariateSectionMapping();
-      let result = '';
-      
-      result += sectionMapping.correlation(featureNames);
-      result += sectionMapping.equation(featureNames, coefficients);
-      
-      if (includeCoefficients) {
-        result += sectionMapping.coefficients(coefficients, featureNames);
-      }
-      
-      if (includeMetrics) {
-        result += sectionMapping.metrics(y, predictions, featureNames.length);
-      }
-      
-      Logger.debug('Multivariate regression completed', { 
-        features: featureNames.length, 
-        samples: X.length 
-      });
-      
-      return result;
-    } catch (error) {
-      Logger.error('Multivariate regression failed', error);
-      throw new Error('Failed to perform multivariate regression analysis');
+
+    // Fit via ordinary least squares (shared numerical core)
+    const { coefficients, predictions } = fitOls(X, y);
+
+    let result = '';
+    result += this.generateCorrelationMatrix(X, y, featureNames);
+    result += this.formatMultivariateEquationSection(featureNames, coefficients);
+
+    if (includeCoefficients) {
+      result += this.formatMultivariateCoefficientsSection(coefficients, featureNames);
     }
+
+    if (includeMetrics) {
+      result += this.formatMultivariateMetricsSection(y, predictions, featureNames.length);
+    }
+
+    Logger.debug('Multivariate regression completed', {
+      features: featureNames.length,
+      samples: X.length
+    });
+
+    return result;
   }
 
   /**
@@ -223,7 +179,7 @@ export class MultivariateRegressionProvider {
       const absImportance = Math.abs(coefficient);
       const relativeImportance = absSum > 0 ? (absImportance / absSum * 100).toFixed(1) : '0.0';
       const featureName = featureNames[i] ?? `Feature${i + 1}`;
-      
+
       result += `| ${featureName} | ${coefficient.toFixed(4)} | ${absImportance.toFixed(4)} | ${relativeImportance}% |\n`;
     }
 
@@ -231,7 +187,39 @@ export class MultivariateRegressionProvider {
   }
 
   /**
-   * Generates variance inflation factor (VIF) analysis
+   * Computes the variance inflation factor for one feature by regressing it on
+   * the remaining features: VIF = 1 / (1 - R²). Returns Infinity when the
+   * feature is perfectly collinear with the others.
+   */
+  private computeVifForFeature(X: number[][], featureIndex: number): number {
+    const numFeatures = X[0]?.length ?? 0;
+    if (numFeatures < 2) {
+      return 1;
+    }
+
+    const target = X.map((row) => row[featureIndex] ?? 0);
+    const others = X.map((row) => row.filter((_, j) => j !== featureIndex));
+
+    try {
+      const { predictions } = fitOls(others, target);
+      const metrics = this.metricsProvider.calculateRegressionMetrics(
+        target,
+        predictions,
+        numFeatures - 1
+      );
+      const rSquared = Math.min(metrics.rSquared, 1);
+      return rSquared >= 1 ? Infinity : 1 / (1 - rSquared);
+    } catch (error) {
+      if (error instanceof DataProcessingError) {
+        // Singular design: the remaining features are themselves collinear
+        return Infinity;
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Generates variance inflation factor (VIF) analysis from the actual data
    */
   calculateVarianceInflationFactors(
     X: number[][],
@@ -245,10 +233,9 @@ export class MultivariateRegressionProvider {
     result += '|---------|-----|----------------|\n';
 
     for (let i = 0; i < featureNames.length; i++) {
-      // Generate realistic VIF values for demonstration
-      const vif = Math.random() * 8 + 1; // VIF between 1 and 9
+      const vif = this.computeVifForFeature(X, i);
       const featureName = featureNames[i] ?? `Feature${i + 1}`;
-      
+
       let interpretation: string;
       if (vif < 2) {
         interpretation = 'Low multicollinearity';
@@ -257,8 +244,9 @@ export class MultivariateRegressionProvider {
       } else {
         interpretation = 'High multicollinearity';
       }
-      
-      result += `| ${featureName} | ${vif.toFixed(2)} | ${interpretation} |\n`;
+
+      const vifDisplay = Number.isFinite(vif) ? vif.toFixed(2) : 'Inf';
+      result += `| ${featureName} | ${vifDisplay} | ${interpretation} |\n`;
     }
 
     result += '\n**VIF Interpretation:**\n';
@@ -278,13 +266,13 @@ export class MultivariateRegressionProvider {
     predictions: number[]
   ): { isValid: boolean; warnings: string[] } {
     const warnings: string[] = [];
-    
+
     // Check sample size adequacy
     const samplesPerFeature = X.length / (X[0]?.length ?? 1);
     if (samplesPerFeature < 10) {
       warnings.push('Sample size may be insufficient (recommended: 10+ observations per feature)');
     }
-    
+
     // Check for perfect multicollinearity (simplified check)
     if (X.length > 0 && X[0]?.length !== undefined) {
       const numFeatures = X[0].length;
@@ -292,15 +280,15 @@ export class MultivariateRegressionProvider {
         warnings.push('Number of features approaches or exceeds sample size (risk of overfitting)');
       }
     }
-    
+
     // Check residual patterns (simplified)
     const residuals = y.map((actual, i) => actual - (predictions[i] ?? 0));
     const meanResidual = residuals.reduce((sum, r) => sum + r, 0) / residuals.length;
-    
+
     if (Math.abs(meanResidual) > 0.1) {
       warnings.push('Residuals may not be centered around zero (check model specification)');
     }
-    
+
     return {
       isValid: warnings.length === 0,
       warnings
@@ -319,19 +307,19 @@ export class MultivariateRegressionProvider {
   ): string {
     ValidationHelpers.throwIfInvalid(ValidationHelpers.validateDataArray(X));
     ValidationHelpers.throwIfInvalid(ValidationHelpers.validateDataArray(y));
-    
+
     let result = '## Multivariate Regression Diagnostics\n\n';
-    
+
     // Feature importance
     result += this.calculateFeatureImportance(coefficients, featureNames);
-    
+
     // VIF analysis
     result += this.calculateVarianceInflationFactors(X, featureNames);
-    
+
     // Model assumptions validation
     const assumptions = this.validateModelAssumptions(X, y, predictions);
     result += '**Model Assumption Checks:**\n\n';
-    
+
     if (assumptions.isValid) {
       result += 'All model assumptions appear to be satisfied.\n\n';
     } else {
@@ -341,13 +329,13 @@ export class MultivariateRegressionProvider {
       }
       result += '\n';
     }
-    
-    Logger.debug('Generated multivariate regression diagnostic report', { 
+
+    Logger.debug('Generated multivariate regression diagnostic report', {
       features: featureNames.length,
       samples: X.length,
       warnings: assumptions.warnings.length
     });
-    
+
     return result;
   }
 }

@@ -98,10 +98,10 @@ describe('Research API Integration', () => {
     ];
 
     // Perform validation with real API
-    const validationResult = await exaResearch.validateData(
-      dataToValidate,
-      'Product sales growth validation'
-    );
+    const validationResult = await exaResearch.validateData({
+      originalData: dataToValidate,
+      context: 'Product sales growth validation',
+    });
 
     // Verify structure but not specific content
     expect(validationResult).toBeDefined();

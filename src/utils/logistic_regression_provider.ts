@@ -1,13 +1,27 @@
 /**
  * Logistic Regression Provider
- * 
+ *
  * Handles logistic regression analysis operations.
  * Focused responsibility: Logistic regression calculations and formatting.
  */
 
+import { ValidationError } from './errors.js';
 import { ValidationHelpers } from './validation_helpers.js';
 import { Logger } from './logger.js';
-import { RegressionMetricsProvider, LogisticRegressionMetrics } from './regression_metrics_provider.js';
+import { RegressionMetricsProvider } from './regression_metrics_provider.js';
+import { addInterceptColumn, solveLinearSystem } from './linear_regression_provider.js';
+
+// Numerical constants for IRLS fitting
+const IRLS_MAX_ITERATIONS = 100;
+const IRLS_CONVERGENCE_TOLERANCE = 1e-8;
+const IRLS_RIDGE = 1e-8;
+const PROBABILITY_EPSILON = 1e-10;
+const LOGIT_CLIP = 35;
+
+interface LogisticFit {
+  coefficients: number[];
+  probabilities: number[];
+}
 
 /**
  * LogisticRegressionProvider - Focused class for logistic regression operations
@@ -33,43 +47,102 @@ export class LogisticRegressionProvider {
   }
 
   /**
-   * Generates logistic regression coefficients
+   * Validates that the dependent variable is binary (0/1) with both classes present
    */
-  private generateLogisticCoefficients(X: number[][], y: number[]): number[] {
-    const numFeatures = X[0]?.length ?? 0;
-    // Simplified coefficient generation for demo
-    return Array.from({ length: numFeatures + 1 }, () => Math.random() * 2 - 1);
+  private validateBinaryOutcome(y: number[]): void {
+    if (!y.every((value) => value === 0 || value === 1)) {
+      throw new ValidationError(
+        'ERR_1001',
+        'Logistic regression requires a binary dependent variable with values 0 and 1.'
+      );
+    }
+    const positives = y.filter((value) => value === 1).length;
+    if (positives === 0 || positives === y.length) {
+      throw new ValidationError(
+        'ERR_1001',
+        'Logistic regression requires both outcome classes (0 and 1) to be present in the data.'
+      );
+    }
   }
 
   /**
-   * Sigmoid function for logistic regression
+   * Numerically stable logistic (sigmoid) function with logit clipping
    */
   private sigmoid(x: number): number {
-    return 1 / (1 + Math.exp(-x));
+    const clipped = Math.max(-LOGIT_CLIP, Math.min(LOGIT_CLIP, x));
+    return 1 / (1 + Math.exp(-clipped));
   }
 
   /**
-   * Calculates predictions for logistic regression
+   * Fits logistic regression via iteratively reweighted least squares (IRLS /
+   * Newton-Raphson) with an iteration cap, convergence tolerance, and a small
+   * ridge term for numerical stability (e.g. under perfect separation).
    */
-  private calculateLogisticPredictions(X: number[][], coefficients: number[]): number[] {
-    return X.map((x) => {
-      let logit = coefficients[0] ?? 0; // Intercept
-      for (let i = 0; i < x.length; i++) {
-        logit += (coefficients[i + 1] ?? 0) * (x[i] ?? 0);
+  private fitLogisticRegression(X: number[][], y: number[]): LogisticFit {
+    const design = addInterceptColumn(X);
+    const numParams = design[0]?.length ?? 0;
+    if (y.length <= numParams) {
+      throw new ValidationError(
+        'ERR_1001',
+        `Not enough data points: fitting ${numParams} parameters requires at least ` +
+          `${numParams + 1} observations, got ${y.length}.`
+      );
+    }
+
+    let beta = new Array<number>(numParams).fill(0);
+
+    const linearPredictor = (row: number[]): number =>
+      row.reduce((sum, v, j) => sum + v * (beta[j] ?? 0), 0);
+
+    for (let iteration = 0; iteration < IRLS_MAX_ITERATIONS; iteration++) {
+      const probabilities = design.map((row) => this.sigmoid(linearPredictor(row)));
+      const weights = probabilities.map((p) => Math.max(p * (1 - p), PROBABILITY_EPSILON));
+
+      // XtWX with ridge regularization and Xt(y - p) gradient
+      const XtWX: number[][] = Array.from({ length: numParams }, () =>
+        new Array<number>(numParams).fill(0)
+      );
+      const gradient = new Array<number>(numParams).fill(0);
+      for (let k = 0; k < design.length; k++) {
+        const row = design[k] ?? [];
+        const w = weights[k] ?? 0;
+        const residual = (y[k] ?? 0) - (probabilities[k] ?? 0);
+        for (let i = 0; i < numParams; i++) {
+          gradient[i] = (gradient[i] ?? 0) + (row[i] ?? 0) * residual;
+          const target = XtWX[i];
+          if (!target) continue;
+          for (let j = 0; j < numParams; j++) {
+            target[j] = (target[j] ?? 0) + w * (row[i] ?? 0) * (row[j] ?? 0);
+          }
+        }
       }
-      return this.sigmoid(logit);
-    });
+      for (let j = 0; j < numParams; j++) {
+        const diagRow = XtWX[j];
+        if (diagRow) {
+          diagRow[j] = (diagRow[j] ?? 0) + IRLS_RIDGE;
+        }
+      }
+
+      const step = solveLinearSystem(XtWX, gradient);
+      beta = beta.map((b, j) => b + (step[j] ?? 0));
+      if (Math.max(...step.map(Math.abs)) < IRLS_CONVERGENCE_TOLERANCE) {
+        break;
+      }
+    }
+
+    const probabilities = design.map((row) => this.sigmoid(linearPredictor(row)));
+    return { coefficients: beta, probabilities };
   }
 
   /**
    * Creates section mapping for logistic regression formatting
    */
-  private createLogisticSectionMapping(): Record<string, any> {
+  private createLogisticSectionMapping(): Record<string, (...args: any[]) => string> {
     return {
       equation: (coefficients: number[], featureNames: string[]) => {
         let result = '**Logistic Equation:**\n';
         let logit = `logit(p) = ${(coefficients[0] ?? 0).toFixed(4)}`;
-        
+
         for (let i = 0; i < featureNames.length; i++) {
           const coefficient = coefficients[i + 1];
           if (coefficient !== undefined) {
@@ -77,14 +150,14 @@ export class LogisticRegressionProvider {
             logit += ` ${sign}${Math.abs(coefficient).toFixed(4)} × ${featureNames[i] ?? `X${i}`}`;
           }
         }
-        
+
         result += logit + '\n';
         result += 'where p = probability of positive outcome\n\n';
-        
+
         return result;
       },
       coefficients: (coefficients: number[], featureNames: string[]) => {
-        return '**Coefficients:**\n\n' + 
+        return '**Coefficients:**\n\n' +
                this.metricsProvider.formatCoefficientsTable(coefficients, featureNames) + '\n';
       },
       metrics: (y: number[], predictions: number[], numFeatures: number) => {
@@ -95,7 +168,7 @@ export class LogisticRegressionProvider {
   }
 
   /**
-   * Performs logistic regression analysis
+   * Performs logistic regression analysis on a binary dependent variable
    */
   performLogisticRegression(
     X: number[][],
@@ -106,34 +179,29 @@ export class LogisticRegressionProvider {
   ): string {
     // Apply ValidationHelpers early return patterns
     this.validateLogisticRegressionInputs(X, y, featureNames);
-    
-    try {
-      // Generate coefficients and predictions using extracted helpers
-      const coefficients = this.generateLogisticCoefficients(X, y);
-      const predictions = this.calculateLogisticPredictions(X, coefficients);
-      
-      // Build result using section mapping pattern
-      const sectionMapping = this.createLogisticSectionMapping();
-      let result = sectionMapping.equation(coefficients, featureNames);
-      
-      if (includeCoefficients) {
-        result += sectionMapping.coefficients(coefficients, featureNames);
-      }
-      
-      if (includeMetrics) {
-        result += sectionMapping.metrics(y, predictions, featureNames.length);
-      }
-      
-      Logger.debug('Logistic regression completed', { 
-        features: featureNames.length, 
-        samples: X.length 
-      });
-      
-      return result;
-    } catch (error) {
-      Logger.error('Logistic regression failed', error);
-      throw new Error('Failed to perform logistic regression analysis');
+    this.validateBinaryOutcome(y);
+
+    // Fit via iteratively reweighted least squares
+    const { coefficients, probabilities } = this.fitLogisticRegression(X, y);
+
+    // Build result using section mapping pattern
+    const sectionMapping = this.createLogisticSectionMapping();
+    let result = sectionMapping.equation?.(coefficients, featureNames) ?? '';
+
+    if (includeCoefficients) {
+      result += sectionMapping.coefficients?.(coefficients, featureNames) ?? '';
     }
+
+    if (includeMetrics) {
+      result += sectionMapping.metrics?.(y, probabilities, featureNames.length) ?? '';
+    }
+
+    Logger.debug('Logistic regression completed', {
+      features: featureNames.length,
+      samples: X.length
+    });
+
+    return result;
   }
 
   /**
@@ -152,7 +220,7 @@ export class LogisticRegressionProvider {
       const coefficient = coefficients[i] ?? 0;
       const oddsRatio = Math.exp(coefficient);
       const featureName = featureNames[i - 1] ?? `Feature${i}`;
-      
+
       let interpretation: string;
       if (oddsRatio > 1.1) {
         interpretation = 'Increases odds';
@@ -161,7 +229,7 @@ export class LogisticRegressionProvider {
       } else {
         interpretation = 'Minimal effect';
       }
-      
+
       result += `| ${featureName} | ${oddsRatio.toFixed(4)} | ${interpretation} |\n`;
     }
 
@@ -174,18 +242,18 @@ export class LogisticRegressionProvider {
   validateBinaryTarget(y: number[]): { isValid: boolean; warnings: string[] } {
     const warnings: string[] = [];
     const uniqueValues = new Set(y);
-    
+
     // Check for binary values
     if (uniqueValues.size !== 2) {
       warnings.push(`Target variable has ${uniqueValues.size} unique values, expected 2 for binary classification`);
     }
-    
+
     // Check if values are 0/1 or need transformation
     const values = Array.from(uniqueValues).sort();
     if (values.length === 2 && (values[0] !== 0 || values[1] !== 1)) {
       warnings.push('Target values are not 0/1, consider transforming for better interpretation');
     }
-    
+
     return {
       isValid: uniqueValues.size === 2,
       warnings
@@ -212,11 +280,11 @@ export class LogisticRegressionProvider {
       const binaryActual = y.map(a => a > 0.5 ? 1 : 0);
 
       // Calculate F1 score
-      const tp = binaryActual.reduce((sum, actual, i) => 
+      const tp = binaryActual.reduce((sum, actual, i) =>
         sum + (actual === 1 && binaryPredicted[i] === 1 ? 1 : 0), 0);
-      const fp = binaryActual.reduce((sum, actual, i) => 
+      const fp = binaryActual.reduce((sum, actual, i) =>
         sum + (actual === 0 && binaryPredicted[i] === 1 ? 1 : 0), 0);
-      const fn = binaryActual.reduce((sum, actual, i) => 
+      const fn = binaryActual.reduce((sum, actual, i) =>
         sum + (actual === 1 && binaryPredicted[i] === 0 ? 1 : 0), 0);
 
       const precision = tp + fp > 0 ? tp / (tp + fp) : 0;
@@ -231,9 +299,9 @@ export class LogisticRegressionProvider {
       }
     }
 
-    Logger.debug('Classification threshold optimization completed', { 
-      optimalThreshold: bestThreshold, 
-      bestF1 
+    Logger.debug('Classification threshold optimization completed', {
+      optimalThreshold: bestThreshold,
+      bestF1
     });
 
     return {

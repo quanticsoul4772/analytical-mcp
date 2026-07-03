@@ -241,6 +241,52 @@ export class RegressionVisualizationProvider {
   }
 
   /**
+   * Generates the full result header: title, analysis description, and the
+   * variable/option summary lines
+   */
+  generateResultHeader(
+    regressionType: string,
+    dependentVariable: string,
+    independentVariables: string[],
+    options: {
+      polynomialDegree?: number;
+      standardizeVariables?: boolean;
+      useConfidenceInterval?: boolean;
+      useTestSplit?: boolean;
+    } = {}
+  ): string {
+    this.validateInterpretationInputs(independentVariables, dependentVariable, regressionType);
+
+    const title =
+      regressionType === 'linear' && independentVariables.length > 1
+        ? 'Multiple Linear Regression'
+        : this.getRegressionTypeTitle(regressionType);
+
+    let result = `# Regression Analysis Results\n\n`;
+    result += `## ${title}\n\n`;
+    result += this.generateAnalysisHeader(independentVariables, dependentVariable, regressionType);
+
+    result += `Dependent Variable: ${dependentVariable}\n`;
+    result += `Independent Variables: ${independentVariables.join(', ')}\n`;
+
+    if (regressionType === 'polynomial' && options.polynomialDegree !== undefined) {
+      result += `Degree: ${options.polynomialDegree}\n`;
+    }
+    if (options.standardizeVariables) {
+      result += `Standardized Variables: Yes (coefficients are in standardized z-score units)\n`;
+    }
+    if (options.useConfidenceInterval) {
+      result += `Confidence Level: 90%\n`;
+    }
+    if (options.useTestSplit) {
+      result += `Test Size: 30%\n`;
+    }
+    result += `\n`;
+
+    return result;
+  }
+
+  /**
    * Formats complete regression analysis result
    */
   formatAnalysisResult(
