@@ -259,7 +259,7 @@ semver ranges) as of this branch:
 - `natural` 6.12.0 (NLP tokenization/stemming), `wink-nlp` 2.4.0, `wink-lemmatizer` 3.0.4,
   `wink-pos-tagger` 2.2.2, `pos` 0.4.2, `sentiment` 5.0.2, `nspell` 2.1.5 + `dictionary-en` 4.0.0
   (spell checking).
-- `papaparse` 5.5.2 (CSV parsing), `node-fetch` 3.3.2 (HTTP), `uuid` 14.0.0.
+- `node-fetch` 3.3.2 (HTTP), `uuid` 14.0.0.
 - Dev/test: `jest` 29.7.0, `ts-jest` 29.4.11, `nock` 13.5.1 (HTTP mocking), ESLint 8 +
   `@typescript-eslint` 8, Prettier 3.
 
@@ -282,6 +282,5 @@ built on `wink-nlp`/`wink-lemmatizer`/`wink-pos-tagger`/`pos`/`natural`/`nspell`
   `CACHE_DIR`.
 - API keys (`EXA_API_KEY`) are read from environment variables only — never hardcoded.
 - Zod validates every tool's input at the MCP boundary before the handler runs.
-- `src/utils/secure_file_parser.ts` provides secure parsing for user-provided file data.
 - Logging is stderr-only; MCP stdout is reserved for protocol traffic so log output cannot corrupt
   a client's JSON-RPC stream.
