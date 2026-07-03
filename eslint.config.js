@@ -16,7 +16,9 @@ export default [
       '@typescript-eslint': tseslint
     },
     rules: {
-      'no-console': 'warn'
+      // console.error/warn write to stderr (safe); console.log/info/debug write to
+      // stdout, which is the MCP JSON-RPC channel and must never be used.
+      'no-console': ['warn', { allow: ['error', 'warn'] }]
     }
   }
 ];

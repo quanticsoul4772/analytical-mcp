@@ -21,7 +21,7 @@
     "watch": "tsc --watch",
     "inspector": "npx @modelcontextprotocol/inspector build/index.js",
     "lint": "eslint src/**/*.ts",
-    "lint:fix": "eslint . --ext .ts --fix",
+    "lint:fix": "eslint src/**/*.ts --fix",
     "format": "prettier --write \"src/**/*.ts\"",
     "format:check": "prettier --check \"src/**/*.ts\"",
     "check-api-keys": "node tools/check-api-keys.js",
