@@ -56,8 +56,12 @@ export function registerTools(server: McpServer): void {
       name: 'decision_analysis',
       description: 'Analyze decision options based on multiple criteria',
       schema: decisionAnalysisSchema,
-      handler: async (params: { options: string[], criteria: string[], weights?: number[] }) => 
-        decisionAnalysis(params),
+      handler: async (params: {
+        options: string[];
+        criteria: string[];
+        scores: number[][];
+        weights?: number[];
+      }) => decisionAnalysis(params),
     },
     {
       name: 'advanced_regression_analysis',

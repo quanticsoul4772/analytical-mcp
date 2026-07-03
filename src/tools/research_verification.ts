@@ -20,6 +20,8 @@ const ResearchVerificationSchema = z.object({
 // Confidence scoring interface
 interface ResearchConfidence {
   score: number;
+  verified: boolean;
+  consistencyThreshold: number;
   details: {
     sourceConsistency: number;
     sourceCount: number;
@@ -112,6 +114,7 @@ export class ResearchVerificationTool {
       Logger.debug('Research Verification Results', {
         primaryQuery: params.query,
         confidenceScore: confidence.score,
+        verified: confidence.verified,
         sourceCount: confidence.details.sourceCount
       });
 
@@ -178,8 +181,12 @@ export class ResearchVerificationTool {
       `"${conflict.claim1}" (${conflict.source1}) vs "${conflict.claim2}" (${conflict.source2}): ${conflict.conflictReason}`
     );
 
+    // Report the real computed score; the threshold is a decision boundary
+    // (verified vs. unverified), never a floor on the reported confidence.
     return {
-      score: Math.max(confidenceScore, minThreshold),
+      score: confidenceScore,
+      verified: confidenceScore >= minThreshold,
+      consistencyThreshold: minThreshold,
       details: {
         sourceConsistency: consistencyScore,
         sourceCount: factExtractions.length,

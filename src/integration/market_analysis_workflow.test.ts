@@ -93,6 +93,13 @@ describe('Market Analysis Workflow Integration Tests', () => {
         'Competitive Landscape',
         'Resource Requirements',
       ],
+      [
+        [9, 8, 4, 8, 6, 5, 3], // Immediate Emerging Market Expansion
+        [7, 7, 6, 7, 6, 6, 6], // Phased Market Entry
+        [6, 6, 7, 6, 7, 7, 8], // Strategic Partnership
+        [4, 5, 8, 5, 7, 8, 9], // Market Research Deepening
+        [2, 3, 9, 3, 5, 4, 10], // Defer Expansion
+      ],
       [0.2, 0.15, 0.1, 0.15, 0.1, 0.15, 0.15]
     );
 
@@ -106,12 +113,15 @@ describe('Market Analysis Workflow Integration Tests', () => {
 
   it('should handle API failures gracefully', async () => {
     // Simulate an API error without mocking
-    const simulatedError = new APIError('External API error', 429, true, 'exa/search');
-    
+    const simulatedError = new APIError('ERR_2001', 'External API error', {
+      endpoint: 'exa/search',
+      status: 429,
+    });
+
     // Verify error properties directly
     expect(simulatedError).toBeInstanceOf(APIError);
-    expect(simulatedError.status).toBe(429);
-    expect(simulatedError.retryable).toBe(true);
+    expect(simulatedError.code).toBe('ERR_2001');
+    expect(simulatedError.recoverable).toBe(true);
 
     // No need to restore mock here since we're not using mocks directly
   });
@@ -124,6 +134,11 @@ describe('Market Analysis Workflow Integration Tests', () => {
     const strategyDecision = await decisionAnalysis(
       ['Immediate Expansion', 'Phased Entry', 'Strategic Partnership'],
       ['Market Potential', 'Resource Requirements'],
+      [
+        [9, 3], // Immediate Expansion
+        [7, 6], // Phased Entry
+        [6, 8], // Strategic Partnership
+      ],
       [0.6, 0.4]
     );
 

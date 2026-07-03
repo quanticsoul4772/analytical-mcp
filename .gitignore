@@ -80,3 +80,4 @@ mcp-inspector.log
 test-results/
 junit.xml
 CLAUDE.md
+.env.test

@@ -6,6 +6,12 @@ import { Logger } from '../utils/logger.js';
 export const decisionAnalysisSchema = z.object({
   options: z.array(z.string()).describe('List of decision options to analyze'),
   criteria: z.array(z.string()).describe('List of criteria to evaluate options against'),
+  scores: z
+    .array(z.array(z.number().min(0).max(10)))
+    .describe(
+      'Score matrix: one row per option, one score (0-10) per criterion. ' +
+        'scores[i][j] rates option i against criterion j.'
+    ),
   weights: z
     .array(z.number())
     .optional()
@@ -16,218 +22,237 @@ export const decisionAnalysisSchema = z.object({
 export interface DecisionAnalysisParams {
   options: string[];
   criteria: string[];
+  scores: number[][];
   weights?: number[];
+}
+
+/**
+ * Accepted input shape: `scores` is required by the tool schema and validated at
+ * runtime, but typed optional here so partially-typed callers still compile and
+ * receive a ValidationError instead of a compile break.
+ */
+type DecisionAnalysisInput = Omit<DecisionAnalysisParams, 'scores'> & { scores?: number[][] };
+
+interface RankedOption {
+  option: string;
+  score: number;
+  contributions: number[];
+  scores: number[];
+  strengths: string[];
+  weaknesses: string[];
+}
+
+function validateInputs(
+  options: string[],
+  criteria: string[],
+  scores: number[][],
+  weights?: number[]
+): void {
+  if (!options || !Array.isArray(options) || options.length === 0) {
+    throw new ValidationError('ERR_1001', 'At least one option must be provided');
+  }
+  if (!criteria || !Array.isArray(criteria) || criteria.length === 0) {
+    throw new ValidationError('ERR_1001', 'At least one criterion must be provided');
+  }
+  if (options.some((opt) => typeof opt !== 'string' || opt.trim() === '')) {
+    throw new ValidationError('ERR_1001', 'All options must be non-empty strings');
+  }
+  if (criteria.some((crit) => typeof crit !== 'string' || crit.trim() === '')) {
+    throw new ValidationError('ERR_1001', 'All criteria must be non-empty strings');
+  }
+
+  if (!scores || !Array.isArray(scores)) {
+    throw new ValidationError(
+      'ERR_1001',
+      'A scores matrix is required: one row per option, one score (0-10) per criterion'
+    );
+  }
+  if (scores.length !== options.length) {
+    throw new ValidationError(
+      'ERR_1001',
+      `Scores matrix must have one row per option (got ${scores.length} rows for ${options.length} options)`
+    );
+  }
+  scores.forEach((row, i) => {
+    if (!Array.isArray(row) || row.length !== criteria.length) {
+      throw new ValidationError(
+        'ERR_1001',
+        `Scores row ${i} ("${options[i]}") must have one score per criterion ` +
+          `(got ${Array.isArray(row) ? row.length : 'non-array'} for ${criteria.length} criteria)`
+      );
+    }
+    if (row.some((s) => typeof s !== 'number' || !Number.isFinite(s) || s < 0 || s > 10)) {
+      throw new ValidationError(
+        'ERR_1001',
+        `Scores row ${i} ("${options[i]}") must contain numbers between 0 and 10`
+      );
+    }
+  });
+
+  if (weights) {
+    if (weights.length !== criteria.length) {
+      throw new ValidationError(
+        'ERR_1001',
+        `Weights length (${weights.length}) must match criteria length (${criteria.length})`
+      );
+    }
+    if (weights.some((w) => typeof w !== 'number' || isNaN(w) || w < 0)) {
+      throw new ValidationError('ERR_1001', 'All weights must be non-negative numbers');
+    }
+    const weightSum = weights.reduce((sum, w) => sum + w, 0);
+    if (weightSum <= 0) {
+      throw new ValidationError('ERR_1001', 'Weights must sum to a positive number');
+    }
+    if (Math.abs(weightSum - 1) > 0.001 && Math.abs(weightSum - 100) > 0.001) {
+      Logger.warn(
+        `Weights don't sum to 1 or 100 (sum=${weightSum}). Proceeding with normalization.`
+      );
+    }
+  }
+}
+
+/** Normalize weights so they sum to 1; equal weights when none provided. */
+function normalizeWeights(criteriaCount: number, weights?: number[]): number[] {
+  if (!weights) {
+    return Array.from({ length: criteriaCount }, () => 1 / criteriaCount);
+  }
+  const sum = weights.reduce((total, w) => total + w, 0);
+  return weights.map((w) => w / sum);
+}
+
+function rankOptions(
+  options: string[],
+  criteria: string[],
+  scores: number[][],
+  normalizedWeights: number[]
+): RankedOption[] {
+  return options
+    .map((option, i) => {
+      const contributions = scores[i].map((score, j) => score * normalizedWeights[j]);
+      const strengths: string[] = [];
+      const weaknesses: string[] = [];
+      scores[i].forEach((score, j) => {
+        if (score >= 7) {
+          strengths.push(`Strong in "${criteria[j]}" (score ${score})`);
+        } else if (score <= 3) {
+          weaknesses.push(`Weak in "${criteria[j]}" (score ${score})`);
+        }
+      });
+      return {
+        option,
+        score: contributions.reduce((sum, c) => sum + c, 0),
+        contributions,
+        scores: scores[i],
+        strengths,
+        weaknesses,
+      };
+    })
+    .sort((a, b) => b.score - a.score);
+}
+
+function formatOptionDetail(
+  item: RankedOption,
+  criteria: string[],
+  normalizedWeights: number[]
+): string {
+  let detail = `#### ${item.option} (Score: ${item.score.toFixed(2)})\n\n`;
+
+  detail += `| Criterion | Score | Weight | Contribution |\n`;
+  detail += `|-----------|-------|--------|--------------|\n`;
+  criteria.forEach((criterion, j) => {
+    detail += `| ${criterion} | ${item.scores[j]} | ${normalizedWeights[j].toFixed(3)} | ${item.contributions[j].toFixed(2)} |\n`;
+  });
+
+  detail += `\n**Strengths:**\n`;
+  detail +=
+    item.strengths.length > 0
+      ? item.strengths.map((s) => `- ${s}\n`).join('')
+      : `- No criterion scored 7 or above\n`;
+
+  detail += `\n**Weaknesses:**\n`;
+  detail +=
+    item.weaknesses.length > 0
+      ? item.weaknesses.map((w) => `- ${w}\n`).join('')
+      : `- No criterion scored 3 or below\n`;
+
+  return `${detail}\n`;
+}
+
+function formatResults(
+  rankedOptions: RankedOption[],
+  criteria: string[],
+  normalizedWeights: number[]
+): string {
+  let result = `## Decision Analysis Results\n\n`;
+
+  result += `### Ranked Options\n\n`;
+  rankedOptions.forEach((item, i) => {
+    result += `**${i + 1}. ${item.option}** (Score: ${item.score.toFixed(2)})\n`;
+  });
+
+  result += `\n### Detailed Analysis\n\n`;
+  rankedOptions.forEach((item) => {
+    result += formatOptionDetail(item, criteria, normalizedWeights);
+  });
+
+  const topOption = rankedOptions[0];
+  result += `### Recommendation\n\n`;
+  result += `Based on the weighted scores, **${topOption.option}** ranks first with a score of ${topOption.score.toFixed(2)}.\n`;
+  if (topOption.strengths.length > 0) {
+    result += `Its key strengths: ${topOption.strengths.join(', ')}.\n`;
+  }
+  if (rankedOptions.length > 1) {
+    const runnerUp = rankedOptions[1];
+    result += `\nThe second-ranked option is **${runnerUp.option}** with a score of ${runnerUp.score.toFixed(2)}.\n`;
+  }
+
+  return result;
 }
 
 // Tool implementation that accepts both a parameter object and individual parameters
 export async function decisionAnalysis(
-  optionsOrParams: string[] | DecisionAnalysisParams,
-  criteriaOrVoid?: string[],
-  weights?: number[]
+  optionsOrParams: string[] | DecisionAnalysisInput,
+  criteriaArg?: string[],
+  scoresArg?: number[][],
+  weightsArg?: number[]
 ): Promise<string> {
   // Handle both parameter styles
   let options: string[];
   let criteria: string[];
-  
+  let scores: number[][];
+  let weights: number[] | undefined;
+
   if (Array.isArray(optionsOrParams)) {
-    // Old style with separate parameters
     options = optionsOrParams;
-    criteria = criteriaOrVoid || [];
+    criteria = criteriaArg || [];
+    scores = scoresArg as number[][];
+    weights = weightsArg;
   } else {
-    // New style with parameter object
     options = optionsOrParams.options;
     criteria = optionsOrParams.criteria;
+    scores = optionsOrParams.scores as number[][];
     weights = optionsOrParams.weights;
   }
+
   try {
     Logger.debug('Starting decision analysis', {
-      optionsCount: options.length,
-      criteriaCount: criteria.length,
+      optionsCount: options?.length,
+      criteriaCount: criteria?.length,
       weightsProvided: !!weights,
     });
 
-    // Validate inputs
-    if (!options || !Array.isArray(options) || options.length === 0) {
-      throw new ValidationError('ERR_1001', 'At least one option must be provided');
-    }
+    validateInputs(options, criteria, scores, weights);
+    const normalizedWeights = normalizeWeights(criteria.length, weights);
+    const rankedOptions = rankOptions(options, criteria, scores, normalizedWeights);
+    const result = formatResults(rankedOptions, criteria, normalizedWeights);
 
-    if (!criteria || !Array.isArray(criteria) || criteria.length === 0) {
-      throw new ValidationError('ERR_1001', 'At least one criterion must be provided');
-    }
+    Logger.debug('Decision analysis completed successfully', {
+      optionsAnalyzed: options.length,
+      topScore: rankedOptions[0].score,
+    });
 
-    // Check for empty strings in options
-    if (options.some((opt) => typeof opt !== 'string' || opt.trim() === '')) {
-      throw new ValidationError('ERR_1001', 'All options must be non-empty strings');
-    }
-
-    // Check for empty strings in criteria
-    if (criteria.some((crit) => typeof crit !== 'string' || crit.trim() === '')) {
-      throw new ValidationError('ERR_1001', 'All criteria must be non-empty strings');
-    }
-
-    // Use equal weights if none provided
-    const normalizedWeights = weights || criteria.map(() => 1 / criteria.length);
-
-    // Validate weights length
-    if (normalizedWeights.length !== criteria.length) {
-      throw new ValidationError(
-        'ERR_1001',
-        `Weights length (${normalizedWeights.length}) must match criteria length (${criteria.length})`
-      );
-    }
-
-    // Validate weights are numbers and sum to approximately 1
-    if (weights) {
-      if (weights.some((w) => typeof w !== 'number' || isNaN(w))) {
-        throw new ValidationError('ERR_1001', 'All weights must be valid numbers');
-      }
-
-      const weightSum = weights.reduce((sum, w) => sum + w, 0);
-      if (Math.abs(weightSum - 1) > 0.001 && Math.abs(weightSum - 100) > 0.001) {
-        Logger.warn(
-          `Weights don't sum to 1 or 100 (sum=${weightSum}). Proceeding with normalization.`
-        );
-      }
-    }
-
-    try {
-      // Generate random scores for demo purposes
-      // In a real implementation, this would use real data or ask for user input
-      const scores: number[][] = [];
-      const pros: string[][] = [];
-      const cons: string[][] = [];
-
-      for (let i = 0; i < options.length; i++) {
-        scores[i] = [];
-        pros[i] = [];
-        cons[i] = [];
-
-        for (let j = 0; j < criteria.length; j++) {
-          // Generate a random score between 1-10
-          const score = Math.floor(Math.random() * 10) + 1;
-          scores[i][j] = score;
-
-          // Generate pros and cons based on score
-          if (score >= 7) {
-            pros[i].push(`Strong in "${criteria[j]}"`);
-          } else if (score >= 4) {
-            // No strong pro or con
-          } else {
-            cons[i].push(`Weak in "${criteria[j]}"`);
-          }
-        }
-
-        // Add a few more realistic pros and cons
-        if (Math.random() > 0.5) {
-          pros[i].push('Implementation is straightforward');
-        }
-
-        if (Math.random() > 0.5) {
-          cons[i].push('May require additional resources');
-        }
-
-        if (Math.random() > 0.7) {
-          pros[i].push('Aligned with organizational goals');
-        }
-
-        if (Math.random() > 0.7) {
-          cons[i].push('Potential regulatory challenges');
-        }
-      }
-
-      // Calculate weighted scores
-      const weightedScores = options.map((option, i) => {
-        return scores[i].reduce((sum, score, j) => {
-          return sum + score * normalizedWeights[j];
-        }, 0);
-      });
-
-      // Define interfaces for clear types
-      interface RankedOption {
-        option: string;
-        score: number;
-        pros: string[];
-        cons: string[];
-      }
-
-      // Rank options with type safety
-      const rankedOptions: RankedOption[] = options
-        .map((option, i) => ({
-          option,
-          score: weightedScores[i],
-          pros: pros[i] || [],
-          cons: cons[i] || [],
-        }))
-        .sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
-
-      // Format output
-      let result = `## Decision Analysis Results\n\n`;
-
-      // Add ranked options
-      result += `### Ranked Options\n\n`;
-      rankedOptions.forEach((item, i) => {
-        result += `**${i + 1}. ${item.option}** (Score: ${item.score.toFixed(2)})\n`;
-      });
-
-      // Add details for each option
-      result += `\n### Detailed Analysis\n\n`;
-      rankedOptions.forEach((item) => {
-        result += `#### ${item.option} (Score: ${item.score.toFixed(2)})\n\n`;
-
-        // Pros
-        result += `**Pros:**\n`;
-        if (item.pros && item.pros.length > 0) {
-          item.pros.forEach((pro) => {
-            result += `- ${pro}\n`;
-          });
-        } else {
-          result += `- No significant advantages identified\n`;
-        }
-
-        // Cons
-        result += `\n**Cons:**\n`;
-        if (item.cons && item.cons.length > 0) {
-          item.cons.forEach((con) => {
-            result += `- ${con}\n`;
-          });
-        } else {
-          result += `- No significant disadvantages identified\n`;
-        }
-
-        result += `\n`;
-      });
-
-      // Add recommendations
-      const topOption = rankedOptions.length > 0 ? rankedOptions[0] : null;
-      result += `### Recommendation\n\n`;
-      
-      if (topOption) {
-        result += `Based on the analysis, **${topOption.option}** appears to be the strongest option with a score of ${topOption.score.toFixed(2)}.\n`;
-        result += `Its key strengths include: ${topOption.pros && topOption.pros.length > 0 ? topOption.pros.join(', ') : 'No significant pros identified'}.\n`;
-
-        if (rankedOptions.length > 1) {
-          const runnerUp = rankedOptions[1];
-          result += `\nThe second-best option is **${runnerUp.option}** with a score of ${runnerUp.score.toFixed(2)}.\n`;
-        }
-      } else {
-        result += `No options were available for ranking.\n`;
-      }
-
-      Logger.debug('Decision analysis completed successfully', {
-        optionsAnalyzed: options.length,
-        topScore: rankedOptions.length > 0 ? rankedOptions[0].score : 0,
-      });
-
-      return result;
-    } catch (error) {
-      Logger.error('Error generating decision analysis results', error);
-      throw new DataProcessingError(
-        'ERR_3001',
-        `Failed to generate decision analysis: ${error instanceof Error ? error.message : String(error)}`
-      );
-    }
+    return result;
   } catch (error) {
-    // Ensure all errors are properly logged and categorized
     if (!(error instanceof ValidationError) && !(error instanceof DataProcessingError)) {
       Logger.error('Unexpected error in decision analysis', error);
       throw new DataProcessingError(
@@ -235,8 +260,6 @@ export async function decisionAnalysis(
         `Decision analysis failed: ${error instanceof Error ? error.message : String(error)}`
       );
     }
-
-    // Re-throw ValidationError and DataProcessingError
     throw error;
   }
 }

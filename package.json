@@ -39,18 +39,20 @@
     "cache:clear": "node tools/cache-manager.js clear",
     "cache:preload": "node tools/cache-manager.js preload",
     "cache:demo": "node examples/cache_performance_demo.js",
-    "nlp:demo": "node examples/advanced_nlp_demo.js"
+    "nlp:demo": "node examples/advanced_nlp_demo.js",
+    "smoke": "npm run build && node scripts/smoke.js"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.18.0",
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "dictionary-en": "^4.0.0",
     "dotenv": "^17.4.2",
     "mathjs": "^14.3.0",
     "natural": "^6.9.0",
     "node-fetch": "^3.3.2",
+    "nspell": "^2.1.5",
     "papaparse": "^5.4.1",
     "pos": "^0.4.2",
     "sentiment": "^5.0.2",
-    "spellchecker": "^3.7.1",
     "uuid": "^14.0.0",
     "wink-lemmatizer": "^3.0.4",
     "wink-nlp": "^2.4.0",

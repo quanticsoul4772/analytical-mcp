@@ -1,6 +1,6 @@
 /**
  * Polynomial Regression Provider
- * 
+ *
  * Handles polynomial regression analysis operations.
  * Focused responsibility: Polynomial regression calculations and formatting.
  */
@@ -9,6 +9,7 @@ import { ValidationError } from './errors.js';
 import { ValidationHelpers } from './validation_helpers.js';
 import { Logger } from './logger.js';
 import { RegressionMetricsProvider } from './regression_metrics_provider.js';
+import { fitOls, OlsFit } from './linear_regression_provider.js';
 
 /**
  * PolynomialRegressionProvider - Focused class for polynomial regression operations
@@ -32,35 +33,36 @@ export class PolynomialRegressionProvider {
     ValidationHelpers.throwIfInvalid(ValidationHelpers.validateDataArray(X));
     ValidationHelpers.throwIfInvalid(ValidationHelpers.validateDataArray(y));
     ValidationHelpers.throwIfInvalid(ValidationHelpers.validateNonEmptyString(featureName));
-    
+
     if (degree < 1) {
       throw new ValidationError('ERR_1001', 'Polynomial degree must be at least 1.');
     }
   }
 
   /**
-   * Generates polynomial coefficients
+   * Builds the polynomial design matrix [x, x^2, ..., x^degree] from a single
+   * feature. The intercept column is added by the shared OLS core.
    */
-  private generatePolynomialCoefficients(degree: number): number[] {
-    return Array.from({ length: degree + 1 }, () => Math.random() * 2 - 1);
+  private buildPolynomialDesign(X: number[][], degree: number): number[][] {
+    return X.map((row) => {
+      const x = row[0] ?? 0;
+      return Array.from({ length: degree }, (_, i) => Math.pow(x, i + 1));
+    });
   }
 
   /**
-   * Calculates predictions for polynomial regression
+   * Fits polynomial regression by expanding the design matrix to powers of x
+   * and reusing ordinary least squares
    */
-  private calculatePolynomialPredictions(X: number[][], coefficients: number[]): number[] {
-    return X.map((x) => {
-      const val = x[0];
-      return coefficients.reduce((sum, coef, idx) => {
-        return sum + (coef ?? 0) * Math.pow(val ?? 0, idx);
-      }, 0);
-    });
+  private fitPolynomial(X: number[][], y: number[], degree: number): OlsFit {
+    const polyX = this.buildPolynomialDesign(X, degree);
+    return fitOls(polyX, y);
   }
 
   /**
    * Creates section mapping for polynomial regression formatting
    */
-  private createPolynomialSectionMapping(): Record<string, any> {
+  private createPolynomialSectionMapping(): Record<string, (...args: any[]) => string> {
     return {
       equation: (coefficients: number[], featureName: string, degree: number) => {
         let result = '**Polynomial Equation:**\n';
@@ -75,11 +77,11 @@ export class PolynomialRegressionProvider {
         return result + equation + '\n\n';
       },
       coefficients: (coefficients: number[], featureName: string, degree: number) => {
-        return '**Coefficients:**\n\n' + 
+        return '**Coefficients:**\n\n' +
                this.metricsProvider.formatPolynomialCoefficients(coefficients, featureName, degree) + '\n';
       },
       metrics: (y: number[], predictions: number[], degree: number) => {
-        const metrics = this.metricsProvider.calculateRegressionMetrics(y, predictions, degree + 1);
+        const metrics = this.metricsProvider.calculateRegressionMetrics(y, predictions, degree);
         return '**Model Fit Statistics:**\n\n' + this.metricsProvider.formatMetricsTable(metrics);
       },
     };
@@ -98,35 +100,29 @@ export class PolynomialRegressionProvider {
   ): string {
     // Apply ValidationHelpers early return patterns
     this.validatePolynomialRegressionInputs(X, y, featureName, degree);
-    
-    try {
-      // Generate coefficients and predictions using extracted helpers
-      const coefficients = this.generatePolynomialCoefficients(degree);
-      const predictions = this.calculatePolynomialPredictions(X, coefficients);
-      
-      // Build result using section mapping pattern
-      const sectionMapping = this.createPolynomialSectionMapping();
-      let result = sectionMapping.equation(coefficients, featureName, degree);
-      
-      if (includeCoefficients) {
-        result += sectionMapping.coefficients(coefficients, featureName, degree);
-      }
-      
-      if (includeMetrics) {
-        result += sectionMapping.metrics(y, predictions, degree);
-      }
-      
-      Logger.debug('Polynomial regression completed', { 
-        degree, 
-        feature: featureName, 
-        samples: X.length 
-      });
-      
-      return result;
-    } catch (error) {
-      Logger.error('Polynomial regression failed', error);
-      throw new Error('Failed to perform polynomial regression analysis');
+
+    // Fit via ordinary least squares on the polynomial design matrix
+    const { coefficients, predictions } = this.fitPolynomial(X, y, degree);
+
+    // Build result using section mapping pattern
+    const sectionMapping = this.createPolynomialSectionMapping();
+    let result = sectionMapping.equation?.(coefficients, featureName, degree) ?? '';
+
+    if (includeCoefficients) {
+      result += sectionMapping.coefficients?.(coefficients, featureName, degree) ?? '';
     }
+
+    if (includeMetrics) {
+      result += sectionMapping.metrics?.(y, predictions, degree) ?? '';
+    }
+
+    Logger.debug('Polynomial regression completed', {
+      degree,
+      feature: featureName,
+      samples: X.length
+    });
+
+    return result;
   }
 
   /**
@@ -147,10 +143,10 @@ export class PolynomialRegressionProvider {
         'Polynomial regression requires exactly one independent variable.'
       );
     }
-    
+
     const degree = polynomialDegree !== undefined ? polynomialDegree : 2;
     const featureName = featureNames[0] !== undefined ? featureNames[0] : 'feature1';
-    
+
     return this.performPolynomialRegression(
       X,
       y,
@@ -162,11 +158,11 @@ export class PolynomialRegressionProvider {
   }
 
   /**
-   * Transforms features for polynomial regression
+   * Transforms features for polynomial regression (includes the x^0 intercept column)
    */
   transformPolynomialFeatures(X: number[][], degree: number): number[][] {
     ValidationHelpers.throwIfInvalid(ValidationHelpers.validateDataArray(X));
-    
+
     return X.map(row => {
       const transformed: number[] = [];
       for (let d = 0; d <= degree; d++) {
@@ -177,7 +173,7 @@ export class PolynomialRegressionProvider {
   }
 
   /**
-   * Validates optimal polynomial degree
+   * Searches for the polynomial degree with the best adjusted R²
    */
   findOptimalDegree(
     X: number[][],
@@ -186,29 +182,29 @@ export class PolynomialRegressionProvider {
   ): { optimalDegree: number; scores: number[] } {
     ValidationHelpers.throwIfInvalid(ValidationHelpers.validateDataArray(X));
     ValidationHelpers.throwIfInvalid(ValidationHelpers.validateDataArray(y));
-    
+
     const scores: number[] = [];
-    
+
     for (let degree = 1; degree <= maxDegree; degree++) {
       try {
-        const coefficients = this.generatePolynomialCoefficients(degree);
-        const predictions = this.calculatePolynomialPredictions(X, coefficients);
-        const metrics = this.metricsProvider.calculateRegressionMetrics(y, predictions, degree + 1);
-        
+        const { predictions } = this.fitPolynomial(X, y, degree);
+        const metrics = this.metricsProvider.calculateRegressionMetrics(y, predictions, degree);
+
         // Use adjusted R-squared for model selection
         scores.push(metrics.adjustedRSquared);
       } catch (error) {
-        scores.push(-1); // Invalid score for failed degree
+        // Degree not fittable for this dataset (too few observations or singular design)
+        scores.push(-Infinity);
       }
     }
-    
+
     const optimalDegree = scores.indexOf(Math.max(...scores)) + 1;
-    
-    Logger.debug('Optimal degree search completed', { 
-      optimalDegree, 
-      maxScore: Math.max(...scores) 
+
+    Logger.debug('Optimal degree search completed', {
+      optimalDegree,
+      maxScore: Math.max(...scores)
     });
-    
+
     return { optimalDegree, scores };
   }
 
@@ -222,21 +218,21 @@ export class PolynomialRegressionProvider {
   ): { isOverfitted: boolean; warnings: string[] } {
     const warnings: string[] = [];
     let isOverfitted = false;
-    
+
     // Check if degree is too high relative to sample size
     const sampleSize = X.length;
     const parameters = degree + 1;
-    
+
     if (parameters > sampleSize / 10) {
       warnings.push('High degree relative to sample size may cause overfitting');
       isOverfitted = true;
     }
-    
+
     if (degree > 6) {
       warnings.push('Very high polynomial degrees are prone to overfitting');
       isOverfitted = true;
     }
-    
+
     return { isOverfitted, warnings };
   }
 }
