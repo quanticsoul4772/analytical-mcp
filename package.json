@@ -1,8 +1,13 @@
 {
   "name": "analytical-mcp-server",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "MCP server providing statistical analysis, decision support, logical reasoning, and research verification tools",
   "private": true,
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/quanticsoul4772/analytical-mcp.git"
+  },
   "type": "module",
   "bin": {
     "analytical-mcp-server": "./build/index.js"
