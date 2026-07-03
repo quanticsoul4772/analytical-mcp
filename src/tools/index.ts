@@ -95,8 +95,13 @@ export function registerTools(server: McpServer): void {
       name: 'logical_fallacy_detector',
       description: 'Detect and explain logical fallacies in text with confidence scoring',
       schema: logicalFallacyDetectorSchema,
-      handler: async ({ text, confidenceThreshold }: { text: string, confidenceThreshold?: number }) => 
-        logicalFallacyDetector(text, confidenceThreshold || 0.7),
+      handler: async (params: {
+        text: string;
+        confidenceThreshold?: number;
+        categories?: string[];
+        includeExplanations?: boolean;
+        includeExamples?: boolean;
+      }) => logicalFallacyDetector(params),
     },
     {
       name: 'perspective_shifter',

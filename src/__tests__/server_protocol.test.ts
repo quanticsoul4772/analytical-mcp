@@ -88,6 +88,26 @@ describe('MCP server protocol', () => {
     expect(content[0]?.text).toBeTruthy();
   });
 
+  it('passes logical_fallacy_detector options through to the tool, not just text', async () => {
+    const text = "You can't trust her climate policy because she's just a young activist.";
+
+    const withExplanations = await client.callTool({
+      name: 'logical_fallacy_detector',
+      arguments: { text, includeExplanations: true, includeExamples: false },
+    });
+    const withoutExplanations = await client.callTool({
+      name: 'logical_fallacy_detector',
+      arguments: { text, includeExplanations: false, includeExamples: false },
+    });
+
+    const withContent = (withExplanations.content as Array<{ text: string }>)[0]?.text ?? '';
+    const withoutContent = (withoutExplanations.content as Array<{ text: string }>)[0]?.text ?? '';
+
+    expect(withExplanations.isError).toBeFalsy();
+    expect(withContent).toContain('**Description:**');
+    expect(withoutContent).not.toContain('**Description:**');
+  });
+
   it('rejects invalid input without crashing the server', async () => {
     const result = await client.callTool({
       name: 'analyze_dataset',
