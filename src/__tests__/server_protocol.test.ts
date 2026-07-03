@@ -19,6 +19,9 @@ const EXPECTED_TOOLS = [
   'logical_argument_analyzer',
   'logical_fallacy_detector',
   'perspective_shifter',
+  'advanced_statistical_analysis',
+  'advanced_data_preprocessing',
+  'ml_model_evaluation',
   'verify_research',
 ];
 
@@ -108,6 +111,33 @@ describe('MCP server protocol', () => {
     expect(withoutContent).not.toContain('**Description:**');
   });
 
+  it('executes ml_model_evaluation and reports a perfect classifier', async () => {
+    const result = await client.callTool({
+      name: 'ml_model_evaluation',
+      arguments: {
+        modelType: 'classification',
+        actualValues: [1, 0, 1, 0],
+        predictedValues: [1, 0, 1, 0],
+        evaluationMetrics: ['accuracy'],
+      },
+    });
+
+    const content = result.content as Array<{ type: string; text: string }>;
+    expect(result.isError).toBeFalsy();
+    expect(content[0]?.text).toContain('**ACCURACY**: 1.0000');
+  });
+
+  it('surfaces a schema-valid handler failure as isError', async () => {
+    // Empty arrays pass Zod validation but ml_model_evaluation throws — the
+    // registration wrapper must report this as an MCP error, not a text blob.
+    const result = await client.callTool({
+      name: 'ml_model_evaluation',
+      arguments: { modelType: 'classification', actualValues: [], predictedValues: [] },
+    });
+
+    expect(result.isError).toBe(true);
+  });
+
   it('rejects invalid input without crashing the server', async () => {
     const result = await client.callTool({
       name: 'analyze_dataset',
@@ -118,6 +148,6 @@ describe('MCP server protocol', () => {
 
     // Server must still be responsive after the bad call
     const { tools } = await client.listTools();
-    expect(tools.length).toBeGreaterThanOrEqual(9);
+    expect(tools.length).toBeGreaterThanOrEqual(12);
   });
 });

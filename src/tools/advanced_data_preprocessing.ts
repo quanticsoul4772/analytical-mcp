@@ -51,13 +51,22 @@ async function advancedDataPreprocessing(
     throw error;
   }
 
+  if (data.length === 0) {
+    throw new ValidationError('ERR_1001', 'Input data cannot be empty', { preprocessingType });
+  }
+
   let result = `# Advanced Data Preprocessing Report\n\n`;
   result += `## Preprocessing Type: ${preprocessingType}\n\n`;
 
   try {
-    const flatData = Array.isArray(data[0])
-      ? (data as number[]).flat()
-      : (data as Record<string, number>[]).flatMap((obj) => Object.values(obj));
+    // The schema permits a flat number[] or an array of Record<string, number>;
+    // flatten either shape to a numeric series (the array branch is a defensive
+    // fallback and is not reachable through the current schema).
+    const flatData: number[] = (data as unknown[]).flatMap((item) => {
+      if (typeof item === 'number') return [item];
+      if (Array.isArray(item)) return item as number[];
+      return Object.values(item as Record<string, number>);
+    });
 
     switch (preprocessingType) {
       case 'normalization':
@@ -98,18 +107,14 @@ async function advancedDataPreprocessing(
         break;
 
       case 'missing_value_handling':
-        const processedData = Array.isArray(data[0])
-          ? (data as unknown as number[][])
-          : (data as Record<string, number>[]).map((obj) => Object.values(obj));
-
-        const cleanedData = processedData
-          .flat()
-          .filter((v) => v !== null && v !== undefined && !isNaN(Number(v)));
+        const cleanedData = flatData.filter(
+          (v) => v !== null && v !== undefined && !isNaN(Number(v))
+        );
 
         result += `### Missing Value Handling\n`;
-        result += `- Original Data Points: ${processedData.flat().length}\n`;
+        result += `- Original Data Points: ${flatData.length}\n`;
         result += `- Cleaned Data Points: ${cleanedData.length}\n`;
-        result += `- Removed Data Points: ${processedData.flat().length - cleanedData.length}\n\n`;
+        result += `- Removed Data Points: ${flatData.length - cleanedData.length}\n\n`;
         result += `**Cleaned Data Preview:**\n`;
         result += cleanedData
           .slice(0, 10)

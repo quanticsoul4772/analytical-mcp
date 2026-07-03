@@ -1,6 +1,6 @@
 # API Reference
 
-This document specifies the 9 tools registered by `registerTools()` in `src/tools/index.ts`, in
+This document specifies the 12 tools registered by `registerTools()` in `src/tools/index.ts`, in
 the order they are registered. All examples were checked against each tool's Zod schema and, where
 a test file exists, against its test assertions.
 
@@ -279,6 +279,88 @@ extracted from that domain's search results.
 }
 ```
 
+## analytical:advanced_statistical_analysis
+
+Descriptive statistics and cross-variable Pearson correlation on tabular data. Source:
+`src/tools/advanced_statistical_analysis.ts`. For a single numeric series use `analyze_dataset`.
+
+**Schema:**
+```
+{
+  data: Array<Record<string, number | string>>; // rows of named numeric (or string) fields
+  analysisType: 'descriptive' | 'correlation';
+}
+```
+
+**Example:**
+```json
+{
+  "data": [
+    { "revenue": 120, "spend": 40 },
+    { "revenue": 150, "spend": 55 },
+    { "revenue": 90, "spend": 30 }
+  ],
+  "analysisType": "correlation"
+}
+```
+
+`descriptive` reports mean/median/standard deviation/variance/min/max per numeric column;
+`correlation` reports the pairwise Pearson correlation between numeric columns.
+
+## analytical:advanced_data_preprocessing
+
+Preprocess a numeric dataset. Source: `src/tools/advanced_data_preprocessing.ts`.
+
+**Schema:**
+```
+{
+  data: Array<number | Record<string, number>>; // a flat numeric series or rows of numeric fields
+  preprocessingType: 'normalization' | 'standardization'
+    | 'missing_value_handling' | 'outlier_detection';
+}
+```
+
+- `normalization` — min-max scale to [0, 1].
+- `standardization` — z-score to mean 0, standard deviation 1.
+- `missing_value_handling` — drop non-numeric/missing entries and report counts.
+- `outlier_detection` — flag values outside Q1/Q3 ± 1.5·IQR.
+
+**Example:**
+```json
+{ "data": [10, 20, 30, 40, 500], "preprocessingType": "outlier_detection" }
+```
+
+## analytical:ml_model_evaluation
+
+Evaluate machine-learning model predictions. Source: `src/tools/ml_model_evaluation.ts`.
+
+**Schema:**
+```
+{
+  modelType: 'classification' | 'regression';
+  actualValues: number[];       // ground-truth values (binary 0/1 for classification)
+  predictedValues: number[];    // model predictions, same length as actualValues
+  evaluationMetrics?: Array<     // optional; defaults to ['accuracy'] / ['mse'] by modelType
+    'accuracy' | 'precision' | 'recall' | 'f1_score'   // classification
+    | 'mse' | 'mae' | 'rmse' | 'r_squared'             // regression
+  >;
+}
+```
+
+Empty arrays, mismatched lengths, or an unknown `modelType` throw a `ValidationError` (surfaced
+as an `isError` result). Classification metrics assume binary 0/1 labels; precision/recall/F1
+report 0 (rather than `NaN`) when their denominator is zero.
+
+**Example:**
+```json
+{
+  "modelType": "classification",
+  "actualValues": [1, 0, 1, 1, 0],
+  "predictedValues": [1, 0, 0, 1, 0],
+  "evaluationMetrics": ["accuracy", "precision", "recall", "f1_score"]
+}
+```
+
 ## analytical:verify_research
 
 Cross-verifies a research claim against multiple sources with a computed confidence score. Source:
@@ -338,9 +420,10 @@ through the registered `verify_research` tool.
 
 Tools throw typed errors (`ValidationError`, `DataProcessingError`, `APIError`, defined in
 `src/utils/errors.ts`) with an `ERR_xxxx` code and a message. The MCP registration wrapper in
-`src/tools/index.ts` catches every error and returns it as a text content block
-(`Error: <message>`) rather than letting it propagate — clients see a normal tool result with an
-error message, not a protocol-level failure.
+`src/tools/index.ts` catches every error and returns an error result — `{ isError: true, content:
+[{ type: 'text', text: 'Error: <message>' }] }` — so clients see a tool-level error, not a
+protocol-level failure. (Inputs that fail Zod schema validation are rejected by the SDK before the
+handler runs, and also surface as `isError`.)
 
 ## Logging System
 

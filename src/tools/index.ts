@@ -26,6 +26,15 @@ import {
   logicalFallacyDetectorSchema,
 } from './logical_fallacy_detector.js';
 import { perspectiveShifter, perspectiveShifterSchema } from './perspective_shifter.js';
+import { evaluateMLModel, mlModelEvaluationSchema } from './ml_model_evaluation.js';
+import {
+  advancedAnalyzeDataset,
+  advancedStatisticalAnalysisSchema,
+} from './advanced_statistical_analysis.js';
+import {
+  advancedDataPreprocessing,
+  advancedDataPreprocessingSchema,
+} from './advanced_data_preprocessing.js';
 
 // NEW: Import research-related tools
 import { exaResearch } from '../utils/exa_research.js';
@@ -110,12 +119,45 @@ export function registerTools(server: McpServer): void {
       handler: async (params: { problem: string, currentPerspective?: string, shiftType?: string, numberOfPerspectives?: number }) => 
         perspectiveShifter(params),
     },
+    {
+      name: 'advanced_statistical_analysis',
+      description:
+        'Descriptive statistics and cross-variable Pearson correlation on tabular data (arrays of objects). Use analyze_dataset for a single numeric series.',
+      schema: advancedStatisticalAnalysisSchema,
+      handler: async ({ data, analysisType }: { data: any[], analysisType: string }) =>
+        advancedAnalyzeDataset(data, analysisType),
+    },
+    {
+      name: 'advanced_data_preprocessing',
+      description:
+        'Preprocess numeric data: normalization, standardization, missing-value handling, or IQR outlier detection',
+      schema: advancedDataPreprocessingSchema,
+      handler: async ({ data, preprocessingType }: { data: any[], preprocessingType: string }) =>
+        advancedDataPreprocessing(data, preprocessingType),
+    },
+    {
+      name: 'ml_model_evaluation',
+      description:
+        'Evaluate ML model performance: classification metrics (accuracy/precision/recall/F1) or regression metrics (MSE/MAE/RMSE/R²)',
+      schema: mlModelEvaluationSchema,
+      handler: async ({
+        modelType,
+        actualValues,
+        predictedValues,
+        evaluationMetrics,
+      }: {
+        modelType: string;
+        actualValues: number[];
+        predictedValues: number[];
+        evaluationMetrics?: string[];
+      }) => evaluateMLModel(modelType, actualValues, predictedValues, evaluationMetrics),
+    },
     // NEW: Research-related tools
     {
       name: 'verify_research',
       description: 'Cross-verify research claims from multiple sources with confidence scoring',
       schema: ResearchVerificationSchema,
-      handler: async (input: z.infer<typeof ResearchVerificationSchema>) => 
+      handler: async (input: z.infer<typeof ResearchVerificationSchema>) =>
         researchVerification.verifyResearch({
           ...input,
           factExtractionOptions: {
@@ -152,6 +194,7 @@ async (args: any, extra: any) => {
           } catch (error) {
             Logger.error(`Error executing tool ${tool.name}`, error);
             return {
+              isError: true,
               content: [
                 {
                   type: 'text' as const,

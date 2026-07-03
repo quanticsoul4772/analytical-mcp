@@ -7,6 +7,7 @@
 
 import { z } from 'zod';
 import * as mathjs from 'mathjs';
+import { ValidationError } from '../utils/errors.js';
 
 /**
  * ML Model Evaluation Schema
@@ -78,15 +79,18 @@ function calculateClassificationMetrics(
   // Accuracy
   metrics.accuracy = (truePositive + trueNegative) / actualValues.length;
 
-  // Precision (Positive Predictive Value)
-  metrics.precision = truePositive / (truePositive + falsePositive);
+  // Precision, recall, and F1 default to 0 when their denominator is 0
+  // (e.g. no positive predictions) rather than producing NaN.
+  metrics.precision =
+    truePositive + falsePositive === 0 ? 0 : truePositive / (truePositive + falsePositive);
 
-  // Recall (True Positive Rate)
-  metrics.recall = truePositive / (truePositive + falseNegative);
+  metrics.recall =
+    truePositive + falseNegative === 0 ? 0 : truePositive / (truePositive + falseNegative);
 
-  // F1 Score (Harmonic mean of Precision and Recall)
   metrics.f1_score =
-    2 * ((metrics.precision * metrics.recall) / (metrics.precision + metrics.recall));
+    metrics.precision + metrics.recall === 0
+      ? 0
+      : 2 * ((metrics.precision * metrics.recall) / (metrics.precision + metrics.recall));
 
   return metrics;
 }
@@ -132,7 +136,10 @@ function calculateRegressionMetrics(
     (sum, actual, index) => sum + Math.pow(actual - predictedValues[index], 2),
     0
   );
-  metrics.r_squared = 1 - residualSumOfSquares / totalSumOfSquares;
+  // When the actual values have zero variance, R² is undefined; report a
+  // perfect fit (1) if the model matches exactly, otherwise 0, rather than NaN.
+  metrics.r_squared =
+    totalSumOfSquares === 0 ? (residualSumOfSquares === 0 ? 1 : 0) : 1 - residualSumOfSquares / totalSumOfSquares;
 
   return metrics;
 }
@@ -151,32 +158,41 @@ export async function evaluateMLModel(
   predictedValues: number[],
   evaluationMetrics?: string[]
 ): Promise<string> {
-  try {
-    // Validate inputs
-    if (actualValues.length === 0 || predictedValues.length === 0) {
-      throw new Error('Input arrays cannot be empty');
-    }
-
-    // Select metrics based on model type
-    const metricsToCalculate =
-      evaluationMetrics || (modelType === 'classification' ? ['accuracy'] : ['mse']);
-
-    let metrics: Record<string, number>;
-    if (modelType === 'classification') {
-      metrics = calculateClassificationMetrics(actualValues, predictedValues);
-    } else if (modelType === 'regression') {
-      metrics = calculateRegressionMetrics(actualValues, predictedValues);
-    } else {
-      throw new Error(`Unsupported model type: ${modelType}`);
-    }
-
-    // Filter metrics based on requested evaluation metrics
-    const filteredMetrics = Object.fromEntries(
-      Object.entries(metrics).filter(([key]) => metricsToCalculate.includes(key))
+  // Validate inputs — throw so the MCP registration wrapper surfaces the failure
+  // as an error result rather than a success-shaped report.
+  if (actualValues.length === 0 || predictedValues.length === 0) {
+    throw new ValidationError('ERR_1001', 'Input arrays cannot be empty', {
+      actualLength: actualValues.length,
+      predictedLength: predictedValues.length,
+    });
+  }
+  if (actualValues.length !== predictedValues.length) {
+    throw new ValidationError(
+      'ERR_1001',
+      'Actual and predicted values must have the same length',
+      { actualLength: actualValues.length, predictedLength: predictedValues.length }
     );
+  }
+  if (modelType !== 'classification' && modelType !== 'regression') {
+    throw new ValidationError('ERR_1001', `Unsupported model type: ${modelType}`, { modelType });
+  }
 
-    // Generate markdown report
-    const report = `# ML Model Evaluation Report
+  // Select metrics based on model type
+  const metricsToCalculate =
+    evaluationMetrics || (modelType === 'classification' ? ['accuracy'] : ['mse']);
+
+  const metrics =
+    modelType === 'classification'
+      ? calculateClassificationMetrics(actualValues, predictedValues)
+      : calculateRegressionMetrics(actualValues, predictedValues);
+
+  // Filter metrics based on requested evaluation metrics
+  const filteredMetrics = Object.fromEntries(
+    Object.entries(metrics).filter(([key]) => metricsToCalculate.includes(key))
+  );
+
+  // Generate markdown report
+  return `# ML Model Evaluation Report
 
 ## Model Type: ${modelType.toUpperCase()}
 
@@ -189,30 +205,4 @@ ${Object.entries(filteredMetrics)
 - **Total Samples**: ${actualValues.length}
 - **Metrics Calculated**: ${Object.keys(filteredMetrics).join(', ')}
 `;
-
-    return report;
-  } catch (error) {
-    return `## Error in ML Model Evaluation
-- **Error Message**: ${error instanceof Error ? error.message : 'Unknown error'}
-- **Model Type**: ${modelType}
-- **Number of Actual Values**: ${actualValues.length}
-- **Number of Predicted Values**: ${predictedValues.length}
-`;
-  }
 }
-
-/**
- * Tool definition for MCP server registration
- * Exports the ML model evaluation tool with its schema and execution function
- */
-export const mlModelEvaluationTool = {
-  name: 'ml_model_evaluation',
-  description: 'Evaluate machine learning model performance using various metrics',
-  schema: mlModelEvaluationSchema,
-  execute: async (
-    modelType: string,
-    actualValues: number[],
-    predictedValues: number[],
-    evaluationMetrics?: string[]
-  ) => await evaluateMLModel(modelType, actualValues, predictedValues, evaluationMetrics),
-};

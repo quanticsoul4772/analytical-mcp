@@ -106,8 +106,8 @@ try {
   const listResult = await request('tools/list', {});
   if (listResult.error) fail(`tools/list returned error: ${JSON.stringify(listResult.error)}`);
   const tools = listResult.result?.tools ?? [];
-  if (tools.length < 9) {
-    fail(`Expected at least 9 tools, got ${tools.length}: ${tools.map((t) => t.name).join(', ')}`);
+  if (tools.length < 12) {
+    fail(`Expected at least 12 tools, got ${tools.length}: ${tools.map((t) => t.name).join(', ')}`);
   }
   pass(`tools/list (${tools.length} tools: ${tools.map((t) => t.name).join(', ')})`);
 

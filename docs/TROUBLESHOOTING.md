@@ -96,10 +96,10 @@ Logger.info('Debug message');
 
 **Solutions:**
 1. Verify the server is present and enabled in the Claude Desktop config.
-2. Check server startup logs (stderr) for `Registering 9 tools` followed by `All
+2. Check server startup logs (stderr) for `Registering 12 tools` followed by `All
    tools registered successfully`; if a tool is missing from that list, its
    registration threw.
-3. Run `npm run smoke` — it fails if `tools/list` returns fewer than 9 tools.
+3. Run `npm run smoke` — it fails if `tools/list` returns fewer than 12 tools.
 
 ### Development Issues
 
@@ -317,7 +317,7 @@ npm audit
 #### Normal Startup
 ```
 [INFO] Logger initialized in production environment
-[INFO] Registering 9 tools
+[INFO] Registering 12 tools
 [INFO] All tools registered successfully
 [INFO] Analytical MCP Server running on stdio
 ```

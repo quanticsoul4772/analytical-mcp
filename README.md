@@ -78,13 +78,18 @@ docker-compose up -d
 
 ## Available Tools
 
-The server registers 9 tools on startup, unconditionally (registration does not depend on `EXA_API_KEY`; the two research-backed tools below will error at call time if the key is missing). See `src/tools/index.ts` for the authoritative list.
+The server registers 12 tools on startup, unconditionally (registration does not depend on `EXA_API_KEY`; the two research-backed tools below will error at call time if the key is missing). See `src/tools/index.ts` for the authoritative list.
 
 ### Statistical Analysis
 - **`analyze_dataset`** — Descriptive statistics for a numeric or record-array dataset (summary/stats).
+- **`advanced_statistical_analysis`** — Descriptive statistics plus cross-variable Pearson correlation on tabular data (arrays of objects). Use `analyze_dataset` for a single numeric series.
 - **`advanced_regression_analysis`** — Linear, polynomial, logistic, and multivariate regression, backed by dedicated provider modules with real OLS/logistic math (not mocked).
 - **`hypothesis_testing`** — Real statistical hypothesis tests: Welch's independent t-test, paired t-test, correlation, chi-square, and ANOVA, using exact p-value computation (see `src/utils/statistics.ts`).
+- **`advanced_data_preprocessing`** — Normalization, standardization, missing-value handling, and IQR outlier detection on numeric data.
 - **`data_visualization_generator`** — Generate chart specifications (scatter, line, bar, histogram, box, heatmap, pie, violin, correlation).
+
+### Machine Learning
+- **`ml_model_evaluation`** — Evaluate model predictions: classification metrics (accuracy, precision, recall, F1) or regression metrics (MSE, MAE, RMSE, R²).
 
 ### Decision Analysis
 - **`decision_analysis`** — Multi-criteria weighted decision ranking. **Requires a `scores` matrix** (`options.length` rows × `criteria.length` columns, each value 0-10) in addition to `options` and `criteria`; `weights` is optional and defaults to equal weighting. This is a breaking requirement versus older docs that only described `options`/`criteria`/`weights`.
@@ -301,7 +306,7 @@ See [docs/DEVELOPMENT.md](./docs/DEVELOPMENT.md) for detailed development guidel
 
 **Tools not appearing**: Verify server configuration in Claude Desktop settings and restart Claude Desktop application.
 
-**Research features fail at call time**: Set `EXA_API_KEY` in your environment or `.env` file — `verify_research` and `perspective_shifter` both require it even though all 9 tools register regardless of whether it is set.
+**Research features fail at call time**: Set `EXA_API_KEY` in your environment or `.env` file — `verify_research` and `perspective_shifter` both require it even though all 12 tools register regardless of whether it is set.
 
 **Server not starting**: Check Node.js version is 20 or higher and all dependencies are installed with `npm install`.
 

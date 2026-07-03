@@ -4,6 +4,34 @@ All notable changes to this project are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); this project
 does not yet follow strict SemVer (pre-1.0).
 
+## [Unreleased]
+
+### Added
+
+- Registered three previously-unexposed analytical tools (9 → 12):
+  `advanced_statistical_analysis` (descriptive stats + cross-variable Pearson
+  correlation), `advanced_data_preprocessing` (normalization, standardization,
+  missing-value handling, IQR outlier detection), and `ml_model_evaluation`
+  (classification and regression metrics). Two had been registered in the
+  original codebase and were dropped during an earlier rewrite; all three are
+  real-math implementations.
+
+### Changed
+
+- The tool registration wrapper now returns `isError: true` when a handler
+  throws, so a schema-valid input that fails inside a tool surfaces as an MCP
+  error result rather than a success-shaped text block.
+
+### Fixed
+
+- `ml_model_evaluation` now throws a `ValidationError` on empty input,
+  mismatched array lengths, or an unknown model type (previously it returned a
+  success-shaped error report), and guards precision/recall/F1/R² against
+  `NaN` on degenerate input.
+- `advanced_data_preprocessing` now accepts a flat `number[]` (its schema
+  permitted it, but the flattening logic produced an empty series and crashed),
+  and rejects empty input with a `ValidationError`.
+
 ## [0.2.0] - 2026-07-03
 
 First tagged release. `0.1.0` was an untagged, non-functional prototype —

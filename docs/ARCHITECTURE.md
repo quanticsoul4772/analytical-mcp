@@ -12,7 +12,7 @@ Source: `src/index.ts`.
 
 1. `initializeServer()` creates an `McpServer` (`{ name: 'Analytical MCP Server', version: '0.1.0' }`)
    with `capabilities: { tools: {} }`.
-2. `registerTools(server)` (`src/tools/index.ts`) registers all 9 tools (see below).
+2. `registerTools(server)` (`src/tools/index.ts`) registers all 12 tools (see below).
 3. `initializeCache()` preloads the disk cache via `cacheManager.preload()` — but only if
    `ENABLE_RESEARCH_CACHE=true` (default `false`). A cache preload failure is logged and does not
    stop startup.
@@ -30,7 +30,7 @@ Source: `src/index.ts`.
 
 Location: `src/tools/index.ts`, function `registerTools()`.
 
-Nine tools are registered, in this order, each with a Zod schema and an async handler:
+Twelve tools are registered, in this order, each with a Zod schema and an async handler:
 
 1. `analyze_dataset`
 2. `decision_analysis`
@@ -40,7 +40,10 @@ Nine tools are registered, in this order, each with a Zod schema and an async ha
 6. `logical_argument_analyzer`
 7. `logical_fallacy_detector`
 8. `perspective_shifter`
-9. `verify_research`
+9. `advanced_statistical_analysis`
+10. `advanced_data_preprocessing`
+11. `ml_model_evaluation`
+12. `verify_research`
 
 This exact list is asserted in `src/__tests__/server_protocol.test.ts`, which connects a real MCP
 `Client` to the real `McpServer` over `InMemoryTransport` (no mocks, no subprocess) and checks
@@ -216,7 +219,7 @@ Configured in `jest.config.js` with two Jest `projects`:
 
 `src/__tests__/server_protocol.test.ts` is a protocol-level test: it wires a real
 `@modelcontextprotocol/sdk` `Client` to the real `McpServer` over `InMemoryTransport` (no mocks,
-no subprocess) and verifies `listTools()` returns all 9 registered tool names.
+no subprocess) and verifies `listTools()` returns all 12 registered tool names.
 
 `npm run smoke` (`scripts/smoke.js`) is a separate, heavier check: it spawns the **built**
 server (`build/index.js`) as a real child process, speaks MCP JSON-RPC over its stdio pipes, and

@@ -16,9 +16,9 @@ There is also `src/__tests__/server_protocol.test.ts` (in the `unit` project —
 under `src/__tests__/`, which matches the unit `testMatch` glob), which connects a real
 `@modelcontextprotocol/sdk` `Client` to the real `McpServer` over an `InMemoryTransport`.
 No mocks, no subprocess — it registers the actual tools (`registerTools` from
-`src/tools/index.ts`) and calls them through the real MCP protocol layer, asserting all 9
+`src/tools/index.ts`) and calls them through the real MCP protocol layer, asserting all 12
 tools are listed with valid input schemas and that `analyze_dataset` /
-`hypothesis_testing` return correct results end-to-end.
+`hypothesis_testing` / `ml_model_evaluation` return correct results end-to-end.
 
 ## Running Tests
 
@@ -149,7 +149,7 @@ process** and speaks real JSON-RPC 2.0 over its stdio, the same way an MCP clien
 (e.g. Claude Desktop) would. It:
 
 1. Sends `initialize` and asserts a valid response with `serverInfo.name`.
-2. Sends `tools/list` and asserts at least 9 tools are returned.
+2. Sends `tools/list` and asserts at least 12 tools are returned.
 3. Calls `tools/call` for `analyze_dataset` with a known dataset and asserts the
    response text contains `Mean: 5.00`.
 4. Calls `tools/call` for `analyze_dataset` with invalid input (`data: 'not an
