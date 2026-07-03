@@ -1,18 +1,21 @@
 import { describe, it, expect, jest, beforeEach } from '@jest/globals';
-import { wrapToolHandler, wrapDataProcessor } from '../tool-wrapper.js';
-import { ValidationError, ToolExecutionError, DataProcessingError } from '../errors.js';
 import { z } from 'zod';
 
-// Mock the Logger
-jest.mock('../logger', () => ({
-  Logger: {
-    debug: jest.fn(),
-    info: jest.fn(),
-    warn: jest.fn(),
-    error: jest.fn(),
-    log: jest.fn(),
-  },
-}));
+// Mocks must be registered with unstable_mockModule BEFORE the module under
+// test is dynamically imported (jest.mock is not hoisted under ESM).
+const mockLogger = {
+  debug: jest.fn(),
+  info: jest.fn(),
+  warn: jest.fn(),
+  error: jest.fn(),
+  log: jest.fn(),
+};
+
+const jestEsm = (import.meta as any).jest as typeof jest;
+jestEsm.unstable_mockModule('../logger.js', () => ({ Logger: mockLogger }));
+
+const { wrapToolHandler, wrapDataProcessor } = await import('../tool-wrapper.js');
+const { ValidationError, ToolExecutionError, DataProcessingError } = await import('../errors.js');
 
 describe('Tool Wrapper', () => {
   // Clear mocks before each test
@@ -72,7 +75,7 @@ describe('Tool Wrapper', () => {
     it('should pass through analytical errors without wrapping', async () => {
       // Create mock handler that throws an AnalyticalError
       const mockHandler = jest.fn<(params: any) => Promise<string>>().mockImplementation(() => {
-        throw new ValidationError('Validation failed');
+        throw new ValidationError('ERR_1001', 'Validation failed');
       });
 
       // Wrap the handler
@@ -86,7 +89,7 @@ describe('Tool Wrapper', () => {
   describe('wrapDataProcessor', () => {
     it('should execute the processor with valid data', () => {
       // Create mock processor
-      const mockProcessor = jest.fn().mockReturnValue('processed data');
+      const mockProcessor = jest.fn<(data: string) => string>().mockReturnValue('processed data');
 
       // Wrap the processor
       const wrappedProcessor = wrapDataProcessor(mockProcessor, 'test-processor');
@@ -101,7 +104,7 @@ describe('Tool Wrapper', () => {
 
     it('should wrap errors in DataProcessingError', () => {
       // Create mock processor that throws an error
-      const mockProcessor = jest.fn().mockImplementation(() => {
+      const mockProcessor = jest.fn<(data: string) => string>().mockImplementation(() => {
         throw new Error('Processing error');
       });
 

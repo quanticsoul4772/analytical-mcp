@@ -1,26 +1,12 @@
-import { describe, it, expect, jest, beforeEach, afterEach } from '@jest/globals';
+import { describe, it, expect, jest } from '@jest/globals';
 import { rateLimitManager } from '../rate_limit_manager.js';
-import { APIError } from '../errors.js';
+// Rate limit detection in the manager keys off the legacy error shape
+// (message, status, retryable, endpoint).
+import { LegacyAPIError as APIError } from '../errors.js';
 
+// These tests run against the real singleton with real timers; every test
+// configures short delays so the suite stays fast and fully offline.
 describe('Rate Limit Manager', () => {
-  // Mock setTimeout and clearTimeout
-  const originalSetTimeout = global.setTimeout;
-  const originalClearTimeout = global.clearTimeout;
-
-  beforeEach(() => {
-    // Mock setTimeout to execute immediately for testing
-    jest.spyOn(global, 'setTimeout').mockImplementation((fn: any) => {
-      fn();
-      return 1 as any;
-    });
-  });
-
-  afterEach(() => {
-    jest.restoreAllMocks();
-    global.setTimeout = originalSetTimeout;
-    global.clearTimeout = originalClearTimeout;
-  });
-
   it('should register API keys correctly', () => {
     rateLimitManager.registerApiKeys('test-provider', ['key1', 'key2']);
 
@@ -36,9 +22,22 @@ describe('Rate Limit Manager', () => {
     ).resolves.toBe('success');
   });
 
+  it('should throw when no API keys are registered for a provider', async () => {
+    const mockFn = jest.fn<(apiKey: string) => Promise<string>>().mockResolvedValue('success');
+
+    await expect(
+      rateLimitManager.executeRateLimitedRequest(mockFn, {
+        provider: 'unknown-provider',
+        endpoint: 'test-endpoint',
+      })
+    ).rejects.toThrow('No API keys registered for unknown-provider');
+
+    expect(mockFn).not.toHaveBeenCalled();
+  });
+
   it('should configure endpoint throttling', async () => {
-    // Configure endpoint with limit of 2 requests per 1000ms
-    rateLimitManager.configureEndpoint('throttled-endpoint', 2, 1000);
+    // Configure endpoint with limit of 10 requests per 100ms
+    rateLimitManager.configureEndpoint('throttled-endpoint', 10, 100);
     rateLimitManager.registerApiKeys('test-provider', ['key1']);
 
     const mockSuccessFn = jest
@@ -51,7 +50,7 @@ describe('Rate Limit Manager', () => {
       endpoint: 'throttled-endpoint',
     });
 
-    // Second request should also go through
+    // Second request should also go through (after at most a short throttle wait)
     await rateLimitManager.executeRateLimitedRequest(mockSuccessFn, {
       provider: 'test-provider',
       endpoint: 'throttled-endpoint',
@@ -75,7 +74,7 @@ describe('Rate Limit Manager', () => {
       provider: 'test-provider',
       endpoint: 'test-endpoint',
       maxRetries: 3,
-      initialDelayMs: 100,
+      initialDelayMs: 20,
     });
 
     expect(result).toBe('success after retry');
@@ -88,21 +87,24 @@ describe('Rate Limit Manager', () => {
 
     // Mock function that tracks which key was used
     const usedKeys: string[] = [];
-    const mockFnWithKeyTracking = jest.fn().mockImplementation((apiKey: unknown) => {
-      usedKeys.push(apiKey as string);
+    const mockFnWithKeyTracking = jest
+      .fn<(apiKey: string) => Promise<string>>()
+      .mockImplementation((apiKey: string) => {
+        usedKeys.push(apiKey);
 
-      // Rate limit on first key, succeed on second
-      if (apiKey === 'key1') {
-        throw new APIError('Rate limited', 429, true, 'test');
-      }
+        // Rate limit on first key, succeed on second
+        if (apiKey === 'key1') {
+          throw new APIError('Rate limited', 429, true, 'test');
+        }
 
-      return Promise.resolve('success with key2');
-    });
+        return Promise.resolve('success with key2');
+      });
 
     const result = await rateLimitManager.executeRateLimitedRequest(mockFnWithKeyTracking, {
       provider: 'test-provider',
       endpoint: 'test-endpoint',
       rotateKeysOnRateLimit: true,
+      initialDelayMs: 20,
     });
 
     expect(result).toBe('success with key2');
@@ -123,6 +125,7 @@ describe('Rate Limit Manager', () => {
         endpoint: 'test-endpoint',
         maxRetries: 2,
         initialDelayMs: 10,
+        maxDelayMs: 20,
       })
     ).rejects.toThrow('Rate limit exceeded');
 

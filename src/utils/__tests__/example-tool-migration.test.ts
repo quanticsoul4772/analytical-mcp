@@ -37,11 +37,12 @@ async function migratedAnalyzeDatasetToolInternal(data: any[], analysisType: str
   if (!Array.isArray(data) || data.length === 0) {
     throw createValidationError(
       'Data array is required and must not be empty',
-      { 
-        received: typeof data, 
+      {
+        received: typeof data,
         length: data?.length,
         expectedType: 'array',
-        minimumLength: 1
+        minimumLength: 1,
+        suggestion: 'Provide a non-empty array of data values'
       },
       'analyze_dataset'
     );
@@ -154,7 +155,8 @@ describe('Tool Migration Example', () => {
       it('should handle mixed data types gracefully', async () => {
         const mixedData = [1, 2, 'invalid', 4, null, 6];
         const result = await migratedAnalyzeDatasetTool(mixedData, 'stats');
-        expect(result).toBe('Analysis complete: stats for 3 numeric values');
+        // mixedData contains exactly 4 numeric values: 1, 2, 4, 6
+        expect(result).toBe('Analysis complete: stats for 4 numeric values');
       });
     });
   });

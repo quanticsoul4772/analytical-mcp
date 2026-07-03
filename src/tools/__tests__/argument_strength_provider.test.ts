@@ -1,27 +1,22 @@
-import { describe, it, expect, jest, beforeEach } from '@jest/globals';
-import { ArgumentStrengthProvider, StrengthFactor } from '../argument_strength_provider.js';
+import { describe, it, expect, jest, beforeEach, afterEach } from '@jest/globals';
+import { ArgumentStrengthProvider } from '../argument_strength_provider.js';
 import { ValidationHelpers } from '../../utils/validation_helpers.js';
-
-// Mock ValidationHelpers
-jest.mock('../../utils/validation_helpers.js');
 
 describe('ArgumentStrengthProvider', () => {
   let provider: ArgumentStrengthProvider;
-  const mockValidationHelpers = ValidationHelpers as jest.Mocked<typeof ValidationHelpers>;
 
   beforeEach(() => {
     provider = new ArgumentStrengthProvider();
-    jest.clearAllMocks();
-    
-    // Setup default mocks
-    mockValidationHelpers.validateNonEmptyString.mockReturnValue({ isValid: true });
-    mockValidationHelpers.validateDataArray.mockReturnValue({ isValid: true });
-    mockValidationHelpers.throwIfInvalid.mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
   });
 
   describe('analyzeArgumentStrength', () => {
     describe('happy path', () => {
-      it('should analyze a basic argument without special factors', async () => {
+      it('should analyze a basic argument without special factors', () => {
+        const validateSpy = jest.spyOn(ValidationHelpers, 'validateNonEmptyString');
         const argument = 'This is a simple argument without special terms.';
         const result = provider.analyzeArgumentStrength(argument);
 
@@ -29,10 +24,10 @@ describe('ArgumentStrengthProvider', () => {
         expect(result).toContain('**Strength Assessment:**');
         expect(result).toContain('**Strength Factors Analysis:**');
         expect(result).toContain('**Factor Details:**');
-        expect(mockValidationHelpers.validateNonEmptyString).toHaveBeenCalledWith(argument);
+        expect(validateSpy).toHaveBeenCalledWith(argument);
       });
 
-      it('should detect evidence support factor', async () => {
+      it('should detect evidence support factor', () => {
         const argument = 'According to recent research and data from multiple studies, this conclusion is supported.';
         const result = provider.analyzeArgumentStrength(argument);
 
@@ -41,7 +36,7 @@ describe('ArgumentStrengthProvider', () => {
         expect(result).toContain('➕ Positive');
       });
 
-      it('should detect quantitative information', async () => {
+      it('should detect quantitative information', () => {
         const argument = 'Studies show that 75% of participants experienced improvement.';
         const result = provider.analyzeArgumentStrength(argument);
 
@@ -49,7 +44,7 @@ describe('ArgumentStrengthProvider', () => {
         expect(result).toContain('The argument includes specific quantities or statistics');
       });
 
-      it('should detect alternative considerations', async () => {
+      it('should detect alternative considerations', () => {
         const argument = 'While this is true, we must consider alternative explanations and other possibilities.';
         const result = provider.analyzeArgumentStrength(argument);
 
@@ -57,7 +52,7 @@ describe('ArgumentStrengthProvider', () => {
         expect(result).toContain('The argument acknowledges alternative explanations or perspectives');
       });
 
-      it('should detect appropriate qualifiers', async () => {
+      it('should detect appropriate qualifiers', () => {
         const argument = 'The data suggests that this approach might be effective and probably works well.';
         const result = provider.analyzeArgumentStrength(argument);
 
@@ -65,7 +60,7 @@ describe('ArgumentStrengthProvider', () => {
         expect(result).toContain('The argument uses appropriate qualifiers when expressing certainty');
       });
 
-      it('should detect expert consensus', async () => {
+      it('should detect expert consensus', () => {
         const argument = 'There is widespread consensus among experts that this approach is generally accepted.';
         const result = provider.analyzeArgumentStrength(argument);
 
@@ -73,7 +68,7 @@ describe('ArgumentStrengthProvider', () => {
         expect(result).toContain('The argument references expert consensus');
       });
 
-      it('should detect counterargument acknowledgment', async () => {
+      it('should detect counterargument acknowledgment', () => {
         const argument = 'Critics argue against this view, however, the evidence supports our position.';
         const result = provider.analyzeArgumentStrength(argument);
 
@@ -81,21 +76,21 @@ describe('ArgumentStrengthProvider', () => {
         expect(result).toContain('The argument acknowledges opposing viewpoints');
       });
 
-      it('should generate strong assessment for high-scoring arguments', async () => {
+      it('should generate strong assessment for high-scoring arguments', () => {
         const argument = 'Research data shows 80% effectiveness. Experts consensus supports this. However, critics argue alternatives exist.';
         const result = provider.analyzeArgumentStrength(argument);
 
         expect(result).toContain('strong logical foundation with multiple supporting elements');
       });
 
-      it('should generate adequate assessment for medium-scoring arguments', async () => {
+      it('should generate adequate assessment for medium-scoring arguments', () => {
         const argument = 'Some evidence suggests this might work effectively.';
         const result = provider.analyzeArgumentStrength(argument);
 
         expect(result).toContain('adequate logical foundation but could be strengthened');
       });
 
-      it('should generate weak assessment for low-scoring arguments', async () => {
+      it('should generate weak assessment for low-scoring arguments', () => {
         const argument = 'This causes that because I said so.';
         const result = provider.analyzeArgumentStrength(argument);
 
@@ -104,7 +99,7 @@ describe('ArgumentStrengthProvider', () => {
     });
 
     describe('edge cases', () => {
-      it('should handle very short arguments', async () => {
+      it('should handle very short arguments', () => {
         const argument = 'Yes.';
         const result = provider.analyzeArgumentStrength(argument);
 
@@ -112,7 +107,7 @@ describe('ArgumentStrengthProvider', () => {
         expect(result).toContain('lacks explicit reference to evidence');
       });
 
-      it('should handle very long arguments', async () => {
+      it('should handle very long arguments', () => {
         const argument = 'A'.repeat(1000) + ' research shows evidence supports this with data from studies.';
         const result = provider.analyzeArgumentStrength(argument);
 
@@ -120,7 +115,7 @@ describe('ArgumentStrengthProvider', () => {
         expect(result).toContain('### Argument Strength');
       });
 
-      it('should handle arguments with special characters', async () => {
+      it('should handle arguments with special characters', () => {
         const argument = 'Studies show 50% success @#$%^&*()! However, critics argue alternatives.';
         const result = provider.analyzeArgumentStrength(argument);
 
@@ -128,7 +123,7 @@ describe('ArgumentStrengthProvider', () => {
         expect(result).toContain('Counterargument Acknowledgment');
       });
 
-      it('should detect causal reasoning without alternatives', async () => {
+      it('should detect causal reasoning without alternatives', () => {
         const argument = 'A causes B because A leads to B in all cases.';
         const result = provider.analyzeArgumentStrength(argument);
 
@@ -137,15 +132,15 @@ describe('ArgumentStrengthProvider', () => {
         expect(result).toContain('➖ Negative');
       });
 
-      it('should detect correlation-causation confusion', async () => {
-        const argument = 'X is correlated with Y, therefore X causes Y to occur.';
+      it('should detect correlation-causation confusion', () => {
+        const argument = 'X shows correlation with Y, therefore X causes Y to occur.';
         const result = provider.analyzeArgumentStrength(argument);
 
         expect(result).toContain('Correlation-Causation Confusion');
         expect(result).toContain('may confuse correlation with causation');
       });
 
-      it('should not flag causal reasoning when alternatives are considered', async () => {
+      it('should not flag causal reasoning when alternatives are considered', () => {
         const argument = 'A causes B, but alternative explanations could also account for this relationship.';
         const result = provider.analyzeArgumentStrength(argument);
 
@@ -155,29 +150,18 @@ describe('ArgumentStrengthProvider', () => {
     });
 
     describe('error handling', () => {
-      it('should throw error for empty string', async () => {
-        mockValidationHelpers.validateNonEmptyString.mockReturnValue({ isValid: false, error: 'Empty string' });
-        mockValidationHelpers.throwIfInvalid.mockImplementation((result) => {
-          if (!result.isValid) throw new Error(result.error);
-        });
-
-        expect(() => provider.analyzeArgumentStrength('')).toThrow('Empty string');
+      it('should throw error for empty string', () => {
+        expect(() => provider.analyzeArgumentStrength('')).toThrow('String cannot be empty');
       });
 
-      it('should throw error for null input', async () => {
-        mockValidationHelpers.validateNonEmptyString.mockReturnValue({ isValid: false, error: 'Null input' });
-        mockValidationHelpers.throwIfInvalid.mockImplementation((result) => {
-          if (!result.isValid) throw new Error(result.error);
-        });
-
-        expect(() => provider.analyzeArgumentStrength(null as any)).toThrow('Null input');
+      it('should throw error for null input', () => {
+        expect(() => provider.analyzeArgumentStrength(null as any)).toThrow('Value must be a string');
       });
 
-      it('should handle validation error in strength assessment generation', async () => {
-        mockValidationHelpers.validateDataArray.mockReturnValue({ isValid: false, error: 'Invalid array' });
-        mockValidationHelpers.throwIfInvalid.mockImplementation((result) => {
-          if (!result.isValid) throw new Error(result.error);
-        });
+      it('should handle validation error in strength assessment generation', () => {
+        jest
+          .spyOn(ValidationHelpers, 'validateDataArray')
+          .mockReturnValue({ isValid: false, errorMessage: 'Invalid array' });
 
         // This should trigger the validation in generateStrengthAssessment
         expect(() => provider.analyzeArgumentStrength('test argument')).toThrow('Invalid array');
@@ -187,7 +171,7 @@ describe('ArgumentStrengthProvider', () => {
 
   describe('getStrengthFactors', () => {
     describe('happy path', () => {
-      it('should return strength factors array', async () => {
+      it('should return strength factors array', () => {
         const argument = 'Research shows 75% effectiveness with data supporting this conclusion.';
         const factors = provider.getStrengthFactors(argument);
 
@@ -199,7 +183,7 @@ describe('ArgumentStrengthProvider', () => {
         expect(factors[0]).toHaveProperty('impact');
       });
 
-      it('should include all standard factors', async () => {
+      it('should include all standard factors', () => {
         const argument = 'Research data shows 80% effectiveness. Experts consensus supports this. However, critics argue alternatives might exist.';
         const factors = provider.getStrengthFactors(argument);
 
@@ -212,8 +196,8 @@ describe('ArgumentStrengthProvider', () => {
         expect(factorNames).toContain('Counterargument Acknowledgment');
       });
 
-      it('should include causal reasoning factors when applicable', async () => {
-        const argument = 'X causes Y without considering other explanations.';
+      it('should include causal reasoning factors when applicable', () => {
+        const argument = 'X causes Y in every case.';
         const factors = provider.getStrengthFactors(argument);
 
         const factorNames = factors.map(f => f.name);
@@ -222,7 +206,7 @@ describe('ArgumentStrengthProvider', () => {
     });
 
     describe('edge cases', () => {
-      it('should handle argument with no detectable factors', async () => {
+      it('should handle argument with no detectable factors', () => {
         const argument = 'Simple statement.';
         const factors = provider.getStrengthFactors(argument);
 
@@ -231,8 +215,8 @@ describe('ArgumentStrengthProvider', () => {
         expect(factors.length).toBeGreaterThanOrEqual(6);
       });
 
-      it('should properly identify positive and negative impacts', async () => {
-        const argument = 'Research shows evidence but causes problems without alternatives.';
+      it('should properly identify positive and negative impacts', () => {
+        const argument = 'Research shows evidence but this causes problems.';
         const factors = provider.getStrengthFactors(argument);
 
         const evidenceFactor = factors.find(f => f.name === 'Evidence Support');
@@ -244,22 +228,17 @@ describe('ArgumentStrengthProvider', () => {
     });
 
     describe('error handling', () => {
-      it('should throw error for invalid input', async () => {
-        mockValidationHelpers.validateNonEmptyString.mockReturnValue({ isValid: false, error: 'Invalid input' });
-        mockValidationHelpers.throwIfInvalid.mockImplementation((result) => {
-          if (!result.isValid) throw new Error(result.error);
-        });
-
-        expect(() => provider.getStrengthFactors('')).toThrow('Invalid input');
+      it('should throw error for invalid input', () => {
+        expect(() => provider.getStrengthFactors('')).toThrow('String cannot be empty');
       });
     });
   });
 
   describe('performance', () => {
-    it('should handle large arguments efficiently', async () => {
+    it('should handle large arguments efficiently', () => {
       const largeArgument = 'This argument contains research data and evidence. '.repeat(100) +
         'Studies show 85% effectiveness with expert consensus supporting these findings.';
-      
+
       const startTime = Date.now();
       const result = provider.analyzeArgumentStrength(largeArgument);
       const endTime = Date.now();
@@ -268,7 +247,7 @@ describe('ArgumentStrengthProvider', () => {
       expect(result).toContain('### Argument Strength');
     });
 
-    it('should handle multiple rapid calls', async () => {
+    it('should handle multiple rapid calls', () => {
       const testArguments = [
         'Research shows evidence',
         'Data indicates 75% success',

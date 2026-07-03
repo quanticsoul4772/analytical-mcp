@@ -1,5 +1,6 @@
-import { describe, it, expect, jest, beforeEach, afterEach } from '@jest/globals';
-import { cacheManager } from '../cache_manager.js';
+import { describe, it, expect, jest, beforeEach, afterEach, afterAll } from '@jest/globals';
+import { cacheManager, CacheManager } from '../cache_manager.js';
+import { config } from '../config.js';
 import fs from 'fs/promises';
 import path from 'path';
 
@@ -8,8 +9,15 @@ describe('CacheManager', () => {
   const testKey = 'test-key';
   const testData = { test: 'data' };
 
+  // The cache manager consults isFeatureEnabled('caching') on every operation,
+  // which reads config.ENABLE_RESEARCH_CACHE. Force it on so the tests do not
+  // depend on the machine environment.
+  const originalEnableCache = config.ENABLE_RESEARCH_CACHE;
+
   // Mock fs.mkdir and fs.writeFile to avoid actual file operations
   beforeEach(() => {
+    config.ENABLE_RESEARCH_CACHE = 'true';
+
     jest.spyOn(fs, 'mkdir').mockResolvedValue(undefined);
     jest.spyOn(fs, 'writeFile').mockResolvedValue(undefined);
     jest.spyOn(fs, 'readdir').mockResolvedValue([]);
@@ -20,6 +28,10 @@ describe('CacheManager', () => {
 
   afterEach(() => {
     jest.restoreAllMocks();
+  });
+
+  afterAll(() => {
+    config.ENABLE_RESEARCH_CACHE = originalEnableCache;
   });
 
   it('should store and retrieve data from cache', () => {
@@ -153,6 +165,13 @@ describe('CacheManager', () => {
   });
 
   it('should preload cache from disk', async () => {
+    // The shared singleton is built with persistence disabled in the test
+    // environment, so use an instance with persistence explicitly enabled.
+    const persistentCacheManager = new CacheManager({
+      persistentCacheEnabled: true,
+      persistentCacheDir: testCacheDir,
+    });
+
     // Mock fs.readdir to return some cache files
     const mockFiles = ['cache_test1.json', 'cache_test2.json', 'not-a-cache-file.txt'];
     jest.spyOn(fs, 'readdir').mockResolvedValue(mockFiles as any);
@@ -183,17 +202,22 @@ describe('CacheManager', () => {
     jest.spyOn(fs, 'access').mockResolvedValue(undefined);
 
     // Preload cache
-    const loadedCount = await cacheManager.preload();
+    const loadedCount = await persistentCacheManager.preload();
 
     // Should have loaded 2 cache entries
     expect(loadedCount).toBe(2);
 
     // Verify the entries were loaded
-    expect(cacheManager.has('test1', 'default')).toBe(true);
-    expect(cacheManager.has('test2', 'default')).toBe(true);
+    expect(persistentCacheManager.has('test1', 'default')).toBe(true);
+    expect(persistentCacheManager.has('test2', 'default')).toBe(true);
   });
 
   it('should handle invalid preload data gracefully', async () => {
+    const persistentCacheManager = new CacheManager({
+      persistentCacheEnabled: true,
+      persistentCacheDir: testCacheDir,
+    });
+
     // Mock fs.readdir to return a cache file
     jest.spyOn(fs, 'readdir').mockResolvedValue(['cache_invalid.json'] as any);
 
@@ -204,7 +228,7 @@ describe('CacheManager', () => {
     jest.spyOn(fs, 'access').mockResolvedValue(undefined);
 
     // Should not throw and return 0 loaded entries
-    const loadedCount = await cacheManager.preload();
+    const loadedCount = await persistentCacheManager.preload();
     expect(loadedCount).toBe(0);
   });
 });

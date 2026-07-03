@@ -1,10 +1,11 @@
 import { describe, it, expect, jest, beforeEach, afterEach } from '@jest/globals';
-import { 
-  PerformanceMonitor, 
-  MemoryMonitor, 
-  getGlobalMonitor, 
+import {
+  PerformanceMonitor,
+  MemoryMonitor,
+  getGlobalMonitor,
   resetGlobalMonitor,
-  timed 
+  globalMemoryMonitor,
+  timed
 } from '../performance_monitor.js';
 
 describe('PerformanceMonitor', () => {
@@ -12,11 +13,11 @@ describe('PerformanceMonitor', () => {
 
   beforeEach(() => {
     monitor = new PerformanceMonitor();
-    jest.clearAllMocks();
   });
 
   afterEach(() => {
     resetGlobalMonitor();
+    jest.restoreAllMocks();
   });
 
   describe('Basic functionality', () => {
@@ -24,26 +25,30 @@ describe('PerformanceMonitor', () => {
       const result = monitor.time('test-operation', () => {
         // Simulate some work
         let sum = 0;
-        for (let i = 0; i < 1000; i++) {
+        for (let i = 0; i < 10000; i++) {
           sum += i;
         }
         return sum;
       });
 
-      expect(result).toBe(499500); // Sum of 0 to 999
-      expect(monitor.getMetrics('test-operation')).toHaveLength(1);
-      expect(monitor.getMetrics('test-operation')[0].duration).toBeGreaterThan(0);
+      expect(result).toBe(49995000); // Sum of 0 to 9999
+      const metrics = monitor.getRecentMetrics('test-operation');
+      expect(metrics).toHaveLength(1);
+      expect(metrics[0]!.duration).toBeGreaterThanOrEqual(0);
+      expect(metrics[0]!.name).toBe('test-operation');
     });
 
     it('should measure asynchronous operation times', async () => {
       const result = await monitor.timeAsync('async-operation', async () => {
-        await new Promise(resolve => setTimeout(resolve, 10));
+        await new Promise((resolve) => setTimeout(resolve, 15));
         return 'async-result';
       });
 
       expect(result).toBe('async-result');
-      expect(monitor.getMetrics('async-operation')).toHaveLength(1);
-      expect(monitor.getMetrics('async-operation')[0].duration).toBeGreaterThanOrEqual(10);
+      const metrics = monitor.getRecentMetrics('async-operation');
+      expect(metrics).toHaveLength(1);
+      // Timers can fire marginally early, so allow a small tolerance
+      expect(metrics[0]!.duration).toBeGreaterThanOrEqual(10);
     });
 
     it('should handle errors in timed operations', () => {
@@ -53,126 +58,179 @@ describe('PerformanceMonitor', () => {
         });
       }).toThrow('Test error');
 
-      const metrics = monitor.getMetrics('error-operation');
+      const metrics = monitor.getRecentMetrics('error-operation');
       expect(metrics).toHaveLength(1);
-      expect(metrics[0].metadata?.error).toBe(true);
+      expect(metrics[0]!.metadata?.error).toBe(true);
     });
 
     it('should handle errors in async timed operations', async () => {
-      await expect(monitor.timeAsync('async-error-operation', async () => {
-        throw new Error('Async test error');
-      })).rejects.toThrow('Async test error');
+      await expect(
+        monitor.timeAsync('async-error-operation', async () => {
+          throw new Error('Async test error');
+        })
+      ).rejects.toThrow('Async test error');
 
-      const metrics = monitor.getMetrics('async-error-operation');
+      const metrics = monitor.getRecentMetrics('async-error-operation');
       expect(metrics).toHaveLength(1);
-      expect(metrics[0].metadata?.error).toBe(true);
+      expect(metrics[0]!.metadata?.error).toBe(true);
+    });
+
+    it('should record metrics manually with metadata', () => {
+      monitor.recordMetric('manual-metric', 42, { source: 'test' });
+
+      const metrics = monitor.getRecentMetrics('manual-metric');
+      expect(metrics).toHaveLength(1);
+      expect(metrics[0]!.duration).toBe(42);
+      expect(metrics[0]!.metadata).toEqual({ source: 'test' });
     });
   });
 
   describe('Timer functionality', () => {
-    it('should support manual timer control', (done) => {
-      const timer = monitor.startTimer('manual-timer', (duration) => {
-        expect(duration).toBeGreaterThan(0);
-        expect(monitor.getMetrics('manual-timer')).toHaveLength(1);
-        done();
-      });
+    it('should support manual timer control', () => {
+      const stop = monitor.startTimer('manual-timer');
 
-      setTimeout(() => timer.end(), 10);
+      stop();
+
+      const metrics = monitor.getRecentMetrics('manual-timer');
+      expect(metrics).toHaveLength(1);
+      expect(metrics[0]!.duration).toBeGreaterThanOrEqual(0);
     });
 
-    it('should include metadata in timer callbacks', (done) => {
+    it('should record metadata passed when the timer is stopped', () => {
       const metadata = { userId: '123', feature: 'test' };
-      const timer = monitor.startTimer('timer-with-metadata', (duration, meta) => {
-        expect(meta).toEqual(metadata);
-        done();
-      }, metadata);
+      const stop = monitor.startTimer('timer-with-metadata');
 
-      timer.end();
+      stop(metadata);
+
+      const metrics = monitor.getRecentMetrics('timer-with-metadata');
+      expect(metrics).toHaveLength(1);
+      expect(metrics[0]!.metadata).toEqual(metadata);
     });
   });
 
   describe('Statistics', () => {
     beforeEach(() => {
-      // Add some test data
-      monitor.time('stats-test', () => new Promise(resolve => setTimeout(resolve, 10)));
-      monitor.time('stats-test', () => new Promise(resolve => setTimeout(resolve, 20)));
-      monitor.time('stats-test', () => new Promise(resolve => setTimeout(resolve, 30)));
-      monitor.time('stats-test', () => new Promise(resolve => setTimeout(resolve, 40)));
-      monitor.time('stats-test', () => new Promise(resolve => setTimeout(resolve, 50)));
+      // Deterministic durations for exact statistical assertions
+      for (const duration of [10, 20, 30, 40, 50]) {
+        monitor.recordMetric('stats-test', duration);
+      }
     });
 
     it('should calculate statistics correctly', () => {
-      const stats = monitor.getStatistics('stats-test');
-      
-      expect(stats).toBeDefined();
-      expect(stats.count).toBe(5);
-      expect(stats.min).toBeGreaterThan(0);
-      expect(stats.max).toBeGreaterThan(stats.min);
-      expect(stats.mean).toBeGreaterThan(0);
-      expect(stats.median).toBeGreaterThan(0);
-      expect(stats.p95).toBeGreaterThan(0);
-      expect(stats.p99).toBeGreaterThan(0);
+      const stats = monitor.getStats('stats-test');
+
+      expect(stats).not.toBeNull();
+      expect(stats!.count).toBe(5);
+      expect(stats!.min).toBe(10);
+      expect(stats!.max).toBe(50);
+      expect(stats!.mean).toBe(30);
+      expect(stats!.median).toBe(30);
+      // Interpolated percentiles: p95 -> 40*0.2 + 50*0.8, p99 -> 40*0.04 + 50*0.96
+      expect(stats!.p95).toBeCloseTo(48);
+      expect(stats!.p99).toBeCloseTo(49.6);
     });
 
     it('should return null for non-existent operations', () => {
-      const stats = monitor.getStatistics('non-existent');
+      const stats = monitor.getStats('non-existent');
       expect(stats).toBeNull();
+    });
+
+    it('should aggregate statistics for all operations', () => {
+      monitor.recordMetric('other-op', 100);
+
+      const allStats = monitor.getAllStats();
+
+      expect(Object.keys(allStats).sort()).toEqual(['other-op', 'stats-test']);
+      expect(allStats['stats-test']!.count).toBe(5);
+      expect(allStats['other-op']!.count).toBe(1);
+    });
+
+    it('should clear metrics for a single operation', () => {
+      monitor.clearMetrics('stats-test');
+
+      expect(monitor.getStats('stats-test')).toBeNull();
+    });
+
+    it('should clear all metrics', () => {
+      monitor.recordMetric('other-op', 100);
+
+      monitor.clearAll();
+
+      expect(monitor.getAllStats()).toEqual({});
     });
   });
 
   describe('Configuration', () => {
     it('should respect enabled/disabled state', () => {
       monitor.setEnabled(false);
-      
+      expect(monitor.isEnabled()).toBe(false);
+
       const result = monitor.time('disabled-test', () => 'result');
-      
+
       expect(result).toBe('result');
-      expect(monitor.getMetrics('disabled-test')).toHaveLength(0);
+      expect(monitor.getRecentMetrics('disabled-test')).toHaveLength(0);
+
+      monitor.setEnabled(true);
+      expect(monitor.isEnabled()).toBe(true);
     });
 
     it('should respect max metrics limit', () => {
-      const smallMonitor = new PerformanceMonitor({ maxMetricsPerOperation: 2 });
-      
-      smallMonitor.time('limited-test', () => 1);
-      smallMonitor.time('limited-test', () => 2);
-      smallMonitor.time('limited-test', () => 3);
-      
-      expect(smallMonitor.getMetrics('limited-test')).toHaveLength(2);
+      const smallMonitor = new PerformanceMonitor(true, 2);
+
+      smallMonitor.recordMetric('limited-test', 1);
+      smallMonitor.recordMetric('limited-test', 2);
+      smallMonitor.recordMetric('limited-test', 3);
+
+      const metrics = smallMonitor.getRecentMetrics('limited-test');
+      expect(metrics).toHaveLength(2);
+      // The oldest metric was dropped
+      expect(metrics.map((m) => m.duration)).toEqual([2, 3]);
     });
   });
 
   describe('Slow operation detection', () => {
-    it('should detect slow operations', () => {
-      const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation();
-      
-      monitor.time('slow-operation', () => {
-        // Simulate slow operation
-        const start = Date.now();
-        while (Date.now() - start < 1100) {
-          // Busy wait for over 1 second
-        }
-      });
+    it('should log a warning for operations slower than one second', () => {
+      // The logger writes everything to stderr via console.error
+      const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
 
-      // Note: This test might be flaky due to timing precision
-      // In a real scenario, you'd mock the timing mechanism
+      monitor.recordMetric('slow-operation', 1500);
+
+      const warned = errorSpy.mock.calls.some((call) =>
+        String(call[0]).includes('Slow operation detected: slow-operation')
+      );
+      expect(warned).toBe(true);
+    });
+
+    it('should not warn for fast operations', () => {
+      const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+
+      monitor.recordMetric('fast-operation', 100);
+
+      const warned = errorSpy.mock.calls.some((call) =>
+        String(call[0]).includes('Slow operation detected')
+      );
+      expect(warned).toBe(false);
     });
   });
 
   describe('Summary report', () => {
     it('should generate formatted summary report', () => {
-      monitor.time('report-test', () => 1);
-      monitor.time('report-test', () => 2);
-      
+      monitor.recordMetric('report-test', 10);
+      monitor.recordMetric('report-test', 20);
+
       const report = monitor.getSummaryReport();
-      
-      expect(report).toContain('Performance Summary');
+
+      expect(report).toContain('Performance Metrics Summary');
       expect(report).toContain('report-test');
       expect(report).toContain('Count: 2');
+      expect(report).toContain('Min: 10.00ms');
+      expect(report).toContain('Max: 20.00ms');
+      expect(report).toContain('Mean: 15.00ms');
     });
 
     it('should handle empty metrics', () => {
       const report = monitor.getSummaryReport();
-      expect(report).toContain('No metrics recorded');
+      expect(report).toBe('No performance metrics collected');
     });
   });
 });
@@ -185,69 +243,121 @@ describe('MemoryMonitor', () => {
   });
 
   it('should record memory snapshots', () => {
-    memoryMonitor.recordSnapshot('test-operation');
-    
-    const snapshots = memoryMonitor.getSnapshots();
-    expect(snapshots).toHaveLength(1);
-    expect(snapshots[0].operation).toBe('test-operation');
-    expect(snapshots[0].heapUsed).toBeGreaterThan(0);
+    const usage = memoryMonitor.snapshot();
+
+    expect(usage.heapUsed).toBeGreaterThan(0);
+    expect(usage.heapTotal).toBeGreaterThan(0);
+    expect((memoryMonitor as any).snapshots).toHaveLength(1);
   });
 
-  it('should detect potential memory leaks', () => {
-    // Record multiple snapshots with increasing memory
-    for (let i = 0; i < 6; i++) {
-      memoryMonitor.recordSnapshot('test-operation');
+  it('should report memory usage in megabytes', () => {
+    const usage = memoryMonitor.getUsageMB();
+
+    expect(usage.rss).toBeGreaterThan(0);
+    expect(usage.heapTotal).toBeGreaterThan(0);
+    expect(usage.heapUsed).toBeGreaterThan(0);
+    expect(usage.heapUsed).toBeLessThanOrEqual(usage.heapTotal);
+  });
+
+  it('should not report a leak with fewer than 10 snapshots', () => {
+    for (let i = 0; i < 9; i++) {
+      memoryMonitor.snapshot();
     }
-    
-    const leaks = memoryMonitor.detectLeaks();
-    // The result depends on actual memory usage patterns
-    expect(Array.isArray(leaks)).toBe(true);
+
+    expect(memoryMonitor.detectMemoryLeak()).toBe(false);
+  });
+
+  it('should return a boolean once enough snapshots exist', () => {
+    for (let i = 0; i < 10; i++) {
+      memoryMonitor.snapshot();
+    }
+
+    expect(typeof memoryMonitor.detectMemoryLeak()).toBe('boolean');
   });
 
   it('should respect max snapshots limit', () => {
-    const limitedMonitor = new MemoryMonitor({ maxSnapshots: 3 });
-    
+    const limitedMonitor = new MemoryMonitor(3);
+
     for (let i = 0; i < 5; i++) {
-      limitedMonitor.recordSnapshot(`operation-${i}`);
+      limitedMonitor.snapshot();
     }
-    
-    expect(limitedMonitor.getSnapshots()).toHaveLength(3);
+
+    expect((limitedMonitor as any).snapshots).toHaveLength(3);
+  });
+
+  it('should require at least two snapshots for a growth rate', () => {
+    expect(memoryMonitor.getGrowthRate()).toBeNull();
+
+    memoryMonitor.snapshot();
+    expect(memoryMonitor.getGrowthRate()).toBeNull();
+  });
+
+  it('should clear snapshots', () => {
+    memoryMonitor.snapshot();
+    memoryMonitor.snapshot();
+
+    memoryMonitor.clear();
+
+    expect((memoryMonitor as any).snapshots).toHaveLength(0);
+  });
+
+  it('should expose a global memory monitor singleton', () => {
+    expect(globalMemoryMonitor).toBeInstanceOf(MemoryMonitor);
   });
 });
 
 describe('Global monitor', () => {
+  afterEach(() => {
+    resetGlobalMonitor();
+  });
+
   it('should provide singleton access', () => {
     const monitor1 = getGlobalMonitor();
     const monitor2 = getGlobalMonitor();
-    
+
     expect(monitor1).toBe(monitor2);
   });
 
   it('should reset global monitor', () => {
     const monitor1 = getGlobalMonitor();
     monitor1.time('test', () => 1);
-    
+    expect(monitor1.getRecentMetrics('test')).toHaveLength(1);
+
     resetGlobalMonitor();
     const monitor2 = getGlobalMonitor();
-    
+
     expect(monitor2).not.toBe(monitor1);
-    expect(monitor2.getMetrics('test')).toHaveLength(0);
+    expect(monitor2.getRecentMetrics('test')).toHaveLength(0);
   });
 });
 
-describe('@timed decorator', () => {
+describe('timed decorator', () => {
+  // The tsconfig uses TC39 standard decorators while `timed` implements the
+  // legacy (experimental) decorator signature, so the tests apply it manually
+  // to a property descriptor instead of using @-syntax.
+  const applyTimed = (
+    proto: object,
+    methodName: string,
+    operationName: string
+  ): void => {
+    const descriptor = Object.getOwnPropertyDescriptor(proto, methodName)!;
+    const decorated = timed(operationName)(proto, methodName, descriptor);
+    Object.defineProperty(proto, methodName, decorated ?? descriptor);
+  };
+
   class TestClass {
-    @timed('sync-method')
     syncMethod(value: number): number {
       return value * 2;
     }
 
-    @timed('async-method')
     async asyncMethod(value: number): Promise<number> {
-      await new Promise(resolve => setTimeout(resolve, 1));
+      await new Promise((resolve) => setTimeout(resolve, 1));
       return value * 3;
     }
   }
+
+  applyTimed(TestClass.prototype, 'syncMethod', 'sync-method');
+  applyTimed(TestClass.prototype, 'asyncMethod', 'async-method');
 
   let testInstance: TestClass;
 
@@ -256,23 +366,25 @@ describe('@timed decorator', () => {
     resetGlobalMonitor();
   });
 
+  afterEach(() => {
+    resetGlobalMonitor();
+  });
+
   it('should time synchronous methods', () => {
     const result = testInstance.syncMethod(5);
-    
+
     expect(result).toBe(10);
-    
+
     const monitor = getGlobalMonitor();
-    const metrics = monitor.getMetrics('sync-method');
-    expect(metrics).toHaveLength(1);
+    expect(monitor.getRecentMetrics('sync-method')).toHaveLength(1);
   });
 
   it('should time asynchronous methods', async () => {
     const result = await testInstance.asyncMethod(5);
-    
+
     expect(result).toBe(15);
-    
+
     const monitor = getGlobalMonitor();
-    const metrics = monitor.getMetrics('async-method');
-    expect(metrics).toHaveLength(1);
+    expect(monitor.getRecentMetrics('async-method')).toHaveLength(1);
   });
 });

@@ -1,140 +1,119 @@
-import { describe, it, expect, jest, beforeEach } from '@jest/globals';
-import {
-  withRetry,
-  isRetryableError,
-  executeApiRequest,
-  RETRYABLE_STATUS_CODES,
-} from '../api_helpers.js';
-import { APIError } from '../errors.js';
+import { describe, it, expect, jest, beforeEach, afterEach } from '@jest/globals';
 
-// Mock the Logger
-jest.mock('../logger', () => ({
-  Logger: {
-    debug: jest.fn(),
-    info: jest.fn(),
-    warn: jest.fn(),
-    error: jest.fn(),
-    log: jest.fn(),
-  },
+// Mocks must be registered with unstable_mockModule BEFORE the module under
+// test is dynamically imported (jest.mock is not hoisted under ESM).
+const mockLogger = {
+  debug: jest.fn(),
+  info: jest.fn(),
+  warn: jest.fn(),
+  error: jest.fn(),
+  log: jest.fn(),
+};
+
+// Use import.meta.jest: it is bound to this file, so relative specifiers
+// resolve from this directory (the @jest/globals jest object is bound to
+// setupTests.ts under ESM and resolves relative paths from src/).
+const jestEsm = (import.meta as any).jest as typeof jest;
+// setupTests.ts already imported api_helpers.js (and its logger/config deps),
+// so the module registry must be reset for the mocks below to take effect.
+jestEsm.resetModules();
+jestEsm.unstable_mockModule('../logger.js', () => ({ Logger: mockLogger }));
+jestEsm.unstable_mockModule('../config.js', () => ({
+  config: { EXA_API_KEY: undefined },
 }));
+
+const { withRetry, isRetryableError, executeApiRequest, RETRYABLE_STATUS_CODES } = await import(
+  '../api_helpers.js'
+);
+// The retry helpers operate on the legacy error shape (message, status, retryable, endpoint)
+const { LegacyAPIError: APIError } = await import('../errors.js');
 
 describe('API Helper Utilities - Edge Cases', () => {
   // Clear mocks before each test
   beforeEach(() => {
     jest.clearAllMocks();
-    jest.useRealTimers(); // Use real timers by default
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
   });
 
   describe('withRetry Edge Cases', () => {
-    // Use fake timers for this test to avoid waiting
-    beforeEach(() => {
-      jest.useFakeTimers();
-    });
-
     it('should handle maximum retries exactly', async () => {
       // Create a function that always fails
       const fn = jest.fn<() => Promise<unknown>>().mockRejectedValue(new Error('Test error'));
 
-      // Call withRetry with exactly 3 retries
-      const promise = withRetry(fn, 3, 10, 100);
-
-      // Fast-forward time to skip all delays
-      jest.runAllTimers();
-
-      // Should reject after all retries are exhausted
-      await expect(promise).rejects.toThrow('Test error');
+      // Call withRetry with exactly 3 retries and short real delays
+      await expect(withRetry(fn, 3, 5, 20)).rejects.toThrow('Test error');
 
       // Should have been called exactly 4 times (initial + 3 retries)
       expect(fn).toHaveBeenCalledTimes(4);
     });
 
-    it('should use exponential backoff with proper delays', async () => {
+    it('should use exponential backoff with increasing delays', async () => {
+      // Record every delay passed to setTimeout while preserving real behavior
+      const timeoutSpy = jest.spyOn(global, 'setTimeout');
+
       // Create a function that always fails
       const fn = jest.fn<() => Promise<unknown>>().mockRejectedValue(new Error('Test error'));
 
-      // Start with a smaller delay for testing
       const initialDelay = 10;
-
-      // Call withRetry with 2 retries
-      const promise = withRetry(fn, 2, initialDelay, 1000);
-
-      // First attempt happens immediately
-      expect(fn).toHaveBeenCalledTimes(1);
-
-      // Fast-forward less than the initial delay - nothing should happen
-      jest.advanceTimersByTime(initialDelay - 1);
-      expect(fn).toHaveBeenCalledTimes(1);
-
-      // Fast-forward to the initial delay - first retry should happen
-      jest.advanceTimersByTime(1);
-      expect(fn).toHaveBeenCalledTimes(2);
-
-      // Second retry should happen after exponential delay, which is approximately
-      // initialDelay * 1.5 = 15ms plus some random jitter (up to ~25ms)
-      jest.advanceTimersByTime(30); // More than enough time for second retry
+      await expect(withRetry(fn, 2, initialDelay, 10000)).rejects.toThrow('Test error');
       expect(fn).toHaveBeenCalledTimes(3);
 
-      // Finish the test
-      jest.runAllTimers();
-      await expect(promise).rejects.toThrow('Test error');
+      const recordedDelays = timeoutSpy.mock.calls
+        .map((call) => call[1])
+        .filter((ms): ms is number => typeof ms === 'number');
+
+      // One delay per retry
+      expect(recordedDelays).toHaveLength(2);
+
+      // First delay: initialDelay * 1.5 plus up to 100ms of jitter
+      expect(recordedDelays[0]).toBeGreaterThanOrEqual(initialDelay * 1.5);
+      expect(recordedDelays[0]).toBeLessThanOrEqual(initialDelay * 1.5 + 100);
+
+      // Second delay grows exponentially from the first (1.5x plus jitter)
+      expect(recordedDelays[1]).toBeGreaterThanOrEqual(recordedDelays[0]! * 1.5);
     });
 
     it('should respect maxDelay parameter', async () => {
-      // Save original setTimeout
-      const originalSetTimeout = global.setTimeout;
-
-      // Create a tracking array for delays instead of using a mock
-      const recordedDelays: number[] = [];
-
-      // Modify global.setTimeout without fully replacing it
-      const originalSetTimeoutFn = global.setTimeout;
-      jest.spyOn(global, 'setTimeout').mockImplementation((callback: any, ms?: number) => {
-        if (ms !== undefined) {
-          recordedDelays.push(ms);
-        }
-        return originalSetTimeoutFn(callback, ms);
-      });
+      // Record every delay passed to setTimeout while preserving real behavior
+      const timeoutSpy = jest.spyOn(global, 'setTimeout');
 
       // Create a function that always fails
       const fn = jest.fn<() => Promise<unknown>>().mockRejectedValue(new Error('Test error'));
 
       // Call withRetry with a low maxDelay
       const maxDelay = 50;
-      const promise = withRetry(fn, 5, 20, maxDelay);
+      await expect(withRetry(fn, 5, 20, maxDelay)).rejects.toThrow('Test error');
 
-      // Run all timers
-      jest.runAllTimers();
-      await expect(promise).rejects.toThrow('Test error');
+      const recordedDelays = timeoutSpy.mock.calls
+        .map((call) => call[1])
+        .filter((ms): ms is number => typeof ms === 'number');
 
-      // Check if all delays were <= maxDelay
+      // One delay per retry, all capped at maxDelay
+      expect(recordedDelays).toHaveLength(5);
       for (const delay of recordedDelays) {
         expect(delay).toBeLessThanOrEqual(maxDelay);
       }
-
-      // Restore setTimeout
-      jest.restoreAllMocks();
     });
 
     it('should handle error in last retry attempt', async () => {
-      // Create a function that succeeds on the last retry only
+      // Create a function that fails on every attempt, ending with a distinct error
       const fn = jest
         .fn<() => Promise<unknown>>()
         .mockRejectedValueOnce(new Error('Retry 1'))
         .mockRejectedValueOnce(new Error('Retry 2'))
         .mockRejectedValueOnce(new Error('Final attempt'));
 
-      // Call withRetry with 2 retries
-      const promise = withRetry(fn, 2, 10, 100);
-
-      // Fast-forward all timers
-      jest.runAllTimers();
-
       // Should reject with the final error
-      await expect(promise).rejects.toThrow('Final attempt');
+      await expect(withRetry(fn, 2, 5, 20)).rejects.toThrow('Final attempt');
       expect(fn).toHaveBeenCalledTimes(3);
     });
 
     it('should succeed immediately if the first attempt works', async () => {
+      const timeoutSpy = jest.spyOn(global, 'setTimeout');
+
       // Create a function that succeeds immediately
       const fn = jest.fn<() => Promise<string>>().mockResolvedValue('success');
 
@@ -147,13 +126,8 @@ describe('API Helper Utilities - Edge Cases', () => {
       // Should only be called once
       expect(fn).toHaveBeenCalledTimes(1);
 
-      // No timers should have been set
-      expect(jest.getTimerCount()).toBe(0);
-    });
-
-    // Restore real timers after all tests
-    it('cleans up timers', () => {
-      jest.useRealTimers();
+      // No retry delays should have been scheduled
+      expect(timeoutSpy).not.toHaveBeenCalled();
     });
   });
 
@@ -274,8 +248,7 @@ describe('API Helper Utilities - Edge Cases', () => {
       ).rejects.toThrow(APIError);
 
       // Should not have created a new APIError wrapper
-      const { Logger } = await import('../logger.js');
-      expect(Logger.error).toHaveBeenCalledWith(
+      expect(mockLogger.error).toHaveBeenCalledWith(
         expect.stringContaining('API error'),
         expect.objectContaining({
           name: 'APIError',
@@ -319,8 +292,7 @@ describe('API Helper Utilities - Edge Cases', () => {
       ).rejects.toThrow(APIError);
 
       // Should have converted to APIError
-      const { Logger } = await import('../logger.js');
-      expect(Logger.error).toHaveBeenCalledWith(
+      expect(mockLogger.error).toHaveBeenCalledWith(
         expect.stringContaining('API error'),
         expect.any(Object),
         expect.any(Object)
@@ -347,7 +319,7 @@ describe('API Helper Utilities - Edge Cases', () => {
 
       // Should have preserved the stack trace
       expect(caughtError instanceof APIError).toBe(true);
-      expect((caughtError as APIError).stack).toBe('Fake stack trace');
+      expect((caughtError as InstanceType<typeof APIError>).stack).toBe('Fake stack trace');
     });
   });
 });

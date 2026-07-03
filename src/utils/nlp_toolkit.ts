@@ -1,10 +1,7 @@
 import natural from 'natural';
 import pos from 'pos';
 import sentiment from 'sentiment';
-// Note: wink-lemmatizer and wink-pos-tagger are optional dependencies
-// Commented out to avoid runtime errors
-// import winkLemmatizer from 'wink-lemmatizer';
-// import winkPOSTagger from 'wink-pos-tagger';
+import winkLemmatizer from 'wink-lemmatizer';
 import fs from 'fs';
 import path from 'path';
 import { createRequire } from 'module';
@@ -17,28 +14,24 @@ const require = createRequire(import.meta.url);
 export class NLPToolkit {
   private tokenizer: natural.WordTokenizer;
   private sentimentAnalyzer: sentiment;
-  private lemmatizer: any = null;
-  private posTagger: any = null;
+  private posLexer: InstanceType<typeof pos.Lexer>;
+  private posTagger: InstanceType<typeof pos.Tagger>;
   private spell: ReturnType<typeof nspell> | null = null;
 
   constructor() {
     this.tokenizer = new natural.WordTokenizer();
     this.sentimentAnalyzer = new sentiment();
-    // Initialize lemmatizer and POS tagger if available
-    try {
-      // These are optional - server will work without them
-      // this.lemmatizer = winkLemmatizer();
-      // this.posTagger = winkPOSTagger();
-    } catch (error) {
-      Logger.debug('Optional NLP dependencies not available', error);
-    }
+    this.posLexer = new pos.Lexer();
+    this.posTagger = new pos.Tagger();
   }
 
   // Lazily load the hunspell dictionary (pure JS via nspell; the previous
-  // native `spellchecker` package no longer compiles on Node >= 22)
+  // native `spellchecker` package no longer compiles on Node >= 22).
+  // dictionary-en exposes only its ESM entry point via `exports`, so resolve
+  // the entry module and read the .aff/.dic files that sit next to it.
   private getSpell(): ReturnType<typeof nspell> {
     if (!this.spell) {
-      const dictDir = path.dirname(require.resolve('dictionary-en/package.json'));
+      const dictDir = path.dirname(require.resolve('dictionary-en'));
       const aff = fs.readFileSync(path.join(dictDir, 'index.aff'));
       const dic = fs.readFileSync(path.join(dictDir, 'index.dic'));
       this.spell = nspell(aff, dic);
@@ -80,38 +73,29 @@ export class NLPToolkit {
     }
   }
 
-  // Part of Speech Tagging
+  // Part of Speech Tagging (Brill tagger from the `pos` package)
   getPOSTags(text: string): Array<{word: string, tag: string}> {
     try {
-      if (!this.posTagger) {
-        Logger.debug('POS tagger not available, using fallback');
-        const tokens = this.tokenize(text);
-        return tokens.map(word => ({ word, tag: 'NN' })); // Fallback to noun tags
-      }
-      const tokens = this.tokenize(text);
-      return this.posTagger.tag(tokens);
+      const words = this.posLexer.lex(text);
+      return this.posTagger.tag(words).map(([word, tag]) => ({ word, tag }));
     } catch (error) {
       Logger.error('POS tagging failed', error);
       return [];
     }
   }
 
-  // Lemmatization
+  // Lemmatization (wink-lemmatizer)
   lemmatize(word: string, type?: 'noun' | 'verb' | 'adjective'): string {
     try {
-      if (!this.lemmatizer) {
-        Logger.debug('Lemmatizer not available, returning original word');
-        return word; // Fallback to original word
-      }
       switch(type) {
         case 'noun':
-          return this.lemmatizer.noun(word);
+          return winkLemmatizer.noun(word);
         case 'verb':
-          return this.lemmatizer.verb(word);
+          return winkLemmatizer.verb(word);
         case 'adjective':
-          return this.lemmatizer.adjective(word);
+          return winkLemmatizer.adjective(word);
         default:
-          return this.lemmatizer.noun(word); // Default to noun
+          return winkLemmatizer.noun(word); // Default to noun
       }
     } catch (error) {
       Logger.error('Lemmatization failed', error);
@@ -144,11 +128,25 @@ export class NLPToolkit {
   } {
     try {
       const posTags = this.getPOSTags(text);
-      
+
+      // Merge consecutive proper nouns into a single entity ("Steve Jobs",
+      // "New York") instead of reporting each token separately.
+      const properNounPhrases: string[] = [];
+      let current: string[] = [];
+      for (const { word, tag } of posTags) {
+        if ((tag === 'NNP' || tag === 'NNPS') && word.length > 1) {
+          current.push(word);
+        } else if (current.length > 0) {
+          properNounPhrases.push(current.join(' '));
+          current = [];
+        }
+      }
+      if (current.length > 0) {
+        properNounPhrases.push(current.join(' '));
+      }
+
       return {
-        persons: posTags
-          .filter(tag => tag.tag === 'NNP' && tag.word.length > 1)
-          .map(tag => tag.word),
+        persons: properNounPhrases,
         organizations: [], // Placeholder - would require more advanced NER
         locations: [] // Placeholder - would require more advanced NER
       };
@@ -165,16 +163,15 @@ export class NLPToolkit {
   // Text Similarity (using Levenshtein distance)
   textSimilarity(text1: string, text2: string): number {
     try {
-      const tokens1 = this.tokenize(text1);
-      const tokens2 = this.tokenize(text2);
-      
-      const distance = natural.LevenshteinDistance(
-        tokens1.join(' '), 
-        tokens2.join(' ')
-      );
-      
-      const maxLength = Math.max(tokens1.length, tokens2.length);
-      return 1 - (distance / maxLength);
+      const normalized1 = this.tokenize(text1).join(' ');
+      const normalized2 = this.tokenize(text2).join(' ');
+
+      const distance = natural.LevenshteinDistance(normalized1, normalized2);
+
+      // Normalize by character length (the same unit as the edit distance);
+      // dividing by token count could produce values below 0.
+      const maxLength = Math.max(normalized1.length, normalized2.length);
+      return maxLength === 0 ? 1 : 1 - distance / maxLength;
     } catch (error) {
       Logger.error('Text similarity calculation failed', error);
       return 0;

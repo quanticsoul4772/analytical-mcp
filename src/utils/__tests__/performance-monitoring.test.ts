@@ -1,8 +1,7 @@
 import { describe, it, expect, jest, beforeEach, afterEach } from '@jest/globals';
 import {
   withErrorHandling,
-  ErrorCodes,
-  createAPIError,
+  createValidationError,
   sleep
 } from '../errors.js';
 
@@ -152,9 +151,11 @@ describe('Performance Monitoring Integration', () => {
     });
 
     it('should collect metrics for failed operations', async () => {
+      // A non-recoverable error keeps withErrorHandling from retrying, so the
+      // failure is recorded exactly once
       const mockTool = jest.fn().mockImplementation(async () => {
         await sleep(50);
-        throw createAPIError('Mock API failure', ErrorCodes.API_TIMEOUT);
+        throw createValidationError('Mock validation failure');
       });
 
       const monitoredTool = withErrorHandlingAndMetrics('failing_tool', mockTool, metricsCollector);
@@ -174,28 +175,37 @@ describe('Performance Monitoring Integration', () => {
     });
 
     it('should track multiple executions and calculate averages', async () => {
-      const mockTool = jest.fn()
-        .mockResolvedValueOnce('Result 1')
-        .mockResolvedValueOnce('Result 2')
-        .mockRejectedValueOnce(createAPIError('Failed', ErrorCodes.API_TIMEOUT));
+      // Each execution sleeps so the (fake) clock advances and execution
+      // times are non-zero; the third execution fails.
+      let callCount = 0;
+      const mockTool = jest.fn().mockImplementation(async () => {
+        callCount++;
+        await sleep(100);
+        if (callCount === 3) {
+          // Non-recoverable, so the failing execution is not retried
+          throw createValidationError('Failed');
+        }
+        return `Result ${callCount}`;
+      });
 
       const monitoredTool = withErrorHandlingAndMetrics('multi_exec_tool', mockTool, metricsCollector);
-      
-      // Execute multiple times
-      await monitoredTool();
-      await monitoredTool();
-      try {
-        await monitoredTool();
-      } catch (error) {
-        // Expected failure
+
+      // Execute multiple times, advancing the fake timers for each sleep
+      for (let i = 0; i < 3; i++) {
+        const promise = monitoredTool().catch((error) => error);
+        jest.advanceTimersByTime(100);
+        const outcome = await promise;
+        if (i === 2) {
+          expect(outcome).toBeInstanceOf(Error);
+        }
       }
 
       const metrics = metricsCollector.getMetrics('multi_exec_tool');
       expect(metrics).toHaveLength(3);
-      
+
       const avgExecutionTime = metricsCollector.getAverageExecutionTime('multi_exec_tool');
       expect(avgExecutionTime).toBeGreaterThan(0);
-      
+
       const errorRate = metricsCollector.getErrorRate('multi_exec_tool');
       expect(errorRate).toBeCloseTo(1/3, 2); // 1 error out of 3 executions
     });
@@ -248,9 +258,10 @@ describe('Performance Monitoring Integration', () => {
     });
 
     it('should report critical status for high error rate tools', async () => {
+      // Non-recoverable errors, so each failing execution is recorded exactly once
       const errorProneTool = jest.fn()
-        .mockRejectedValueOnce(createAPIError('Error 1', ErrorCodes.API_TIMEOUT))
-        .mockRejectedValueOnce(createAPIError('Error 2', ErrorCodes.API_TIMEOUT))
+        .mockRejectedValueOnce(createValidationError('Error 1'))
+        .mockRejectedValueOnce(createValidationError('Error 2'))
         .mockResolvedValueOnce('Success');
 
       const monitoredTool = withErrorHandlingAndMetrics('error_prone_tool', errorProneTool, metricsCollector);
@@ -328,13 +339,16 @@ describe('Performance Monitoring Integration', () => {
       ];
 
       scenarios.forEach(scenario => {
-        // Mock metrics for each scenario
+        // Mock metrics for each scenario. Error counts are derived
+        // deterministically from the scenario's target error rate so the
+        // health status assertions below cannot flake.
+        const errorCount = Math.round(scenario.errorRate * 10);
         for (let i = 0; i < 10; i++) {
           metricsCollector.recordMetrics(scenario.toolName, {
-            executionTime: scenario.avgTime + (Math.random() - 0.5) * 100,
+            executionTime: scenario.avgTime,
             memoryUsage: 1000000,
             cacheHitRate: 0.8,
-            errorCount: Math.random() < scenario.errorRate ? 1 : 0,
+            errorCount: i < errorCount ? 1 : 0,
             retryCount: 0
           });
         }

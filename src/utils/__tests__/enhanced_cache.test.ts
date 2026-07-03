@@ -3,27 +3,15 @@ import {
   EnhancedCache,
   CacheManager,
   CachePriority,
-  CacheEventType,
   DEFAULT_CACHE_CONFIG,
   cached
-} from '../enhanced_cache';
-
-// Mock logger to avoid console noise during tests
-jest.doMock('../../utils/logger', () => ({
-  Logger: {
-    debug: jest.fn(),
-    info: jest.fn(),
-    warn: jest.fn(),
-    error: jest.fn()
-  }
-}));
+} from '../enhanced_cache.js';
 
 describe('Enhanced Cache System', () => {
   let cache: EnhancedCache;
 
   beforeEach(() => {
     jest.clearAllMocks();
-    // Disable setup tests file to avoid logger conflicts
     cache = new EnhancedCache({
       ...DEFAULT_CACHE_CONFIG,
       cleanupInterval: 60000 // Longer interval for tests
@@ -32,6 +20,8 @@ describe('Enhanced Cache System', () => {
 
   afterEach(() => {
     cache.destroy();
+    // Some tests enable fake timers; never leak them into the next test
+    jest.useRealTimers();
   });
 
   describe('EnhancedCache', () => {
@@ -265,13 +255,17 @@ describe('Enhanced Cache System', () => {
         // Trigger background refresh
         jest.advanceTimersByTime(600);
         await cacheWithFastRefresh.get('refresh-update-key');
-        
-        // Allow background refresh to complete
-        await new Promise(resolve => setTimeout(resolve, 0));
-        
+
+        // Allow the background refresh promise chain to complete (a real
+        // setTimeout would deadlock here because fake timers are active)
+        await jest.advanceTimersByTimeAsync(0);
+
         // The entry should now have refreshed data
-        // Note: This is implementation-dependent based on the actual background refresh logic
-        
+        expect(refreshCallback).toHaveBeenCalledTimes(1);
+        await expect(cacheWithFastRefresh.get('refresh-update-key')).resolves.toBe(
+          'refreshed data'
+        );
+
         cacheWithFastRefresh.destroy();
         jest.useRealTimers();
       });
@@ -544,24 +538,46 @@ describe('Enhanced Cache System', () => {
   });
 
   describe('cached decorator', () => {
+    // The tsconfig uses TC39 standard decorators while `cached` implements the
+    // legacy (experimental) decorator signature, so the tests apply it
+    // manually to property descriptors instead of using @-syntax.
+    const applyCached = (
+      proto: object,
+      methodName: string,
+      decorator: ReturnType<typeof cached>
+    ): void => {
+      const descriptor = Object.getOwnPropertyDescriptor(proto, methodName)!;
+      const decorated = decorator(proto, methodName, descriptor);
+      Object.defineProperty(proto, methodName, decorated ?? descriptor);
+    };
+
     class TestService {
       callCount = 0;
 
-      @cached('test-cache', { ttl: 5000, tags: ['service'] })
       async expensiveOperation(input: string): Promise<string> {
         this.callCount++;
         return `processed-${input}`;
       }
 
-      @cached('test-cache', { 
-        keyGenerator: (input: string) => `custom-${input}`,
-        priority: CachePriority.HIGH 
-      })
       async customKeyOperation(input: string): Promise<string> {
         this.callCount++;
         return `custom-${input}`;
       }
     }
+
+    applyCached(
+      TestService.prototype,
+      'expensiveOperation',
+      cached('test-cache', { ttl: 5000, tags: ['service'] })
+    );
+    applyCached(
+      TestService.prototype,
+      'customKeyOperation',
+      cached('test-cache', {
+        keyGenerator: (input: string) => `custom-${input}`,
+        priority: CachePriority.HIGH
+      })
+    );
 
     let service: TestService;
 

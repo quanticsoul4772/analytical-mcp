@@ -1,28 +1,16 @@
-import { describe, it, expect, jest, beforeEach, afterEach } from '@jest/globals';
+import { describe, it, expect, jest, afterEach } from '@jest/globals';
 import {
   withErrorHandling,
   ErrorCodes,
   createValidationError,
   createAPIError,
-  createDataProcessingError,
-  AnalyticalError,
-  ValidationError,
-  APIError,
-  DataProcessingError
+  createDataProcessingError
 } from '../errors.js';
 
-// Mock setTimeout for testing retry logic
-jest.useFakeTimers();
-
 describe('Tool Integration with Enhanced Error Handling', () => {
-  beforeEach(() => {
-    jest.clearAllTimers();
-  });
-
   afterEach(() => {
-    jest.runOnlyPendingTimers();
+    // Retry tests install fake timers; never leak them into the next test
     jest.useRealTimers();
-    jest.useFakeTimers();
   });
 
   describe('Sample Tool Migrations', () => {
@@ -127,6 +115,7 @@ describe('Tool Integration with Enhanced Error Handling', () => {
       });
 
       it('should preserve error context from nested function calls', async () => {
+        expect.assertions(2);
         try {
           await analyzeDataset(null as any, 'summary');
         } catch (error: any) {
@@ -143,8 +132,10 @@ describe('Tool Integration with Enhanced Error Handling', () => {
       });
 
       it('should retry and succeed for rate-limited endpoints', async () => {
+        jest.useFakeTimers();
+
         let retryCount = 0;
-        const mockAPIWithCounter = jest.fn().mockImplementation(async (endpoint: string) => {
+        const mockAPIWithCounter = jest.fn(async (endpoint: string) => {
           retryCount++;
           if (endpoint === '/rate-limited' && retryCount <= 2) {
             throw createAPIError(
@@ -158,14 +149,12 @@ describe('Tool Integration with Enhanced Error Handling', () => {
         });
 
         const retryApiTool = withErrorHandling('api_tool', mockAPIWithCounter);
-        
+
         const promise = retryApiTool('/rate-limited');
-        
-        // Advance timers to trigger retries
-        jest.advanceTimersByTime(1000); // First retry
-        await Promise.resolve();
-        jest.advanceTimersByTime(2000); // Second retry (with backoff)
-        await Promise.resolve();
+
+        // Advance timers to trigger retries (API_RATE_LIMIT: 1000ms delay, backoff 2)
+        await jest.advanceTimersByTimeAsync(1000); // First retry
+        await jest.advanceTimersByTimeAsync(2000); // Second retry (with backoff)
 
         const result = await promise;
         expect(result).toContain('API call successful to /rate-limited after 3 attempts');
@@ -173,44 +162,48 @@ describe('Tool Integration with Enhanced Error Handling', () => {
       });
 
       it('should fail after maximum retries for persistent rate limiting', async () => {
-        const persistentError = createAPIError(
-          'Persistent rate limit',
-          ErrorCodes.API_RATE_LIMIT,
-          { endpoint: '/always-limited' },
-          'api_tool'
-        );
-        
-        const mockAPIAlwaysFail = jest.fn().mockRejectedValue(persistentError);
+        jest.useFakeTimers();
+
+        const mockAPIAlwaysFail = jest.fn(async () => {
+          throw createAPIError(
+            'Persistent rate limit',
+            ErrorCodes.API_RATE_LIMIT,
+            { endpoint: '/always-limited' },
+            'api_tool'
+          );
+        });
         const failingApiTool = withErrorHandling('api_tool', mockAPIAlwaysFail);
 
         const promise = failingApiTool('/always-limited');
-        
-        // Advance through all retry attempts
-        jest.advanceTimersByTime(1000); // First retry
-        await Promise.resolve();
-        jest.advanceTimersByTime(2000); // Second retry
-        await Promise.resolve();
-        jest.advanceTimersByTime(4000); // Third retry
-        await Promise.resolve();
-
-        await expect(promise).rejects.toMatchObject({
+        // Attach the rejection expectation before advancing timers so the
+        // rejection is never unhandled
+        const assertion = expect(promise).rejects.toMatchObject({
           name: 'APIError',
           code: ErrorCodes.API_RATE_LIMIT,
           message: '[api_tool] Persistent rate limit'
         });
 
+        // Advance through all retry attempts (1000ms, 2000ms, 4000ms backoff)
+        await jest.advanceTimersByTimeAsync(1000); // First retry
+        await jest.advanceTimersByTimeAsync(2000); // Second retry
+        await jest.advanceTimersByTimeAsync(4000); // Third retry
+
+        await assertion;
+
         expect(mockAPIAlwaysFail).toHaveBeenCalledTimes(4); // Initial + 3 retries
       });
 
-      it('should not retry non-recoverable API errors', async () => {
+      it('should not retry API errors without a recovery strategy', async () => {
         const authError = createAPIError(
           'Authentication failed',
           ErrorCodes.API_AUTH_FAILED,
           { endpoint: '/secure' },
           'api_tool'
         );
-        
-        const mockAPIAuthFail = jest.fn().mockRejectedValue(authError);
+
+        const mockAPIAuthFail = jest.fn(async () => {
+          throw authError;
+        });
         const authApiTool = withErrorHandling('api_tool', mockAPIAuthFail);
 
         await expect(authApiTool('/secure')).rejects.toMatchObject({
@@ -224,8 +217,11 @@ describe('Tool Integration with Enhanced Error Handling', () => {
 
     describe('Error Context Preservation', () => {
       it('should preserve and enhance error context through tool wrapper', async () => {
+        expect.assertions(2);
         const originalError = new Error('Generic processing error');
-        const mockTool = jest.fn().mockRejectedValue(originalError);
+        const mockTool = jest.fn(async (..._args: any[]) => {
+          throw originalError;
+        });
         const wrappedTool = withErrorHandling('context_test_tool', mockTool);
 
         try {
@@ -241,10 +237,13 @@ describe('Tool Integration with Enhanced Error Handling', () => {
       });
 
       it('should handle large argument arrays gracefully', async () => {
+        expect.assertions(2);
         const originalError = new Error('Large args error');
-        const mockTool = jest.fn().mockRejectedValue(originalError);
+        const mockTool = jest.fn(async (..._args: any[]) => {
+          throw originalError;
+        });
         const wrappedTool = withErrorHandling('large_args_tool', mockTool);
-        
+
         const largeArgs = new Array(10).fill('data');
 
         try {
@@ -259,12 +258,14 @@ describe('Tool Integration with Enhanced Error Handling', () => {
     describe('Mixed Error Scenarios', () => {
       it('should handle tools that throw different error types', async () => {
         let callCount = 0;
-        const mixedErrorTool = jest.fn().mockImplementation(async () => {
+        const mixedErrorTool = jest.fn(async () => {
           callCount++;
           if (callCount === 1) {
             throw new Error('Generic validation error');
           } else if (callCount === 2) {
-            throw createAPIError('API error', ErrorCodes.API_TIMEOUT);
+            // A specific API error whose code has no retry strategy, so it is
+            // preserved and surfaced immediately
+            throw createAPIError('API error', ErrorCodes.API_INVALID_RESPONSE);
           } else {
             return 'success';
           }
@@ -281,7 +282,7 @@ describe('Tool Integration with Enhanced Error Handling', () => {
         // Second call - specific API error is preserved
         await expect(wrappedMixedTool()).rejects.toMatchObject({
           name: 'APIError',
-          code: ErrorCodes.API_TIMEOUT
+          code: ErrorCodes.API_INVALID_RESPONSE
         });
 
         // Third call - success
@@ -302,7 +303,7 @@ describe('Tool Integration with Enhanced Error Handling', () => {
         throw createValidationError(
           'Data must be an array',
           { received: typeof data },
-          'complex_tool'
+          'complex_analytical_tool'
         );
       }
 
@@ -310,7 +311,7 @@ describe('Tool Integration with Enhanced Error Handling', () => {
         throw createValidationError(
           'Insufficient data points for analysis',
           { dataLength: data.length, minimumRequired: 2 },
-          'complex_tool'
+          'complex_analytical_tool'
         );
       }
 
@@ -321,7 +322,7 @@ describe('Tool Integration with Enhanced Error Handling', () => {
         throw createValidationError(
           `Unsupported algorithm: ${algorithm}`,
           { algorithm, supported: supportedAlgorithms },
-          'complex_tool'
+          'complex_analytical_tool'
         );
       }
 
@@ -331,7 +332,7 @@ describe('Tool Integration with Enhanced Error Handling', () => {
           'Failed to enrich data from external API',
           ErrorCodes.API_SERVICE_UNAVAILABLE,
           { endpoint: '/data-enrichment' },
-          'complex_tool'
+          'complex_analytical_tool'
         );
       }
 
@@ -340,7 +341,7 @@ describe('Tool Integration with Enhanced Error Handling', () => {
         throw createDataProcessingError(
           'Mathematical calculation failed',
           { algorithm, step: 'convergence_check' },
-          'complex_tool'
+          'complex_analytical_tool'
         );
       }
 
@@ -360,7 +361,7 @@ describe('Tool Integration with Enhanced Error Handling', () => {
 
     it('should handle successful complex analysis', async () => {
       const result = await complexTool([1, 2, 3, 4, 5], { algorithm: 'polynomial', threshold: 0.01 });
-      
+
       expect(result).toMatchObject({
         algorithm: 'polynomial',
         dataPoints: 5,
@@ -404,8 +405,10 @@ describe('Tool Integration with Enhanced Error Handling', () => {
     });
 
     it('should handle API errors with retry logic', async () => {
+      jest.useFakeTimers();
+
       let attempt = 0;
-      const retryingTool = jest.fn().mockImplementation(async (data: any[]) => {
+      const retryingTool = jest.fn(async (data: any[]) => {
         attempt++;
         if (data.includes('api_error') && attempt <= 2) {
           throw createAPIError(
@@ -419,14 +422,12 @@ describe('Tool Integration with Enhanced Error Handling', () => {
       });
 
       const wrappedRetryingTool = withErrorHandling('retry_test_tool', retryingTool);
-      
+
       const promise = wrappedRetryingTool(['api_error', 'other_data']);
-      
-      // Advance timers for retries
-      jest.advanceTimersByTime(2000); // First retry
-      await Promise.resolve();
-      jest.advanceTimersByTime(4000); // Second retry with backoff
-      await Promise.resolve();
+
+      // Advance timers for retries (API_SERVICE_UNAVAILABLE: 2000ms delay, backoff 2)
+      await jest.advanceTimersByTimeAsync(2000); // First retry
+      await jest.advanceTimersByTimeAsync(4000); // Second retry with backoff
 
       const result = await promise;
       expect(result).toBe('Success on attempt 3');

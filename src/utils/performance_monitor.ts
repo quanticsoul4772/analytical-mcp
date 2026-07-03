@@ -92,7 +92,7 @@ export class PerformanceMonitor {
   /**
    * Start a timer for manual timing
    */
-  startTimer(operationName: string): () => void {
+  startTimer(operationName: string): (metadata?: Record<string, any>) => void {
     if (!this.enabled) {
       return () => {};
     }

@@ -2,17 +2,6 @@ import { describe, it, expect, jest, beforeEach } from '@jest/globals';
 import { logicalFallacyDetector } from '../logical_fallacy_detector.js';
 import { ValidationError, DataProcessingError } from '../../utils/errors.js';
 
-// Mock the Logger
-jest.mock('../../utils/logger', () => ({
-  Logger: {
-    debug: jest.fn(),
-    info: jest.fn(),
-    warn: jest.fn(),
-    error: jest.fn(),
-    log: jest.fn(),
-  },
-}));
-
 describe('Logical Fallacy Detector - Edge Cases', () => {
   // Clear mocks before each test
   beforeEach(() => {
@@ -164,16 +153,22 @@ describe('Logical Fallacy Detector - Edge Cases', () => {
       // This text has multiple signals for the same fallacy
       const text = "You're too young and too stupid to understand climate policy.";
 
-      // Create a spy on Array.prototype.every to check if we're exiting early
-      const arraySpy = jest.spyOn(Array.prototype, 'every');
+      // Spy on RegExp.test to count signal checks against the analyzed text
+      const testSpy = jest.spyOn(RegExp.prototype, 'test');
 
-      await logicalFallacyDetector(text);
+      try {
+        const result = await logicalFallacyDetector(text);
 
-      // The spy should have been called but the exact count depends on implementation
-      expect(arraySpy).toHaveBeenCalled();
-
-      // Clean up
-      arraySpy.mockRestore();
+        // The 5 fallacy definitions have 4 + 3 + 3 + 3 + 8 = 21 signals in total.
+        // Ad Hominem matches on its first signal, so early exit skips its other
+        // 3 signals: 1 + 3 + 3 + 3 + 8 = 18 checks instead of 21.
+        const signalChecks = testSpy.mock.calls.filter((call) => call[0] === text).length;
+        expect(signalChecks).toBe(18);
+        expect(result).toContain('Ad Hominem');
+      } finally {
+        // Clean up
+        testSpy.mockRestore();
+      }
     });
 
     it('should handle multiple fallacies in the same text efficiently', async () => {
@@ -189,8 +184,8 @@ describe('Logical Fallacy Detector - Edge Cases', () => {
       expect(result).toContain('False Dichotomy');
       expect(result).toContain('Appeal to Authority');
 
-      // Should include severity assessment
-      expect(result).toContain('Severity: High');
+      // Should include severity assessment (markdown label in the report)
+      expect(result).toContain('**Severity:** High');
     });
   });
 
@@ -212,16 +207,27 @@ describe('Logical Fallacy Detector - Edge Cases', () => {
     });
 
     it('should handle errors during pattern matching', async () => {
-      // Mock a regex that causes catastrophic backtracking
-      jest.spyOn(global.RegExp.prototype, 'test').mockImplementation(() => {
-        throw new Error('Simulated regex error');
-      });
+      const text = 'Test text';
+      const originalTest = RegExp.prototype.test;
 
-      // Should catch and wrap the error
-      await expect(logicalFallacyDetector('Test text')).rejects.toThrow(DataProcessingError);
+      // Throw only for fallacy signal checks against the analyzed text, so that
+      // Jest internals (stack trace mapping, matchers) can still use RegExp.test
+      const testSpy = jest
+        .spyOn(global.RegExp.prototype, 'test')
+        .mockImplementation(function (this: RegExp, str: string): boolean {
+          if (str === text) {
+            throw new Error('Simulated regex error');
+          }
+          return originalTest.call(this, str);
+        });
 
-      // Clean up
-      jest.restoreAllMocks();
+      try {
+        // Should catch and wrap the error
+        await expect(logicalFallacyDetector(text)).rejects.toThrow(DataProcessingError);
+      } finally {
+        // Clean up
+        testSpy.mockRestore();
+      }
     });
   });
 });

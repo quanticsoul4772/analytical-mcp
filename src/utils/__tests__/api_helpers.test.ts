@@ -1,37 +1,40 @@
-import { describe, it, expect, jest, beforeEach, afterEach } from '@jest/globals';
-import {
-  withRetry,
-  isRetryableError,
-  executeApiRequest,
-  RETRYABLE_STATUS_CODES,
-  checkApiKeys,
-} from '../api_helpers';
-import { APIError, ConfigurationError } from '../errors';
+import { describe, it, expect, jest, beforeEach } from '@jest/globals';
 
-// Define logger mock interface
-interface LoggerMock {
-  Logger: {
-    debug: jest.Mock;
-    info: jest.Mock;
-    warn: jest.Mock;
-    error: jest.Mock;
-    log: jest.Mock;
-  };
-}
+// Mocks must be registered with unstable_mockModule BEFORE the module under
+// test is dynamically imported (jest.mock is not hoisted under ESM).
+const mockLogger = {
+  debug: jest.fn(),
+  info: jest.fn(),
+  warn: jest.fn(),
+  error: jest.fn(),
+  log: jest.fn(),
+};
 
-// Define config mock interface
-interface ConfigMock {
-  config: {
-    EXA_API_KEY?: string;
-  };
-}
+const mockConfig: { EXA_API_KEY?: string } = {
+  EXA_API_KEY: undefined,
+};
 
-// Note: Tests now run against real implementations without mocking
+// Use import.meta.jest: it is bound to this file, so relative specifiers
+// resolve from this directory (the @jest/globals jest object is bound to
+// setupTests.ts under ESM and resolves relative paths from src/).
+const jestEsm = (import.meta as any).jest as typeof jest;
+// setupTests.ts already imported api_helpers.js (and its logger/config deps),
+// so the module registry must be reset for the mocks below to take effect.
+jestEsm.resetModules();
+jestEsm.unstable_mockModule('../logger.js', () => ({ Logger: mockLogger }));
+jestEsm.unstable_mockModule('../config.js', () => ({ config: mockConfig }));
+
+const { withRetry, isRetryableError, executeApiRequest, checkApiKeys } = await import(
+  '../api_helpers.js'
+);
+// The retry helpers operate on the legacy error shape (message, status, retryable, endpoint)
+const { LegacyAPIError: APIError, ConfigurationError } = await import('../errors.js');
 
 describe('API Helper Utilities', () => {
   // Clear mocks before each test
   beforeEach(() => {
     jest.clearAllMocks();
+    mockConfig.EXA_API_KEY = undefined;
   });
 
   describe('isRetryableError', () => {
@@ -105,6 +108,16 @@ describe('API Helper Utilities', () => {
       await expect(withRetry(fn, 2, 10, 20)).rejects.toThrow('Persistent failure');
       expect(fn).toHaveBeenCalledTimes(3); // initial + 2 retries
     });
+
+    it('should stop after one attempt when shouldRetry returns false', async () => {
+      const fn = jest.fn<() => Promise<string>>().mockRejectedValue(new Error('Fatal failure'));
+      const shouldRetry = jest.fn<(error: unknown) => boolean>().mockReturnValue(false);
+
+      await expect(withRetry(fn, 3, 10, 20, shouldRetry)).rejects.toThrow('Fatal failure');
+
+      expect(fn).toHaveBeenCalledTimes(1);
+      expect(shouldRetry).toHaveBeenCalledTimes(1);
+    });
   });
 
   describe('executeApiRequest', () => {
@@ -120,27 +133,64 @@ describe('API Helper Utilities', () => {
     it('should convert regular errors to APIError', async () => {
       const fn = jest.fn<() => Promise<string>>().mockRejectedValue(new Error('API failure'));
 
-      await expect(executeApiRequest(fn, { context: 'Test API' })).rejects.toThrow(APIError);
+      await expect(
+        executeApiRequest(fn, { context: 'Test API', maxRetries: 0 })
+      ).rejects.toThrow(APIError);
     });
 
     it('should preserve APIError properties', async () => {
       const originalError = new APIError('Original error', 429, true, 'test/api');
       const fn = jest.fn<() => Promise<string>>().mockRejectedValue(originalError);
 
-      await expect(executeApiRequest(fn)).rejects.toMatchObject({
+      await expect(
+        executeApiRequest(fn, { maxRetries: 1, initialDelay: 10, maxDelay: 20 })
+      ).rejects.toMatchObject({
         status: 429,
         retryable: true,
         endpoint: 'test/api',
       });
     });
 
+    it('should fail after exactly one attempt for non-retryable errors', async () => {
+      const fn = jest
+        .fn<() => Promise<string>>()
+        .mockRejectedValue(new APIError('Bad request', 400, false, 'test/api'));
+
+      // maxRetries allows 3 retries, but a non-retryable error must never use them
+      await expect(
+        executeApiRequest(fn, { maxRetries: 3, initialDelay: 10, maxDelay: 20 })
+      ).rejects.toMatchObject({
+        status: 400,
+        retryable: false,
+        endpoint: 'test/api',
+      });
+
+      expect(fn).toHaveBeenCalledTimes(1);
+    });
+
+    it('should still retry retryable errors until success', async () => {
+      const fn = jest
+        .fn<() => Promise<string>>()
+        .mockRejectedValueOnce(new APIError('Service unavailable', 503, true, 'test/api'))
+        .mockResolvedValue('recovered');
+
+      const result = await executeApiRequest(fn, {
+        maxRetries: 3,
+        initialDelay: 10,
+        maxDelay: 20,
+      });
+
+      expect(result).toBe('recovered');
+      expect(fn).toHaveBeenCalledTimes(2);
+    });
+
     it('should use custom retry check function', async () => {
       const customCheck = jest.fn<(error: any) => boolean>().mockReturnValue(false);
       const fn = jest.fn<() => Promise<string>>().mockRejectedValue(new Error('API failure'));
 
-      await expect(executeApiRequest(fn, { retryableCheck: customCheck })).rejects.toThrow(
-        APIError
-      );
+      await expect(
+        executeApiRequest(fn, { retryableCheck: customCheck, maxRetries: 0 })
+      ).rejects.toThrow(APIError);
 
       // In actual implementation, it can be called multiple times due to error handling
       expect(customCheck).toHaveBeenCalled();
@@ -148,63 +198,27 @@ describe('API Helper Utilities', () => {
   });
 
   describe('checkApiKeys', () => {
-    beforeEach(() => {
-      // Reset mocks before each test in this describe block
-      jest.resetModules();
-      jest.doMock('../config', () => ({
-        config: {
-          EXA_API_KEY: undefined,
-        },
-      }));
-      jest.doMock('../logger', () => ({
-        Logger: {
-          debug: jest.fn(),
-          info: jest.fn(),
-          warn: jest.fn(),
-          error: jest.fn(),
-          log: jest.fn(),
-        },
-      }));
-    });
-
     it('should not throw error when all required API keys are present', () => {
-      // Set up the mocks for this test
-      jest.doMock('../config', () => ({
-        config: {
-          EXA_API_KEY: 'valid-api-key',
-        },
-      }));
-
-      // Re-import the modules to use the new mocks
-      const { checkApiKeys } = require('../api_helpers');
-      const { Logger } = require('../logger');
+      mockConfig.EXA_API_KEY = 'valid-api-key';
 
       // Should not throw
       expect(() => checkApiKeys()).not.toThrow();
 
       // Should log success
-      expect(Logger.debug).toHaveBeenCalledWith('All required API keys validated successfully');
+      expect(mockLogger.debug).toHaveBeenCalledWith(
+        'All required API keys validated successfully'
+      );
     });
 
     it('should throw ConfigurationError when API key is missing', () => {
-      // Set up the mocks for this test
-      jest.doMock('../config', () => ({
-        config: {
-          EXA_API_KEY: undefined,
-        },
-      }));
-
-      // Re-import the modules to use the new mocks
-      const { checkApiKeys } = require('../api_helpers');
-      const { ConfigurationError } = require('../errors');
-      const { Logger } = require('../logger');
+      mockConfig.EXA_API_KEY = undefined;
 
       // Should throw with specific message
       expect(() => checkApiKeys()).toThrow(ConfigurationError);
       expect(() => checkApiKeys()).toThrow(/Missing required API key\(s\): EXA_API_KEY/);
 
       // Should log error
-      expect(Logger.error).toHaveBeenCalledWith(
+      expect(mockLogger.error).toHaveBeenCalledWith(
         expect.stringMatching(/Missing required API key\(s\): EXA_API_KEY/)
       );
     });

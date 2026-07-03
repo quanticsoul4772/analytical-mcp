@@ -46,6 +46,7 @@ export class FactExtractor {
     'showed',
     'demonstrated',
     'revealed',
+    'reported',
     'concluded',
     'found',
     'indicates',

@@ -98,8 +98,10 @@ export class RetryManager {
   ): Promise<RetryResult<T>> {
     let lastError: Error | undefined;
     let totalDelayMs = 0;
+    let attemptsMade = 0;
 
     for (let attempt = 1; attempt <= this.config.maxRetries + 1; attempt++) {
+      attemptsMade = attempt;
       try {
         Logger.debug(`Executing ${operationName}, attempt ${attempt}/${this.config.maxRetries + 1}`);
         
@@ -158,7 +160,7 @@ export class RetryManager {
     return {
       success: false,
       error: lastError || new Error('Unknown error during retry'),
-      attempts: this.config.maxRetries + 1,
+      attempts: attemptsMade,
       totalDelayMs
     };
   }
