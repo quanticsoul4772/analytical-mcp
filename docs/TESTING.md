@@ -1,232 +1,171 @@
-# Enhanced Error Handling Testing Documentation
+# Testing Guide
 
-## Overview
+## Test Layout
 
-This document describes the comprehensive testing approach for the enhanced error handling system implemented in the Analytical MCP Server. The testing suite ensures reliability, backward compatibility, and proper error recovery across all analytical tools.
+Jest (`jest.config.js`) defines two named projects:
 
-## Testing Architecture
+| Project | `testMatch` | Notes |
+|---|---|---|
+| `unit` | `src/**/__tests__/**/*.test.ts` | Offline, no network, no API key required |
+| `integration` | `src/integration/**/*.test.ts` | `maxWorkers: 1` (sequential); several suites need `EXA_API_KEY` |
 
-### 1. Core Error Infrastructure Tests
+Both projects share `preset: ts-jest/presets/default-esm`, ESM transform settings, and
+`setupFilesAfterEnv: src/setupTests.ts`.
 
-**File**: `src/utils/__tests__/enhanced-errors.test.ts`
+There is also `src/__tests__/server_protocol.test.ts` (in the `unit` project — it lives
+under `src/__tests__/`, which matches the unit `testMatch` glob), which connects a real
+`@modelcontextprotocol/sdk` `Client` to the real `McpServer` over an `InMemoryTransport`.
+No mocks, no subprocess — it registers the actual tools (`registerTools` from
+`src/tools/index.ts`) and calls them through the real MCP protocol layer, asserting all 9
+tools are listed with valid input schemas and that `analyze_dataset` /
+`hypothesis_testing` return correct results end-to-end.
 
-**Coverage**:
-- ✅ **ErrorCodes enum** - All 20 standardized error codes (ERR_1001-ERR_5003)
-- ✅ **Error Recovery Strategies** - Retry configurations with exponential backoff
-- ✅ **Enhanced Error Classes** - AnalyticalError, ValidationError, APIError, etc.
-- ✅ **Helper Functions** - createValidationError, createAPIError, isRecoverable
-- ✅ **Retry Logic** - executeWithRetry with backoff and timeout handling
-- ✅ **withErrorHandling Wrapper** - Tool wrapping with automatic error transformation
+## Running Tests
 
-**Key Test Categories**:
-- Error code organization and consistency
-- Recovery strategy configuration validation
-- Error class inheritance and instanceof checks
-- Context preservation and enhancement
-- Retry logic with timer advancement
-- Generic error transformation into AnalyticalErrors
+- `npm test` — runs the full jest suite (both projects). This goes through npm's
+  `pretest` lifecycle hook first, which runs `tools/check-api-keys.js` and **exits
+  non-zero if `EXA_API_KEY` is not set** — so bare `npm test` will refuse to run at
+  all without the key, even though most of the suite doesn't need it.
+- `npm run test:unit` — runs only the `unit` project directly via
+  `--selectProjects unit`. This does **not** go through `pretest` (npm only chains
+  `pre<name>` for the exact script name `test`), so it runs fine with no
+  `EXA_API_KEY` set. This is what CI runs.
+- `npm run test:integration` — runs only the `integration` project
+  (`--selectProjects integration`).
+- `npm run test:integration:no-api` — runs the `integration` project but excludes
+  `research_api_integration` via `--testPathIgnorePatterns`, for running the
+  integration suite without live Exa API calls.
+- `npm run test:coverage` — full suite with coverage (`collectCoverageFrom` excludes
+  `src/integration/**` and `*.d.ts`).
+- `npm run test:watch` — watch mode.
+- `npm run test:ci` — `--ci --coverage --maxWorkers=2 --silent`.
+- `npm run test:debug` — `--inspect-brk --expose-gc --runInBand`, for attaching a debugger.
+- `npm run test:optimized` — `--max-old-space-size=4096 --expose-gc --runInBand`.
+- `npm run test:leak-detection` — adds `--detectOpenHandles --detectLeaks
+  --logHeapUsage` on top of a larger heap. **Not run by default** — see below.
+- `npm run test:strict` — `typecheck:src` then `test`.
+- Single file: `npm test -- path/to/file.test.ts`
+- Single test name: `npm test -- -t "test name pattern"`
+- Shell wrapper: `tools/test-runner.sh [unit|integration|integration:no-api|all]`
 
-### 2. Legacy Compatibility Tests
+## Leak diagnostics are off by default
 
-**File**: `src/utils/__tests__/errors.test.ts` (Updated)
+`jest.config.js` sets `detectOpenHandles: false`, `detectLeaks: false`,
+`logHeapUsage: false`, and `forceExit: true`. These were previously on by default and
+hung CI for 30+ minutes — `detectLeaks`/`detectOpenHandles` multiply runtime and don't
+play well with this codebase's interval timers (cache cleanup, rate limiter). `forceExit`
+is required because those interval timers keep the Node process alive after tests
+finish. Run diagnostics on demand with `npm run test:leak-detection` when actually
+chasing a leak, not routinely.
 
-**Coverage**:
-- ✅ **Backward Compatibility** - Legacy error classes still work
-- ✅ **Type Guards** - isErrorType function works with both legacy and enhanced errors
-- ✅ **API Consistency** - Existing tool integrations remain functional
+Test timeout: `jest.config.js` sets `testTimeout: 30000` (30s) at the top level, but
+`src/setupTests.ts` calls `jest.setTimeout(60000)`, and both `unit` and `integration`
+projects load that file via `setupFilesAfterEnv` — so the effective per-test timeout is
+60s everywhere.
 
-### 3. Tool Integration Tests
+## `EXA_API_KEY` and tests
 
-**File**: `src/utils/__tests__/tool-integration.test.ts`
+- `npm test` (bare) is blocked entirely without the key, via `pretest`.
+- `npm run test:unit` is unaffected — no unit test requires the key.
+- Integration test files that call the live Exa API check
+  `process.env.EXA_API_KEY` themselves and skip (with `Logger.warn('Skipping test:
+  EXA_API_KEY not found in environment')`) rather than fail, e.g.
+  `src/integration/market_analysis_workflow.test.ts` and
+  `src/integration/research_api_integration.test.ts`.
+- `src/setupTests.ts` also loads `.env.test` (gitignored — put your local key there)
+  via `dotenv`'s `config({ path: '.env.test' })`, and calls `checkApiKeys()` in a
+  `beforeAll`, but only logs a warning on failure — it does not fail the run.
 
-**Coverage**:
-- ✅ **Real Tool Simulation** - Complex analytical tools with multiple error scenarios
-- ✅ **Retry Behavior** - API rate limiting with automatic retry and backoff
-- ✅ **Error Categorization** - Generic errors transformed into appropriate AnalyticalError types
-- ✅ **Context Preservation** - Tool names, parameters, and debugging information
-- ✅ **Mixed Error Scenarios** - Tools throwing different error types in sequence
-- ✅ **Large Argument Handling** - Graceful handling of tools with many parameters
+Net effect: only `npm test` and `npm run test:integration` (for the Exa-dependent
+suites) actually require `EXA_API_KEY`. `npm run test:unit`, `typecheck`, `lint`,
+`build`, and `smoke` do not.
 
-**Sample Tools Tested**:
-- `analyzeDataset` - Data validation and processing errors
-- `apiTool` - Rate limiting and timeout handling
-- `complexAnalyticalTool` - Multi-step validation and processing
+## Mocking modules under ESM: `jest.mock()` does not work here
 
-### 4. Performance Monitoring Tests
+This project runs Jest against native ESM (`"type": "module"` +
+`ts-jest/presets/default-esm`, launched with `node --experimental-vm-modules`).
+Under ESM, `jest.mock()` (the CommonJS-era API) is a silent no-op — the module is
+imported unmocked and the test passes or fails against the real implementation with no
+error pointing at the mock. If a test's `jest.mock()` call appears to do nothing, that
+is this issue, not a bug in the test itself.
 
-**File**: `src/utils/__tests__/performance-monitoring.test.ts`
+The working pattern is `import.meta.jest.unstable_mockModule(...)`, called **before** a
+dynamic `await import(...)` of the module under test. Two real examples from this repo:
 
-**Coverage**:
-- ✅ **Metrics Collection** - Execution time, memory usage, cache hit rates
-- ✅ **Health Status Monitoring** - Healthy/Warning/Critical status based on performance
-- ✅ **Error Rate Tracking** - Success/failure ratios and trends
-- ✅ **Performance Degradation Detection** - Trend analysis over time
-- ✅ **Memory Usage Tracking** - Memory-intensive operation monitoring
+`src/utils/__tests__/config.test.ts`:
+```ts
+import.meta.jest.unstable_mockModule('dotenv', () => {
+  const configFn = jest.fn(() => ({ parsed: {} }));
+  return {
+    default: { config: configFn },
+    config: configFn,
+  };
+});
 
-**Mock ToolMetrics Interface**:
-```typescript
-interface ToolMetrics {
-  executionTime: number;
-  memoryUsage: number;
-  cacheHitRate: number;
-  errorCount?: number;
-  retryCount?: number;
+// ... later, inside a helper used by each test:
+async function freshConfig(): Promise<typeof import('../config.js')> {
+  jest.resetModules();
+  return import('../config.js');
 }
 ```
 
-### 5. Migration Example Tests
+`src/tools/__tests__/research_verification.test.ts`:
+```ts
+const searchMock = jest.fn<(query: unknown) => Promise<SearchResponse>>();
 
-**File**: `src/utils/__tests__/example-tool-migration.test.ts`
+// import.meta.jest is bound to this file, so relative specifiers resolve from
+// this directory's `src/tools/__tests__/`.
+const jestEsm = (import.meta as any).jest as typeof jest;
 
-**Coverage**:
-- ✅ **Before/After Comparison** - Original vs migrated tool behavior
-- ✅ **Enhanced Error Context** - Rich debugging information
-- ✅ **Functionality Preservation** - Same results with better error handling
-- ✅ **Structured Error Information** - Consistent error formats across tools
-
-## Error Code Standards
-
-### Validation Errors (1xxx)
-- `ERR_1001` - Invalid Input
-- `ERR_1002` - Missing Required Parameter
-- `ERR_1003` - Invalid Data Format
-- `ERR_1004` - Invalid Parameter Type
-- `ERR_1005` - Parameter Out of Range
-
-### API Errors (2xxx)
-- `ERR_2001` - API Rate Limit
-- `ERR_2002` - API Authentication Failed
-- `ERR_2003` - API Timeout
-- `ERR_2004` - API Service Unavailable
-- `ERR_2005` - API Invalid Response
-
-### Processing Errors (3xxx)
-- `ERR_3001` - Calculation Failed
-- `ERR_3002` - Memory Limit
-- `ERR_3003` - Timeout
-- `ERR_3004` - Insufficient Data
-- `ERR_3005` - Algorithm Convergence Failed
-
-### Configuration Errors (4xxx)
-- `ERR_4001` - Missing Configuration
-- `ERR_4002` - Invalid Configuration
-- `ERR_4003` - Configuration Load Failed
-
-### Tool Execution Errors (5xxx)
-- `ERR_5001` - Tool Not Found
-- `ERR_5002` - Tool Execution Failed
-- `ERR_5003` - Tool Dependency Missing
-
-## Recovery Strategies
-
-### Automatic Retry Configuration
-```typescript
-const errorRecoveryStrategies = {
-  [ErrorCodes.API_RATE_LIMIT]: {
-    retry: { times: 3, delay: 1000, backoff: 2 },
-    cache: true
+jestEsm.unstable_mockModule('../../utils/exa_research.js', () => ({
+  exaResearch: {
+    search: searchMock,
+    extractKeyFacts: jest.fn(),
+    validateData: jest.fn(),
   },
-  [ErrorCodes.API_TIMEOUT]: {
-    retry: { times: 2, delay: 500, backoff: 1.5 }
-  },
-  [ErrorCodes.API_SERVICE_UNAVAILABLE]: {
-    retry: { times: 3, delay: 2000, backoff: 2 }
-  }
-};
+  registerExaResearch: jest.fn(),
+}));
+
+const { researchVerification } = await import('../research_verification.js');
 ```
 
-## Tool Migration Pattern
+Key points:
+- Register the mock with `import.meta.jest.unstable_mockModule(specifier, factory)`
+  (or via `(import.meta as any).jest`) — a relative specifier resolves from the test
+  file's own directory.
+- Only *after* that, `await import(...)` the module under test (top-level await, or
+  inside a `beforeEach`/helper combined with `jest.resetModules()` if you need a fresh
+  module instance per test, as `config.test.ts` does).
+- Other real examples of this pattern: `src/utils/__tests__/metrics_server_content_limit.test.ts`,
+  `src/utils/__tests__/tool-wrapper.test.ts`, `src/utils/__tests__/advanced_ner.test.ts`,
+  `src/utils/__tests__/api_helpers.edge.test.ts`, `src/utils/__tests__/api_helpers.test.ts`,
+  `src/utils/__tests__/api_resilience.test.ts`.
 
-### Before (Legacy)
-```typescript
-export async function analyzeDataset(data: any[], type: string) {
-  if (!data || data.length === 0) {
-    throw new Error('Data array is required');
-  }
-  // ... processing
-}
-```
+## Protocol smoke test (`npm run smoke`)
 
-### After (Enhanced)
-```typescript
-async function analyzeDatasetInternal(data: any[], type: string) {
-  if (!data || data.length === 0) {
-    throw createValidationError(
-      'Data array is required and must not be empty',
-      { data, type },
-      'analyze_dataset'
-    );
-  }
-  // ... processing
-}
+`npm run smoke` runs `npm run build` and then `node scripts/smoke.js`. Unlike the jest
+suite, this spawns the actual built server (`build/index.js`) as a **real child
+process** and speaks real JSON-RPC 2.0 over its stdio, the same way an MCP client
+(e.g. Claude Desktop) would. It:
 
-export const analyzeDataset = withErrorHandling(
-  'analyze_dataset',
-  analyzeDatasetInternal
-);
-```
+1. Sends `initialize` and asserts a valid response with `serverInfo.name`.
+2. Sends `tools/list` and asserts at least 9 tools are returned.
+3. Calls `tools/call` for `analyze_dataset` with a known dataset and asserts the
+   response text contains `Mean: 5.00`.
+4. Calls `tools/call` for `analyze_dataset` with invalid input (`data: 'not an
+   array'`) and asserts it's rejected cleanly (an error or `isError: true`), not a
+   crash.
+5. Fails loudly if any stdout line from the server isn't valid JSON — this is a
+   regression check for the dotenv-banner-corrupts-stdio bug (see
+   [TROUBLESHOOTING.md](./TROUBLESHOOTING.md)).
 
-## Test Execution
+The server is spawned with `METRICS_ENABLED: 'false'` so the smoke test doesn't bind
+the metrics HTTP port as a side effect. `smoke` is also the last step of CI
+(`.github/workflows/ci.yml`), after typecheck, lint, and `test:unit`.
 
-### Running All Error Tests
-```bash
-npm test -- --testPathPattern="errors"
-```
+## CI
 
-### Running Specific Test Suites
-```bash
-# Enhanced error infrastructure
-npm test src/utils/__tests__/enhanced-errors.test.ts
-
-# Tool integration tests
-npm test src/utils/__tests__/tool-integration.test.ts
-
-# Performance monitoring
-npm test src/utils/__tests__/performance-monitoring.test.ts
-
-# Migration examples
-npm test src/utils/__tests__/example-tool-migration.test.ts
-```
-
-### Test Coverage Expectations
-- **Error Infrastructure**: 100% coverage of error classes and helper functions
-- **Retry Logic**: Complete coverage of exponential backoff and timeout scenarios  
-- **Tool Integration**: Coverage of realistic error scenarios across tool types
-- **Performance Monitoring**: Coverage of metrics collection and health status logic
-
-## Benefits Validated by Tests
-
-### 1. Debugging Enhancement
-- **Clear Error Codes**: ERR_1001-ERR_5003 for easy categorization
-- **Rich Context**: Tool names, parameters, and debugging information
-- **Structured Errors**: Consistent format across all analytical tools
-
-### 2. Reliability Improvement  
-- **Automatic Recovery**: Rate limiting and timeout retry with exponential backoff
-- **Error Context Preservation**: Full debugging information maintained through error chains
-- **Graceful Degradation**: Non-recoverable errors fail fast, recoverable errors retry
-
-### 3. Monitoring & Observability
-- **Performance Metrics**: Execution time, memory usage, cache hit rates
-- **Health Status**: Automated healthy/warning/critical status based on metrics
-- **Trend Analysis**: Performance degradation detection over time
-
-### 4. Developer Experience
-- **Backward Compatibility**: Existing tools continue to work without changes
-- **Migration Path**: Clear pattern for enhancing existing tools
-- **Type Safety**: Full TypeScript support with proper error typing
-
-## Future Test Enhancements
-
-### Additional Test Scenarios
-- **Load Testing**: High-concurrency error handling behavior
-- **Memory Leak Detection**: Long-running retry scenarios
-- **Network Simulation**: Realistic API failure and recovery patterns
-- **Tool Chaining**: Error propagation through analytical tool pipelines
-
-### Monitoring Integration
-- **Real-time Dashboards**: Performance metrics visualization
-- **Alert Thresholds**: Automated notifications for critical error rates
-- **Trend Analytics**: Machine learning-based performance anomaly detection
-
-This comprehensive testing approach ensures the enhanced error handling system provides robust, reliable, and maintainable error management across all analytical tools while maintaining full backward compatibility with existing implementations.
+`.github/workflows/ci.yml` runs on push/PR to `main`, on a matrix of
+`{ubuntu-latest, windows-latest} × {Node 20.x, 22.x}`. Steps: `npm ci`, `npm run
+typecheck`, `npm run lint`, `npm run test:unit`, `npm run smoke`. It does not run
+`test:integration` (no `EXA_API_KEY` is configured in CI).

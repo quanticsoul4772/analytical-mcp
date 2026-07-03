@@ -38,8 +38,6 @@
     "cache:stats": "node tools/cache-manager.js stats",
     "cache:clear": "node tools/cache-manager.js clear",
     "cache:preload": "node tools/cache-manager.js preload",
-    "cache:demo": "node examples/cache_performance_demo.js",
-    "nlp:demo": "node examples/advanced_nlp_demo.js",
     "smoke": "npm run build && node scripts/smoke.js"
   },
   "dependencies": {

@@ -8,10 +8,8 @@ This directory contains documentation for the Analytical MCP Server.
 - [API_REFERENCE.md](./API_REFERENCE.md) - API reference for all MCP tools
 - [ARCHITECTURE.md](./ARCHITECTURE.md) - System architecture and components
 - [DEVELOPMENT.md](./DEVELOPMENT.md) - Development setup and guidelines
+- [TESTING.md](./TESTING.md) - Test layout, running tests, ESM mocking pattern
 - [TROUBLESHOOTING.md](./TROUBLESHOOTING.md) - Issue resolution guide
-
-### Development Plans
-- [development-plans/](./development-plans/) - Future development plans and feature roadmaps
 
 ## External Resources
 

@@ -19,30 +19,24 @@ const salesData2023Q4 = [
 async function performSalesAnalysis() {
   try {
     // Descriptive Analysis for Q3
-    const q3Analysis = await analyzeDataset({
-      data: salesData2023Q3,
-      analysisType: 'stats'
-    });
+    const q3Analysis = await analyzeDataset(salesData2023Q3, 'stats');
     console.log("Q3 Sales Analysis:", q3Analysis);
 
     // Descriptive Analysis for Q4
-    const q4Analysis = await analyzeDataset({
-      data: salesData2023Q4,
-      analysisType: 'stats'
-    });
+    const q4Analysis = await analyzeDataset(salesData2023Q4, 'stats');
     console.log("Q4 Sales Analysis:", q4Analysis);
 
     // Hypothesis Testing: Compare Revenue between Q3 and Q4
-    const revenueTest = await hypothesisTesting({
-      testType: 't_test_independent',
-      data: [
+    const revenueTest = await hypothesisTesting(
+      't_test_independent',
+      [
         salesData2023Q3.map(item => item.revenue),
         salesData2023Q4.map(item => item.revenue)
       ],
-      variables: ['Q3 Revenue', 'Q4 Revenue'],
-      alpha: 0.05,
-      alternativeHypothesis: 'two_sided'
-    });
+      ['Q3 Revenue', 'Q4 Revenue'],
+      0.05,
+      'two-sided'
+    );
     console.log("Revenue Comparison Test:", revenueTest);
 
     // Visualization of Sales Data

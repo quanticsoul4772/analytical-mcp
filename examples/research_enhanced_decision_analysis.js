@@ -144,57 +144,40 @@ async function researchEnhancedDecisionAnalysis() {
     
     // Step 3: Prepare decision analysis input
     console.log("\n🔍 Step 3: Preparing decision analysis");
-    
-    // Format evaluations for decision analysis
-    const evaluations = [];
-    
-    investmentOptions.forEach(option => {
-      decisionCriteria.forEach(criterion => {
-        evaluations.push({
-          option: option,
-          criterion: criterion.name,
-          score: optionScores[option][criterion.name]
-        });
-      });
-    });
-    
+
+    // Build a scores matrix: one row per option, one 0-10 score per criterion,
+    // in the shape required by decisionAnalysis (scores[i][j] = option i vs criterion j).
+    const criteriaNames = decisionCriteria.map(c => c.name);
+    const scores = investmentOptions.map(option =>
+      criteriaNames.map(name => optionScores[option][name])
+    );
+
     // Step 4: Perform decision analysis
     console.log("\n🔍 Step 4: Performing decision analysis");
-    
+
     const decisionResult = await decisionAnalysis({
-      options: investmentOptions.map(option => ({
-        id: option,
-        name: option
-      })),
-      criteria: decisionCriteria.map(c => ({
-        id: c.name,
-        name: c.name,
-        weight: c.weight,
-        type: c.type
-      })),
-      evaluations: evaluations,
-      analysisType: "weighted-sum",
-      sensitivityAnalysis: true,
-      confidenceScores: enhancedOptions.reduce((obj, option) => {
-        obj[option.name] = option.confidence;
-        return obj;
-      }, {})
+      options: investmentOptions,
+      criteria: criteriaNames,
+      scores: scores,
+      weights: decisionCriteria.map(c => c.weight)
     });
-    
+
     // Step 5: Output enhanced decision results
     console.log("\n🔍 Step 5: Enhanced decision results");
-    
-    // Get top option
+
+    // Get top option from the "**1. <option>** (Score: ...)" line in the
+    // "Ranked Options" section of the decisionAnalysis report.
     const decisionLines = decisionResult.split('\n');
     let topOption = "";
-    
+
     for (const line of decisionLines) {
-      if (line.includes("Best Option:")) {
-        topOption = line.split("Best Option:")[1].trim();
+      const match = line.match(/^\*\*1\.\s+(.+?)\*\*\s+\(Score:/);
+      if (match) {
+        topOption = match[1].trim();
         break;
       }
     }
-    
+
     console.log(`\nDecision Result: ${topOption}`);
     
     // Show research insights for top option

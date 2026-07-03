@@ -33,6 +33,9 @@ async function performMarketStrategyAnalysis() {
     console.log("Alternative Strategy Perspectives:", strategicPerspectives);
 
     // Decision framework incorporating different perspectives
+    // scores[i][j] rates option i against criterion j on a 0-10 scale, where a
+    // higher score is always more favorable (e.g. for "Risk Level", a high
+    // score means the option carries low risk).
     const strategyDecision = await decisionAnalysis({
       options: [
         'Immediate European Expansion',
@@ -47,6 +50,13 @@ async function performMarketStrategyAnalysis() {
         'Resource Requirements',
         'Long-term Strategic Alignment',
         'Competitive Positioning'
+      ],
+      scores: [
+        [9, 3, 3, 8, 8], // Immediate European Expansion
+        [7, 6, 5, 7, 6], // Phased Market Entry
+        [7, 7, 6, 6, 7], // Strategic Partnership
+        [5, 9, 8, 5, 4], // Market Research First
+        [2, 9, 9, 2, 2]  // Defer Expansion
       ],
       weights: [0.3, 0.2, 0.2, 0.15, 0.15]
     });

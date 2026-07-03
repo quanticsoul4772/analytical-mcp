@@ -1,70 +1,83 @@
 # Development Guide
 
 ## Prerequisites
-- Node.js (v20+)
+- Node.js >= 20.0.0 (see `engines` in `package.json`; CI runs 20.x and 22.x)
 - npm
-- EXA_API_KEY environment variable (for research features)
+- `EXA_API_KEY` — only required for research features and the integration test
+  suite. Not needed to build, lint, typecheck, or run unit tests.
 
 ## Build & Development Commands
 
 ### Core Commands
-- **Build**: `npm run build`
-- **Watch mode**: `npm run watch`
+- **Build**: `npm run build` (`tsc`)
+- **Watch mode**: `npm run watch` (`tsc --watch`)
 - **Run server**: `node build/index.js`
-- **Inspect server**: `npx @modelcontextprotocol/inspector build/index.js`
+- **Inspect server**: `npm run inspector` (`npx @modelcontextprotocol/inspector build/index.js`)
+- **Protocol smoke test**: `npm run smoke` — builds, then spawns `build/index.js` as a
+  real subprocess and speaks JSON-RPC over stdio (see `scripts/smoke.js` and
+  [TESTING.md](./TESTING.md)).
 
 ### Code Quality
-- **Lint**: `npm run lint` or fix with `npm run lint:fix`
-- **Format**: `npm run format` or check with `npm run format:check`
-- **TypeCheck**: `npm run typecheck` (all), `npm run typecheck:src` (source only)
+- **Lint**: `npm run lint` (`eslint src/**/*.ts`) or fix with `npm run lint:fix`
+  (`eslint . --ext .ts --fix`)
+- **Format**: `npm run format` (`prettier --write "src/**/*.ts"`) or check with
+  `npm run format:check`
+- **TypeCheck**: `npm run typecheck` (`tsc --noEmit`, whole repo including tests),
+  `npm run typecheck:src` (`tsc --project tsconfig.test.json`, source only, excludes
+  `src/**/__tests__/**`)
 
 ### Testing
-- **Test**: `npm run test` or with coverage `npm run test:coverage`
-- **Test single file**: `npm test -- path/to/test.ts`
-- **Test specific test**: `npm test -- -t "test name pattern"`
-- **Debug test**: `npm run test:debug`
-- **API tests**: `npm run test:api` or `npm run test:integration`
+See [TESTING.md](./TESTING.md) for the full picture (ESM mocking pattern, jest
+project split, what requires `EXA_API_KEY`). Quick reference:
+- **Unit tests**: `npm run test:unit`
+- **All tests** (unit + integration; runs `pretest` → `tools/check-api-keys.js`,
+  which exits non-zero without `EXA_API_KEY`): `npm test`
+- **Coverage**: `npm run test:coverage`
+- **Single file**: `npm test -- path/to/test.ts`
+- **Single test name**: `npm test -- -t "test name pattern"`
+- **Debug**: `npm run test:debug`
 
 ### Cache Management
-- **Cache stats**: `npm run cache:stats`
+- **Cache stats**: `npm run cache:stats` (`node tools/cache-manager.js stats`)
 - **Clear cache**: `npm run cache:clear`
 - **Preload cache**: `npm run cache:preload`
+- **Cache performance demo**: `npm run cache:demo` (`node examples/cache_performance_demo.js`)
 
-### Utility Scripts
-- **API key validation**: `node tools/check-api-keys.js`
-- **Cache management**: `node tools/cache-manager.js`
-- All utility scripts use Logger integration for output formatting
+### Other Utility Scripts
+- **API key validation**: `npm run check-api-keys` (`node tools/check-api-keys.js`) —
+  also runs automatically as the `pretest` hook before bare `npm test`.
+- **NLP demo**: `npm run nlp:demo` (`node examples/advanced_nlp_demo.js`)
+- **Shell test wrapper**: `tools/test-runner.sh [unit|integration|integration:no-api|all]`
+  — a thin wrapper over the npm test scripts above.
+- **Metrics smoke check**: `node tools/test_metrics.js` — starts the server with
+  `METRICS_ENABLED=true` and probes the metrics HTTP endpoint.
 
 ## Code Style Guidelines
 
 ### TypeScript Standards
 - Use TypeScript with strict typing and explicit function return types
-- Organize related functionality in modules within tools directory
+- Organize related functionality in modules within the `tools` directory
 - Use Zod for input validation and type safety
+- ES modules only (`import`/`export`); `package.json` sets `"type": "module"`
 
-### Formatting
+### Formatting (`.prettierrc`)
 - 100 character line length
 - 2-space indentation
 - Single quotes
-- Trailing commas
-- Use ES modules (import/export)
+- Trailing commas (ES5 style)
+- Semicolons required
 
 ### Code Quality
 - Functions should have max 50 lines
 - Complexity score under 10
-- CamelCase naming for variables/functions
+- camelCase naming for variables/functions
 - JSDoc comments for complex logic
-- Error handling with try/catch and error messages
-- Use Logger class for all output (no console.log statements)
-- Utility scripts integrate with Logger system for consistent formatting
-
-### Testing Standards
-- Jest with 90s timeout for API calls
-- Test setup in src/setupTests.ts
-- 90%+ test coverage target
+- Use the `Logger` class for all output — no `console.log`/`console.error` in
+  source (`eslint` flags `no-console`; stray stdout writes corrupt the MCP
+  stdio JSON-RPC channel, see [TROUBLESHOOTING.md](./TROUBLESHOOTING.md))
 
 ### Mathematical Operations
-- Use mathjs library conventions for mathematical operations
+- Use `mathjs` library conventions for mathematical operations
 
 ## Development Workflow
 
@@ -72,38 +85,32 @@
 1. Fork the repository
 2. Clone your fork: `git clone <your-fork-url>`
 3. Install dependencies: `npm install`
-4. Copy `.env.example` to `.env` and add your EXA_API_KEY
+4. Copy `.env.example` to `.env` and add your `EXA_API_KEY` if you plan to work
+   on research/NLP features or run the integration suite
 
 ### Development Process
 1. Create a feature branch: `git checkout -b feature/your-feature-name`
 2. Make your changes
-3. Run tests: `npm test`
+3. Run unit tests: `npm run test:unit`
 4. Lint and format: `npm run lint && npm run format`
-5. Build: `npm run build`
+5. Typecheck: `npm run typecheck`
+6. Build: `npm run build`
 
 ### Commit Guidelines
 - Use commit messages that describe changes
 - Follow conventional commit format
-- Ensure all tests pass before committing
+- Ensure `npm run typecheck`, `npm run lint`, and `npm run test:unit` pass before committing
 
 ### Pull Request Process
 1. Ensure code is documented
-2. Update README.md if needed
-3. Add tests for new features
-4. Submit pull request with description
+2. Add tests for new features
+3. Submit pull request with description — CI (`.github/workflows/ci.yml`) runs
+   typecheck, lint, `test:unit`, and `smoke` on an ubuntu/windows × Node 20/22 matrix
 
 ## Reporting Issues
 - Use GitHub Issues
-- Provide description
-- Include reproduction steps
-- Share relevant error logs
+- Provide description, reproduction steps, and relevant error logs
 
 ## Feature Requests
-- Open an issue describing the proposed feature
-- Explain the use case and potential implementation
+- Open an issue describing the proposed feature and use case
 - Discuss with maintainers before starting work
-
-## Code of Conduct
-- Be respectful and provide constructive feedback
-- Collaborate openly and help others learn
-- Follow the established coding standards and practices
