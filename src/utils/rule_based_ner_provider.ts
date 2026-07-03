@@ -283,7 +283,10 @@ export class RuleBasedNERProvider {
       [EntityType.TIME, /\b\d{1,2}:\d{2}(\s*(AM|PM))?\b/gi],
       [EntityType.MONEY, /\$[\d,]+(\.\d{2})?\b/g],
       [EntityType.PERCENT, /\b\d+\.?\d*%\b/g],
-      [EntityType.ORGANIZATION, /\b[A-Z][a-zA-Z\s&]+(Inc|Corp|LLC|Ltd|Company|Group|University|College|Hospital|School|Bank|Trust|Agency|Department|Bureau|Office|Commission|Authority|Board|Council|Institute|Foundation|Association|Society|Union|Federation|League)\b/g]
+      // Consecutive capitalized words ending in an organization suffix.
+      // The word-by-word form (rather than a single [a-zA-Z\s&]+ run) keeps
+      // the match from swallowing whole clauses of lowercase words.
+      [EntityType.ORGANIZATION, /\b(?:[A-Z][a-zA-Z&]*\s+)+(?:Inc|Corp|LLC|Ltd|Company|Group|University|College|Hospital|School|Bank|Trust|Agency|Department|Bureau|Office|Commission|Authority|Board|Council|Institute|Foundation|Association|Society|Union|Federation|League)\b/g]
     ]);
   }
 

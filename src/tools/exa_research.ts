@@ -78,13 +78,14 @@ export class EnhancedFactExtractor {
     }
   }
 
-  // Preprocess text to prepare for fact extraction
+  // Preprocess text to prepare for fact extraction.
+  // Case is preserved: lowercasing would break named entity recognition,
+  // which relies on capitalization to find proper nouns.
   private preprocessText(text: string): string {
     return text
       .replace(/\s+/g, ' ')  // Normalize whitespace
       .replace(/[^\w\s.,!?]/g, '')  // Remove special characters
-      .trim()
-      .toLowerCase();
+      .trim();
   }
 
   // Named Entity Extraction using NLP Toolkit

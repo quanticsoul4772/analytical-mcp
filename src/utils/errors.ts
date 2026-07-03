@@ -226,33 +226,38 @@ export function sleep(ms: number): Promise<void> {
 
 /**
  * Execute function with retry logic based on error recovery strategies
+ *
+ * The recovery strategy is resolved from the explicit `errorCode` when given,
+ * otherwise dynamically from the code of the AnalyticalError that was thrown.
+ * An error is only retried when it is explicitly marked recoverable AND a
+ * retry strategy exists for its code.
  */
 export async function executeWithRetry<T>(
   fn: () => Promise<T>,
   errorCode?: string
 ): Promise<T> {
-  let lastError: any;
-  const strategy = errorCode ? errorRecoveryStrategies[errorCode] : undefined;
-  const maxRetries = strategy?.retry?.times || 0;
-  const baseDelay = strategy?.retry?.delay || 1000;
-  const backoff = strategy?.retry?.backoff || 1;
+  let attempt = 0;
 
-  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+  for (;;) {
     try {
       return await fn();
     } catch (error) {
-      lastError = error;
-      
-      if (attempt === maxRetries || !isRecoverable(error)) {
+      const code =
+        errorCode ?? (error instanceof AnalyticalError ? error.code : undefined);
+      const strategy = code ? errorRecoveryStrategies[code] : undefined;
+      const maxRetries = strategy?.retry?.times ?? 0;
+      const retryAllowed = error instanceof AnalyticalError && error.recoverable;
+
+      if (!retryAllowed || attempt >= maxRetries) {
         throw error;
       }
-      
-      const delay = baseDelay * Math.pow(backoff, attempt);
-      await sleep(delay);
+
+      const baseDelay = strategy?.retry?.delay ?? 1000;
+      const backoff = strategy?.retry?.backoff ?? 1;
+      await sleep(baseDelay * Math.pow(backoff, attempt));
+      attempt++;
     }
   }
-  
-  throw lastError;
 }
 
 /**
@@ -263,37 +268,39 @@ export function withErrorHandling<T extends any[], R>(
   fn: (...args: T) => Promise<R>
 ) {
   return async (...args: T): Promise<R> => {
-    try {
-      return await executeWithRetry(async () => {
+    // Errors are normalized to AnalyticalErrors inside the retried operation so
+    // that executeWithRetry can resolve the recovery strategy from the error code.
+    return executeWithRetry(async () => {
+      try {
         return await fn(...args);
-      });
-    } catch (error: any) {
-      // Transform generic errors into AnalyticalErrors with proper context
-      if (!(error instanceof AnalyticalError)) {
-        const context = { 
-          toolName, 
-          originalError: error.message || String(error),
-          args: args.length <= 5 ? args : '[large args array]'
-        };
-        
-        // Determine error type based on error characteristics
-        if (error.message?.includes('validation') || error.message?.includes('invalid')) {
-          throw createValidationError(error.message || 'Validation failed', context, toolName);
-        } else if (error.message?.includes('API') || error.message?.includes('fetch')) {
-          throw createAPIError(error.message || 'API request failed', ErrorCodes.API_SERVICE_UNAVAILABLE, context, toolName);
-        } else {
-          throw createDataProcessingError(error.message || 'Processing failed', context, toolName);
+      } catch (error: any) {
+        // Transform generic errors into AnalyticalErrors with proper context
+        if (!(error instanceof AnalyticalError)) {
+          const context = {
+            toolName,
+            originalError: error.message || String(error),
+            args: args.length <= 5 ? args : '[large args array]'
+          };
+
+          // Determine error type based on error characteristics
+          if (error.message?.includes('validation') || error.message?.includes('invalid')) {
+            throw createValidationError(error.message || 'Validation failed', context, toolName);
+          } else if (error.message?.includes('API') || error.message?.includes('fetch')) {
+            throw createAPIError(error.message || 'API request failed', ErrorCodes.API_SERVICE_UNAVAILABLE, context, toolName);
+          } else {
+            throw createDataProcessingError(error.message || 'Processing failed', context, toolName);
+          }
         }
+
+        // Re-throw AnalyticalErrors with tool name context if not already set
+        if (!error.context?.toolName) {
+          error.context = { ...error.context, toolName };
+          error.message = `[${toolName}] ${error.message.replace(/^\[.*?\]\s*/, '')}`;
+        }
+
+        throw error;
       }
-      
-      // Re-throw AnalyticalErrors with tool name context if not already set
-      if (!error.context?.toolName) {
-        error.context = { ...error.context, toolName };
-        error.message = `[${toolName}] ${error.message.replace(/^\[.*?\]\s*/, '')}`;
-      }
-      
-      throw error;
-    }
+    });
   };
 }
 

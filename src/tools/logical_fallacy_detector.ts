@@ -278,8 +278,10 @@ export const logicalFallacyDetector = async (
   includeExplanations: boolean = true,
   includeExamples: boolean = true
 ): Promise<string> => {
-  // Handle both parameter styles (object and individual parameters)
-  if (typeof textOrParams === 'object') {
+  // Handle both parameter styles (object and individual parameters).
+  // Note: typeof null === 'object', so exclude null explicitly — it must reach
+  // detectFallacies, which rejects empty input with a ValidationError.
+  if (textOrParams !== null && typeof textOrParams === 'object') {
     return detectFallacies(
       textOrParams.text,
       textOrParams.confidenceThreshold ?? 0.5,
@@ -288,8 +290,10 @@ export const logicalFallacyDetector = async (
       textOrParams.includeExamples ?? true
     );
   } else {
+    // null lands here (excluded from the object branch above) and is rejected
+    // by detectFallacies' input validation; the cast keeps that path open.
     return detectFallacies(
-      textOrParams,
+      textOrParams as string,
       confidenceThreshold,
       categories,
       includeExplanations,

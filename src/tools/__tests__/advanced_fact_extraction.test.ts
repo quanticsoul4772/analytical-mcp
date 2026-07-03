@@ -17,7 +17,7 @@ describe('Enhanced Fact Extractor', () => {
 
     extraction.facts.forEach(fact => {
       expect(fact.fact).toBeTruthy();
-      expect(fact.type).toMatch(/named_entity|relationship|statement/);
+      expect(fact.type).toMatch(/^(named_entity|relationship|statement|sentiment)$/);
       expect(fact.confidence).toBeGreaterThan(0);
       expect(fact.confidence).toBeLessThanOrEqual(1);
     });

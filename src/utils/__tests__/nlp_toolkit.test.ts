@@ -51,6 +51,7 @@ describe('NLP Toolkit', () => {
       const lemma = nlpToolkit.lemmatize(word, type as any);
       expect(lemma).toBeDefined();
       expect(lemma.length).toBeGreaterThan(0);
+      expect(lemma).toBe(expected);
     });
   });
 

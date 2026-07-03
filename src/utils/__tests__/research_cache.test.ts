@@ -1,5 +1,5 @@
 import { describe, it, expect, jest, beforeEach, afterEach } from '@jest/globals';
-import { researchCache, ResearchCacheNamespace } from '../research_cache.js';
+import { ResearchCache, ResearchCacheNamespace } from '../research_cache.js';
 import { cacheManager } from '../cache_manager.js';
 import { config } from '../config.js';
 
@@ -7,9 +7,14 @@ describe('ResearchCache', () => {
   // Mock original config
   const originalEnableCache = config.ENABLE_RESEARCH_CACHE;
 
+  // The ResearchCache captures the enabled flag at construction time, so each
+  // test builds a fresh instance after configuring the flag.
+  let researchCache: ResearchCache;
+
   beforeEach(() => {
     // Enable cache for tests
     config.ENABLE_RESEARCH_CACHE = 'true';
+    researchCache = new ResearchCache();
 
     // Spy on cache manager methods
     jest.spyOn(cacheManager, 'get');
@@ -177,8 +182,9 @@ describe('ResearchCache', () => {
   });
 
   it('should not cache when caching is disabled', () => {
-    // Disable caching
+    // Disable caching and build an instance that observes the disabled flag
     config.ENABLE_RESEARCH_CACHE = 'false';
+    researchCache = new ResearchCache();
 
     // Prepare data
     const query = 'test query';

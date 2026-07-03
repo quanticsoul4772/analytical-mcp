@@ -29,10 +29,12 @@ export default {
   verbose: false,         // Reduce output noise
   bail: false,
   maxWorkers: '50%',      // Use 50% of available cores
-  forceExit: false,       // Let tests exit naturally to detect hanging processes
-  detectOpenHandles: true, // Help identify memory leaks and hanging processes
-  detectLeaks: true,      // Enable memory leak detection
-  logHeapUsage: true,     // Log memory usage to help identify issues
+  forceExit: true,        // Modules keep interval timers (cache cleanup, rate limiter)
+  // Leak diagnostics multiply runtime and can hang the suite; run them on demand
+  // via npm run test:leak-detection instead of on every test run.
+  detectOpenHandles: false,
+  detectLeaks: false,
+  logHeapUsage: false,
   
   // Caching optimizations
   cache: true,

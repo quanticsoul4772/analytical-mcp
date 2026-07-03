@@ -2,17 +2,6 @@ import { describe, it, expect, jest, beforeEach } from '@jest/globals';
 import { logicalFallacyDetector } from '../logical_fallacy_detector.js';
 import { ValidationError } from '../../utils/errors.js';
 
-// Mock the Logger
-jest.mock('../../utils/logger', () => ({
-  Logger: {
-    debug: jest.fn(),
-    info: jest.fn(),
-    warn: jest.fn(),
-    error: jest.fn(),
-    log: jest.fn(),
-  },
-}));
-
 describe('Logical Fallacy Detector Error Handling', () => {
   beforeEach(() => {
     jest.clearAllMocks();

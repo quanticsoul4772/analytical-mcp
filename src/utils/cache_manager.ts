@@ -475,7 +475,9 @@ export class CacheManager {
 
       // Read directory
       const files = await fs.readdir(this.persistentCacheDir);
-      const cacheFiles = files.filter((file) => file.startsWith('cache_'));
+      const cacheFiles = files.filter(
+        (file) => file.startsWith('cache_') && file.endsWith('.json')
+      );
 
       let loadedCount = 0;
 
@@ -491,8 +493,16 @@ export class CacheManager {
           const age = now - entry.timestamp;
 
           if (age < entry.ttl) {
-            // Extract key from filename
-            const key = file.substring(6); // Remove 'cache_' prefix
+            // Reconstruct the cache key from the filename: strip the 'cache_'
+            // prefix and '.json' extension, then restore the namespace
+            // separator (files are saved with ':' sanitized to '_'). Keys
+            // without a namespace part fall back to the default namespace.
+            const rawKey = file.slice('cache_'.length, -'.json'.length);
+            const separatorIndex = rawKey.indexOf('_');
+            const key =
+              separatorIndex === -1
+                ? this.getCacheKey(rawKey, 'default')
+                : `${rawKey.slice(0, separatorIndex)}:${rawKey.slice(separatorIndex + 1)}`;
 
             // Store in memory cache
             this.cache.set(key, entry);

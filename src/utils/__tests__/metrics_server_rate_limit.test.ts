@@ -1,50 +1,23 @@
-import { describe, it, expect, jest, beforeEach, afterEach } from '@jest/globals';
+import { describe, it, expect, beforeEach, afterEach } from '@jest/globals';
+// These tests exercise configuration parsing and the internal rate limiting
+// helpers directly; no HTTP server is started and no module mocks are needed.
+import { MetricsServer } from '../metrics_server.js';
 
-// Mock the logger to prevent setup issues
-const mockLogger = {
-  debug: jest.fn(),
-  info: jest.fn(),
-  warn: jest.fn(),
-  error: jest.fn(),
-  log: jest.fn(),
-};
-
-// Mock metricsCollector
-const mockMetricsCollector = {
-  formatJsonMetrics: jest.fn().mockReturnValue('{"test": "metrics"}'),
-  formatPrometheusMetrics: jest.fn().mockReturnValue('# Test metrics\ntest_metric 1'),
-  getSummary: jest.fn().mockReturnValue({ requests: 0, errors: 0 }),
-};
-
-// Mock config
-const mockConfig = {
-  enableMetrics: true,
-};
-
-// Use dynamic imports to avoid the jest module resolution issues
 describe('MetricsServer Rate Limiting', () => {
-  let MetricsServer: any;
-  let metricsServer: any;
-  
-  beforeEach(async () => {
-    // Clear mocks
-    jest.clearAllMocks();
-    
-    // Mock modules using jest.doMock
-    jest.doMock('../logger.js', () => ({ Logger: mockLogger }));
-    jest.doMock('../metrics_collector.js', () => ({ metricsCollector: mockMetricsCollector }));
-    jest.doMock('../config.js', () => ({ config: mockConfig }));
-    
-    // Import the module after mocking
-    const module = await import('../metrics_server.js');
-    MetricsServer = module.MetricsServer;
+  let metricsServer: MetricsServer;
+
+  beforeEach(() => {
+    delete process.env.METRICS_PORT;
+    delete process.env.METRICS_HOST;
+    delete process.env.METRICS_ENABLED;
+    delete process.env.METRICS_RATE_LIMIT;
+    delete process.env.MAX_METRICS_BYTES;
   });
 
   afterEach(async () => {
     if (metricsServer && metricsServer.isRunning()) {
       await metricsServer.stop();
     }
-    jest.resetModules();
   });
 
   describe('Rate Limiting Configuration', () => {

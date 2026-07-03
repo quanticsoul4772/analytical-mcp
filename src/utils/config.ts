@@ -7,8 +7,9 @@
 import dotenv from 'dotenv';
 import { Logger } from './logger.js';
 
-// Load environment variables from .env file
-dotenv.config();
+// Load environment variables from .env file. quiet is required: dotenv >= 17
+// prints a banner to stdout by default, which corrupts the MCP stdio channel.
+dotenv.config({ quiet: true });
 
 /**
  * Validates a port number string and returns a valid port number

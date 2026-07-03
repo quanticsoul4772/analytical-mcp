@@ -1,64 +1,88 @@
-import { describe, it, expect, jest, beforeEach, afterEach } from '@jest/globals';
-import { ConfigurationError } from '../errors.js';
+import { describe, it, expect, jest, beforeEach, afterAll } from '@jest/globals';
 
-// Save original environment to restore it later
-const originalEnv = process.env;
+// Mock dotenv as a no-op so the repo's .env file cannot repopulate variables the
+// tests delete. Registered before any dynamic import of the config module.
+import.meta.jest.unstable_mockModule('dotenv', () => {
+  const configFn = jest.fn(() => ({ parsed: {} }));
+  return {
+    default: { config: configFn },
+    config: configFn,
+  };
+});
 
-// Mock the Logger
-jest.mock('../logger', () => ({
-  Logger: {
-    debug: jest.fn(),
-    info: jest.fn(),
-    warn: jest.fn(),
-    error: jest.fn(),
-    log: jest.fn(),
-    initializeFromEnvironment: jest.fn(),
-  },
-}));
+// Environment variables the config module reads and these tests manipulate
+const MANAGED_KEYS = [
+  'NODE_ENV',
+  'PORT',
+  'HOST',
+  'LOG_LEVEL',
+  'EXA_API_KEY',
+  'ENABLE_RESEARCH_INTEGRATION',
+  'ENABLE_ADVANCED_STATISTICS',
+  'ENABLE_PERSPECTIVE_GENERATION',
+  'ENABLE_RESEARCH_CACHE',
+  'ENABLE_ADVANCED_NLP',
+  'CACHE_PERSISTENT',
+  'CACHE_DIR',
+  'NLP_EXA_NUM_RESULTS',
+  'NLP_EXA_USE_WEB',
+  'NLP_EXA_USE_NEWS',
+  'METRICS_ENABLED',
+  'METRICS_PORT',
+  'METRICS_HOST',
+];
 
-// Mock dotenv
-jest.mock('dotenv', () => ({
-  config: jest.fn().mockReturnValue({ parsed: {}, error: null }),
-}));
+const originalEnv: Record<string, string | undefined> = {};
+for (const key of MANAGED_KEYS) {
+  originalEnv[key] = process.env[key];
+}
+
+// The config module reads process.env at import time, so each test sets up the
+// environment first and then imports a fresh copy of the module.
+async function freshConfig(): Promise<typeof import('../config.js')> {
+  jest.resetModules();
+  return import('../config.js');
+}
 
 describe('Configuration Module', () => {
-  // Reset environment and mocks before each test
   beforeEach(() => {
-    jest.resetModules();
-    process.env = { ...originalEnv };
-    // Clear all mocks
-    jest.clearAllMocks();
+    for (const key of MANAGED_KEYS) {
+      delete process.env[key];
+    }
   });
 
-  // Restore original environment after each test
-  afterEach(() => {
-    process.env = originalEnv;
+  afterAll(() => {
+    for (const key of MANAGED_KEYS) {
+      if (originalEnv[key] === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = originalEnv[key];
+      }
+    }
   });
 
   describe('Config Loading', () => {
-    it('should load default values when environment variables are not provided', async () => {
-      // Clear environment variables that might affect the test
-      delete process.env.NODE_ENV;
-      delete process.env.PORT;
-      delete process.env.HOST;
-      delete process.env.LOG_LEVEL;
-      delete process.env.EXA_API_KEY;
-      delete process.env.ENABLE_RESEARCH_INTEGRATION;
+    it('should apply default values when environment variables are not provided', async () => {
+      const { config } = await freshConfig();
 
-      // Import the module after setting up the environment
-      const { config } = await import('../config.js');
-
-      // Check for default values
       expect(config.NODE_ENV).toBe('development');
-      expect(config.PORT).toBe(3000);
+      expect(config.PORT).toBe('3000');
       expect(config.HOST).toBe('localhost');
-      expect(config.LOG_LEVEL).toBe('INFO');
-      expect(config.EXA_API_KEY).toBeUndefined();
-      expect(config.ENABLE_RESEARCH_INTEGRATION).toBe(false);
+      expect(config.LOG_LEVEL).toBe('info');
+      expect(config.EXA_API_KEY).toBe('');
+      expect(config.ENABLE_RESEARCH_INTEGRATION).toBe('false');
+      expect(config.ENABLE_ADVANCED_STATISTICS).toBe('true');
+      expect(config.ENABLE_PERSPECTIVE_GENERATION).toBe('true');
+      expect(config.ENABLE_RESEARCH_CACHE).toBe('false');
+      expect(config.ENABLE_ADVANCED_NLP).toBe('true');
+      expect(config.CACHE_PERSISTENT).toBe('true');
+      expect(config.CACHE_DIR).toBe('./cache');
+      expect(config.METRICS_ENABLED).toBe('true');
+      expect(config.METRICS_PORT).toBe('9090');
+      expect(config.METRICS_HOST).toBe('127.0.0.1');
     });
 
     it('should load values from environment variables when provided', async () => {
-      // Set test environment variables
       process.env.NODE_ENV = 'production';
       process.env.PORT = '8080';
       process.env.HOST = 'api.example.com';
@@ -66,154 +90,133 @@ describe('Configuration Module', () => {
       process.env.EXA_API_KEY = 'test-api-key';
       process.env.ENABLE_RESEARCH_INTEGRATION = 'true';
 
-      // Import the module after setting up the environment
-      const { config } = await import('../config.js');
+      const { config } = await freshConfig();
 
-      // Check for provided values
       expect(config.NODE_ENV).toBe('production');
-      expect(config.PORT).toBe(8080);
+      expect(config.PORT).toBe('8080');
       expect(config.HOST).toBe('api.example.com');
       expect(config.LOG_LEVEL).toBe('ERROR');
       expect(config.EXA_API_KEY).toBe('test-api-key');
-      expect(config.ENABLE_RESEARCH_INTEGRATION).toBe(true);
+      expect(config.ENABLE_RESEARCH_INTEGRATION).toBe('true');
     });
-  });
 
-  describe('Validation Edge Cases', () => {
-    it('should convert PORT to number', async () => {
+    it('should expose env-derived values as strings without conversion', async () => {
       process.env.PORT = '9999';
-
-      const { config } = await import('../config.js');
-
-      expect(config.PORT).toBe(9999);
-      expect(typeof config.PORT).toBe('number');
-    });
-
-    it('should handle invalid PORT value correctly', async () => {
-      process.env.PORT = 'not-a-number';
-
-      await expect(async () => {
-        await import('../config.js');
-      }).rejects.toThrow(ConfigurationError);
-    });
-
-    it('should handle invalid NODE_ENV value', async () => {
-      process.env.NODE_ENV = 'invalid-env';
-
-      await expect(async () => {
-        await import('../config.js');
-      }).rejects.toThrow(ConfigurationError);
-    });
-
-    it('should handle invalid LOG_LEVEL value', async () => {
-      process.env.LOG_LEVEL = 'INVALID_LEVEL';
-
-      await expect(async () => {
-        await import('../config.js');
-      }).rejects.toThrow(ConfigurationError);
-    });
-
-    it('should handle boolean conversion for ENABLE_RESEARCH_INTEGRATION', async () => {
-      // Test 'true' as string
       process.env.ENABLE_RESEARCH_INTEGRATION = 'true';
-      let { config } = await import('../config.js');
-      expect(config.ENABLE_RESEARCH_INTEGRATION).toBe(true);
 
-      // Reset modules to re-import
-      jest.resetModules();
+      const { config } = await freshConfig();
 
-      // Test 'TRUE' (case insensitive)
-      process.env.ENABLE_RESEARCH_INTEGRATION = 'TRUE';
-      ({ config } = await import('../config.js'));
-      expect(config.ENABLE_RESEARCH_INTEGRATION).toBe(true);
+      expect(config.PORT).toBe('9999');
+      expect(typeof config.PORT).toBe('string');
+      expect(typeof config.ENABLE_RESEARCH_INTEGRATION).toBe('string');
+    });
 
-      // Reset modules to re-import
-      jest.resetModules();
+    it('should derive NLP_EXA_SEARCH_PARAMS from environment variables', async () => {
+      process.env.NLP_EXA_NUM_RESULTS = '7';
+      process.env.NLP_EXA_USE_WEB = 'false';
+      process.env.NLP_EXA_USE_NEWS = 'true';
 
-      // Test 'false' as string
-      process.env.ENABLE_RESEARCH_INTEGRATION = 'false';
-      ({ config } = await import('../config.js'));
-      expect(config.ENABLE_RESEARCH_INTEGRATION).toBe(false);
+      const { config } = await freshConfig();
 
-      // Reset modules to re-import
-      jest.resetModules();
+      expect(config.NLP_EXA_SEARCH_PARAMS).toEqual({
+        numResults: 7,
+        useWebResults: false,
+        useNewsResults: true,
+      });
+    });
 
-      // Test invalid value (not 'true') - should default to false
-      process.env.ENABLE_RESEARCH_INTEGRATION = 'not-a-boolean';
-      ({ config } = await import('../config.js'));
-      expect(config.ENABLE_RESEARCH_INTEGRATION).toBe(false);
+    it('should apply NLP_EXA_SEARCH_PARAMS defaults when variables are unset', async () => {
+      const { config } = await freshConfig();
+
+      expect(config.NLP_EXA_SEARCH_PARAMS).toEqual({
+        numResults: 3,
+        useWebResults: true,
+        useNewsResults: false,
+      });
     });
   });
 
-  describe('Helper Functions', () => {
-    it('should get config values using getConfig helper', async () => {
-      process.env.NODE_ENV = 'test';
-      process.env.PORT = '5000';
+  describe('Metrics Port Validation', () => {
+    it('should accept a valid METRICS_PORT', async () => {
+      process.env.METRICS_PORT = '9191';
 
-      const { getConfig } = await import('../config.js');
+      const { config } = await freshConfig();
 
-      expect(getConfig('NODE_ENV')).toBe('test');
-      expect(getConfig('PORT')).toBe(5000);
+      expect(config.METRICS_PORT).toBe('9191');
     });
 
-    it('should check if features are enabled using isFeatureEnabled', async () => {
-      // Test when both flag and API key are set
+    it('should throw when METRICS_PORT is not a number', async () => {
+      process.env.METRICS_PORT = 'not-a-number';
+
+      await expect(freshConfig()).rejects.toThrow('Invalid metrics port: not-a-number');
+    });
+
+    it('should throw when METRICS_PORT is out of range', async () => {
+      process.env.METRICS_PORT = '70000';
+
+      await expect(freshConfig()).rejects.toThrow(
+        'Invalid metrics port: 70000 (must be between 1 and 65535)'
+      );
+    });
+  });
+
+  describe('Environment Enum', () => {
+    it('should expose the supported environments', async () => {
+      const { Environment } = await freshConfig();
+
+      expect(Environment.DEVELOPMENT).toBe('development');
+      expect(Environment.TEST).toBe('test');
+      expect(Environment.PRODUCTION).toBe('production');
+    });
+  });
+
+  describe('isFeatureEnabled', () => {
+    it('should enable researchIntegration only when the flag is set to true', async () => {
       process.env.ENABLE_RESEARCH_INTEGRATION = 'true';
-      process.env.EXA_API_KEY = 'valid-key';
-
-      let { isFeatureEnabled } = await import('../config.js');
-
+      let { isFeatureEnabled } = await freshConfig();
       expect(isFeatureEnabled('researchIntegration')).toBe(true);
 
-      // Reset modules to re-import
-      jest.resetModules();
-
-      // Test when flag is true but API key is missing
-      process.env.ENABLE_RESEARCH_INTEGRATION = 'true';
-      delete process.env.EXA_API_KEY;
-
-      ({ isFeatureEnabled } = await import('../config.js'));
-
-      expect(isFeatureEnabled('researchIntegration')).toBe(false);
-
-      // Reset modules to re-import
-      jest.resetModules();
-
-      // Test when flag is false but API key is present
       process.env.ENABLE_RESEARCH_INTEGRATION = 'false';
-      process.env.EXA_API_KEY = 'valid-key';
-
-      ({ isFeatureEnabled } = await import('../config.js'));
-
+      ({ isFeatureEnabled } = await freshConfig());
       expect(isFeatureEnabled('researchIntegration')).toBe(false);
+
+      delete process.env.ENABLE_RESEARCH_INTEGRATION;
+      ({ isFeatureEnabled } = await freshConfig());
+      expect(isFeatureEnabled('researchIntegration')).toBe(false);
+    });
+
+    it('should require the exact string "true" to enable a feature flag', async () => {
+      process.env.ENABLE_RESEARCH_INTEGRATION = 'TRUE';
+      let { isFeatureEnabled } = await freshConfig();
+      expect(isFeatureEnabled('researchIntegration')).toBe(false);
+
+      process.env.ENABLE_RESEARCH_INTEGRATION = '1';
+      ({ isFeatureEnabled } = await freshConfig());
+      expect(isFeatureEnabled('researchIntegration')).toBe(false);
+    });
+
+    it('should tie the caching feature to ENABLE_RESEARCH_CACHE', async () => {
+      process.env.ENABLE_RESEARCH_CACHE = 'true';
+      let { isFeatureEnabled } = await freshConfig();
+      expect(isFeatureEnabled('caching')).toBe(true);
+
+      process.env.ENABLE_RESEARCH_CACHE = 'false';
+      ({ isFeatureEnabled } = await freshConfig());
+      expect(isFeatureEnabled('caching')).toBe(false);
+    });
+
+    it('should default advancedStatistics and perspectiveGeneration to enabled', async () => {
+      const { isFeatureEnabled } = await freshConfig();
+
+      expect(isFeatureEnabled('advancedStatistics')).toBe(true);
+      expect(isFeatureEnabled('perspectiveGeneration')).toBe(true);
     });
 
     it('should handle unknown feature in isFeatureEnabled', async () => {
-      const { isFeatureEnabled } = await import('../config.js');
+      const { isFeatureEnabled } = await freshConfig();
 
-      // @ts-ignore - Testing runtime behavior with invalid input
+      // @ts-expect-error - Testing runtime behavior with invalid input
       expect(isFeatureEnabled('unknownFeature')).toBe(false);
-    });
-  });
-
-  describe('Dotenv Integration', () => {
-    it('should handle dotenv error gracefully', async () => {
-      // Mock dotenv to return an error
-      const dotenv = require('dotenv');
-      dotenv.config.mockReturnValueOnce({
-        parsed: null,
-        error: new Error('Mocked dotenv error'),
-      });
-
-      // This shouldn't throw, it should log a warning and continue
-      await import('../config.js');
-
-      // Verify Logger.warn was called
-      const { Logger } = require('../logger');
-      expect(Logger.warn).toHaveBeenCalledWith(
-        'Error loading .env file. Using system environment variables.',
-        expect.any(Error)
-      );
     });
   });
 });

@@ -371,7 +371,9 @@ export class TextProcessor {
     return new Map([
       ['html_tags', (text: string) => text.replace(/<[^>]*>/g, '')],
       ['extra_whitespace', (text: string) => text.replace(/\s+/g, ' ').trim()],
-      ['special_chars', (text: string) => text.replace(/[^\w\s\-.,!?;:'"()]/g, '')],
+      // Keep characters that carry entity signal: $ % (money/percent),
+      // @ (emails), & (org names), / (dates, URLs).
+      ['special_chars', (text: string) => text.replace(/[^\w\s\-.,!?;:'"()$%@&/]/g, '')],
       ['multiple_punctuation', (text: string) => text.replace(/([.!?]){2,}/g, '$1')],
       ['leading_trailing', (text: string) => text.trim()]
     ]);
@@ -434,25 +436,15 @@ export class TextProcessor {
 
   /**
    * Create preprocessing mapping
+   *
+   * Note: preprocessing must not shift character offsets or strip entity
+   * markers ($, %, @, ...) — recognized entity positions are validated
+   * against the original text downstream.
    */
   private createPreprocessingMapping(): Map<string, (text: string) => string> {
     return new Map([
       ['normalize', this.normalizeText.bind(this)],
-      ['clean', this.cleanText.bind(this)],
-      ['preserve_entities', this.preserveEntityMarkers.bind(this)]
+      ['clean', this.cleanText.bind(this)]
     ]);
-  }
-
-  /**
-   * Preserve entity markers during preprocessing
-   */
-  private preserveEntityMarkers(text: string): string {
-    // Protect common entity patterns from aggressive cleaning
-    return text
-      .replace(/(\$[\d,]+(?:\.\d{2})?)/g, '⟨MONEY⟩$1⟨/MONEY⟩')
-      .replace(/(\d{1,2}\/\d{1,2}\/\d{4})/g, '⟨DATE⟩$1⟨/DATE⟩')
-      .replace(/(\b\d+\.?\d*%\b)/g, '⟨PERCENT⟩$1⟨/PERCENT⟩')
-      .replace(/(https?:\/\/[^\s]+)/g, '⟨URL⟩$1⟨/URL⟩')
-      .replace(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/g, '⟨EMAIL⟩$1⟨/EMAIL⟩');
   }
 }

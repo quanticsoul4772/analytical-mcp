@@ -185,12 +185,20 @@ describe('Enhanced Error Handling System', () => {
 
   describe('Sleep Function', () => {
     it('should resolve after specified time', async () => {
+      expect(jest.getTimerCount()).toBe(0);
+
       const promise = sleep(1000);
-      
-      expect(setTimeout).toHaveBeenCalledWith(expect.any(Function), 1000);
-      
-      jest.advanceTimersByTime(1000);
+
+      // A timer must be scheduled for the requested duration
+      expect(jest.getTimerCount()).toBe(1);
+
+      // Advancing less than the requested time must not resolve the promise
+      await jest.advanceTimersByTimeAsync(999);
+      expect(jest.getTimerCount()).toBe(1);
+
+      await jest.advanceTimersByTimeAsync(1);
       await expect(promise).resolves.toBeUndefined();
+      expect(jest.getTimerCount()).toBe(0);
     });
   });
 
@@ -212,14 +220,14 @@ describe('Enhanced Error Handling System', () => {
           .mockResolvedValue('success');
 
         const promise = executeWithRetry(mockFn, ErrorCodes.API_RATE_LIMIT);
-        
-        // Advance timers for retries
-        jest.advanceTimersByTime(1000); // First retry
-        await Promise.resolve(); // Let microtasks run
-        jest.advanceTimersByTime(2000); // Second retry (with backoff)
-        
+
+        // Advance timers for retries (async variant flushes the promise chain
+        // between timer ticks so the retry sleep actually gets scheduled)
+        await jest.advanceTimersByTimeAsync(1000); // First retry
+        await jest.advanceTimersByTimeAsync(2000); // Second retry (with backoff)
+
         const result = await promise;
-        
+
         expect(result).toBe('success');
         expect(mockFn).toHaveBeenCalledTimes(3);
       });
@@ -229,16 +237,16 @@ describe('Enhanced Error Handling System', () => {
         const mockFn = jest.fn().mockRejectedValue(mockError);
 
         const promise = executeWithRetry(mockFn, ErrorCodes.API_RATE_LIMIT);
-        
-        // Advance through all retry attempts
-        jest.advanceTimersByTime(1000); // First retry
-        await Promise.resolve();
-        jest.advanceTimersByTime(2000); // Second retry
-        await Promise.resolve();
-        jest.advanceTimersByTime(4000); // Third retry
-        await Promise.resolve();
+        // Attach a handler immediately so the eventual rejection is not
+        // reported as unhandled while we advance the timers
+        const outcome = promise.catch((error) => error);
 
-        await expect(promise).rejects.toBe(mockError);
+        // Advance through all retry attempts (delays: 1000, 2000, 4000 with backoff 2)
+        await jest.advanceTimersByTimeAsync(1000); // First retry
+        await jest.advanceTimersByTimeAsync(2000); // Second retry
+        await jest.advanceTimersByTimeAsync(4000); // Third retry
+
+        await expect(outcome).resolves.toBe(mockError);
         expect(mockFn).toHaveBeenCalledTimes(4); // Initial + 3 retries
       });
 
@@ -283,11 +291,19 @@ describe('Enhanced Error Handling System', () => {
       const mockFn = jest.fn().mockRejectedValue(apiError);
       const wrappedFn = withErrorHandling('api_tool', mockFn);
 
-      await expect(wrappedFn()).rejects.toMatchObject({
+      // The transformed APIError is recoverable, so withErrorHandling applies
+      // the ERR_2004 strategy (3 retries, 2000ms delay, backoff 2) before failing
+      const outcome = wrappedFn().catch((error) => error);
+      await jest.advanceTimersByTimeAsync(2000);
+      await jest.advanceTimersByTimeAsync(4000);
+      await jest.advanceTimersByTimeAsync(8000);
+
+      await expect(outcome).resolves.toMatchObject({
         name: 'APIError',
         code: ErrorCodes.API_SERVICE_UNAVAILABLE,
         message: '[api_tool] API request failed'
       });
+      expect(mockFn).toHaveBeenCalledTimes(4); // Initial + 3 retries
     });
 
     it('should preserve AnalyticalErrors with added context', async () => {
@@ -329,30 +345,44 @@ describe('Enhanced Error Handling System', () => {
 
   describe('Integration Tests', () => {
     it('should work with retry and error transformation together', async () => {
+      // A flaky operation that fails twice with a recoverable API error, then succeeds
       let callCount = 0;
       const mockFn = jest.fn().mockImplementation(async () => {
         callCount++;
         if (callCount <= 2) {
-          throw new Error('API timeout occurred');
+          throw new APIError(ErrorCodes.API_TIMEOUT, 'API timeout occurred', {}, true);
         }
         return 'success';
       });
 
-      const wrappedFn = withErrorHandling('integration_tool', mockFn);
-      
-      // The wrapper should categorize the error as API error and retry
+      // Compose the retry strategy (API_TIMEOUT: 2 retries, 500ms delay, 1.5 backoff)
+      // with the error handling wrapper
+      const wrappedFn = withErrorHandling('integration_tool', () =>
+        executeWithRetry(mockFn, ErrorCodes.API_TIMEOUT)
+      );
+
       const promise = wrappedFn();
-      
-      // Let the first attempt and error transformation happen
-      await Promise.resolve();
-      
-      // Since it's categorized as API error, it should have retry logic
-      // But first we need to advance timers for any potential retries
-      jest.advanceTimersByTime(5000);
-      
+
+      await jest.advanceTimersByTimeAsync(500); // First retry
+      await jest.advanceTimersByTimeAsync(750); // Second retry (backoff 1.5)
+
       const result = await promise;
       expect(result).toBe('success');
       expect(mockFn).toHaveBeenCalledTimes(3);
+    });
+
+    it('should not retry non-recoverable transformed errors', async () => {
+      // Generic processing errors are transformed into non-recoverable
+      // DataProcessingErrors, so the tool is attempted exactly once
+      const mockFn = jest.fn().mockRejectedValue(new Error('Calculation exploded'));
+      const wrappedFn = withErrorHandling('integration_tool', mockFn);
+
+      await expect(wrappedFn()).rejects.toMatchObject({
+        name: 'DataProcessingError',
+        code: ErrorCodes.CALCULATION_FAILED,
+        message: '[integration_tool] Calculation exploded',
+      });
+      expect(mockFn).toHaveBeenCalledTimes(1);
     });
   });
 });

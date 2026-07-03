@@ -32,7 +32,7 @@ export const DEFAULT_RETRY_CONFIG: RetryConfig = {
 /**
  * Circuit breaker state
  */
-enum CircuitState {
+export enum CircuitState {
   CLOSED = 'CLOSED', // Normal operation
   OPEN = 'OPEN', // Failing, reject requests
   HALF_OPEN = 'HALF_OPEN', // Testing if service recovered
@@ -267,11 +267,22 @@ export async function batchWithErrorHandling<T, R>(
 
   const results: Array<{ success: boolean; result?: R; error?: Error; item: T }> = [];
   const executing: Promise<void>[] = [];
+  let stopError: unknown = null;
 
   for (const item of items) {
+    // Stop scheduling new operations once an error was observed in stopOnError mode
+    if (stopOnError && stopError) {
+      break;
+    }
+
     // Wait for a slot to become available if we're at the concurrency limit
     if (executing.length >= concurrency) {
       await Promise.race(executing).catch(() => {});
+    }
+
+    // An in-flight operation may have failed while we waited for a slot
+    if (stopOnError && stopError) {
+      break;
     }
 
     const promise = (async () => {
@@ -287,6 +298,7 @@ export async function batchWithErrorHandling<T, R>(
         });
 
         if (stopOnError) {
+          stopError = error;
           throw error;
         }
       } finally {
@@ -301,7 +313,15 @@ export async function batchWithErrorHandling<T, R>(
     executing.push(promise);
   }
 
-  await Promise.all(executing);
+  await Promise.all(executing).catch((error) => {
+    // In stopOnError mode the failing operation's rejection surfaces here
+    stopError = stopError ?? error;
+  });
+
+  if (stopOnError && stopError) {
+    throw stopError;
+  }
+
   return results;
 }
 
@@ -382,11 +402,12 @@ export function memoizeAsync<T extends (...args: any[]) => Promise<any>>(
       // Store in cache
       cache.set(key, { value, timestamp: now });
 
-      // Cleanup old entries if cache is too large
+      // Cleanup old entries if cache is too large (always evict at least one
+      // entry, otherwise small caches would never shrink)
       if (cache.size > maxSize) {
         const entries = Array.from(cache.entries());
         entries.sort((a, b) => a[1].timestamp - b[1].timestamp);
-        const toDelete = entries.slice(0, Math.floor(maxSize * 0.2));
+        const toDelete = entries.slice(0, Math.max(1, Math.floor(maxSize * 0.2)));
         toDelete.forEach(([k]) => cache.delete(k));
       }
 

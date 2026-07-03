@@ -13,13 +13,16 @@ import { config } from './config.js';
  * @param maxRetries Maximum number of retries
  * @param initialDelay Initial delay in milliseconds
  * @param maxDelay Maximum delay in milliseconds
+ * @param shouldRetry Predicate deciding whether a given error is worth retrying;
+ *   when it returns false the error propagates immediately without further attempts
  * @returns Result of the function
  */
 export async function withRetry<T>(
   fn: () => Promise<T>,
   maxRetries: number = 3,
   initialDelay: number = 300,
-  maxDelay: number = 5000
+  maxDelay: number = 5000,
+  shouldRetry: (error: unknown) => boolean = () => true
 ): Promise<T> {
   let lastError: Error | null = null;
   let retryCount = 0;
@@ -31,6 +34,13 @@ export async function withRetry<T>(
     } catch (error) {
       // Log retry attempts
       Logger.debug(`Retry attempt ${retryCount + 1}/${maxRetries + 1} failed`, { error });
+
+      // Non-retryable errors propagate immediately without further attempts
+      if (!shouldRetry(error)) {
+        const nonRetryableError = error instanceof Error ? error : new Error(String(error));
+        Logger.error('Non-retryable error, failing without retry', nonRetryableError);
+        throw nonRetryableError;
+      }
 
       // If this is the last attempt, remember the error to throw later
       if (retryCount === maxRetries) {
@@ -72,9 +82,14 @@ export const RETRYABLE_STATUS_CODES = [
  * @returns True if the error is retryable
  */
 export function isRetryableError(error: any): boolean {
-  // Already identified as retryable via our custom error
-  if (error instanceof LegacyAPIError && error.retryable) {
-    return true;
+  // Guard against null/undefined inputs
+  if (!error) {
+    return false;
+  }
+
+  // An explicit retryable flag on APIError takes precedence over status/message heuristics
+  if (error instanceof LegacyAPIError) {
+    return error.retryable;
   }
 
   // Network errors are usually retryable
@@ -198,26 +213,27 @@ export async function executeApiRequest<T>(
         // Log the error with context
         Logger.error(`API error in ${context}`, apiError, { endpoint });
 
-        // Only retry if the error is determined to be retryable
+        // Rethrow into withRetry: its shouldRetry predicate (retryableCheck)
+        // decides whether this triggers a retry or fails immediately
         if (retryableCheck(apiError)) {
           Logger.debug(`Error is retryable, will attempt retry`, {
             context,
             endpoint,
             errorMessage: apiError.message,
           });
-          throw apiError; // Will trigger retry
         } else {
           Logger.debug(`Error is not retryable, failing immediately`, {
             context,
             endpoint,
             errorMessage: apiError.message,
           });
-          throw apiError; // Non-retryable error
         }
+        throw apiError;
       }
     },
     maxRetries,
     initialDelay,
-    maxDelay
+    maxDelay,
+    retryableCheck
   );
 }

@@ -1,44 +1,24 @@
-import { describe, it, expect, jest, beforeEach, afterEach, beforeAll, afterAll } from '@jest/globals';
+import { describe, it, expect, beforeEach, afterEach } from '@jest/globals';
 import http from 'http';
+// The server reads its configuration from process.env at construction time and
+// serves real metrics from the metricsCollector singleton, so no module mocks
+// are required (ESM jest cannot hoist jest.mock factories anyway).
+import { MetricsServer } from '../metrics_server.js';
 
 // Save original environment to restore it later
 const originalEnv = process.env;
-
-// Mock dependencies before importing the main module
-jest.mock('../logger', () => ({
-  Logger: {
-    debug: jest.fn(),
-    info: jest.fn(),
-    warn: jest.fn(),
-    error: jest.fn(),
-    log: jest.fn(),
-  },
-}));
-
-jest.mock('../metrics_collector', () => ({
-  metricsCollector: {
-    formatJsonMetrics: jest.fn().mockReturnValue('{"mock": "json"}'),
-    formatPrometheusMetrics: jest.fn().mockReturnValue('# Mock prometheus metrics'),
-    getSummary: jest.fn().mockReturnValue({ requests: 0, errors: 0 }),
-  },
-}));
-
-jest.mock('../config', () => ({
-  config: {
-    enableMetrics: true,
-  },
-}));
-
-// Import after mocking
-import { MetricsServer } from '../metrics_server.js';
 
 describe('MetricsServer', () => {
   let metricsServer: MetricsServer;
 
   beforeEach(() => {
-    jest.resetModules();
     process.env = { ...originalEnv };
-    jest.clearAllMocks();
+    // Ensure a clean slate for the env vars the constructor reads
+    delete process.env.METRICS_PORT;
+    delete process.env.METRICS_HOST;
+    delete process.env.METRICS_ENABLED;
+    delete process.env.METRICS_RATE_LIMIT;
+    delete process.env.MAX_METRICS_BYTES;
   });
 
   afterEach(async () => {
@@ -166,11 +146,12 @@ describe('MetricsServer', () => {
 
       // Test the reset logic by directly manipulating the rate limit map
       // This is more reliable than mixing fake timers with real HTTP requests
-      const rateLimitMap = (metricsServer as any).rateLimitMap;
-      const clientIP = '127.0.0.1';
-      const entry = rateLimitMap.get(clientIP);
-      
-      if (entry) {
+      const rateLimitMap = (metricsServer as any).rateLimitMap as Map<
+        string,
+        { count: number; resetTime: number }
+      >;
+      expect(rateLimitMap.size).toBeGreaterThan(0);
+      for (const entry of rateLimitMap.values()) {
         // Set the reset time to the past to simulate window expiry
         entry.resetTime = Date.now() - 1000;
       }
@@ -181,17 +162,29 @@ describe('MetricsServer', () => {
     }, 10000);
 
     it('should handle different IP addresses separately', async () => {
-      const port = metricsServer.getPort();
-      expect(port).not.toBeNull();
+      // Forwarded headers are only honored from trusted proxies, so run a
+      // dedicated server that trusts localhost to simulate distinct client IPs
+      const trustedProxyServer = new MetricsServer({
+        port: 0,
+        enabled: true,
+        trustedProxies: ['127.0.0.1'],
+      });
+      await trustedProxyServer.start();
 
-      // Simulate requests from different IPs by setting X-Forwarded-For header
-      const response1 = await makeRequest(port!, '/metrics', { 'X-Forwarded-For': '192.168.1.1' });
-      expect(response1.statusCode).toBe(200);
-      expect(response1.headers['x-ratelimit-remaining']).toBe('1');
+      try {
+        const port = trustedProxyServer.getPort();
+        expect(port).not.toBeNull();
 
-      const response2 = await makeRequest(port!, '/metrics', { 'X-Forwarded-For': '192.168.1.2' });
-      expect(response2.statusCode).toBe(200);
-      expect(response2.headers['x-ratelimit-remaining']).toBe('1');
+        const response1 = await makeRequest(port!, '/metrics', { 'X-Forwarded-For': '192.168.1.1' });
+        expect(response1.statusCode).toBe(200);
+        expect(response1.headers['x-ratelimit-remaining']).toBe('1');
+
+        const response2 = await makeRequest(port!, '/metrics', { 'X-Forwarded-For': '192.168.1.2' });
+        expect(response2.statusCode).toBe(200);
+        expect(response2.headers['x-ratelimit-remaining']).toBe('1');
+      } finally {
+        await trustedProxyServer.stop();
+      }
     });
 
     it('should not apply rate limiting to non-metrics endpoints', async () => {

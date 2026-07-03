@@ -18,7 +18,7 @@ describe('Enhanced Fact Extractor', () => {
 
     extraction.facts.forEach(fact => {
       expect(fact.fact).toBeTruthy();
-      expect(fact.type).toMatch(/named_entity|relationship|statement|sentiment/);
+      expect(fact.type).toMatch(/^(named_entity|relationship|statement|sentiment)$/);
       expect(fact.confidence).toBeGreaterThan(0);
       expect(fact.confidence).toBeLessThanOrEqual(1);
     });
@@ -44,7 +44,10 @@ describe('Enhanced Fact Extractor', () => {
   });
 
   test('should handle different fact types', () => {
-    const text = 'John Smith works at Google in New York. The company is known for innovative technology.';
+    // Sentiment facts are only kept when sentiment is strong enough to clear
+    // the default confidence threshold, so the text carries clear sentiment.
+    const text =
+      'John Smith works at Google in New York. The company is celebrated for its amazing, wonderful technology.';
     const extraction = enhancedFactExtractor.extractFacts(text);
 
     const factTypes = extraction.facts.map(f => f.type);

@@ -4,48 +4,37 @@ import http from 'http';
 // Save original environment to restore it later
 const originalEnv = process.env;
 
-// Mock dependencies before importing the main module
-jest.mock('../logger', () => ({
-  Logger: {
-    debug: jest.fn(),
-    info: jest.fn(),
-    warn: jest.fn(),
-    error: jest.fn(),
-    log: jest.fn(),
-  },
-}));
-
-// Mock metrics collector with controllable response size
+// Mock metrics collector with controllable response size. ESM jest requires
+// unstable_mockModule to be registered before the dynamic import below.
 const mockMetricsCollector = {
-  formatJsonMetrics: jest.fn(),
-  formatPrometheusMetrics: jest.fn(),
-  getSummary: jest.fn().mockReturnValue({ requests: 0, errors: 0 }),
+  formatJsonMetrics: jest.fn<() => string>(),
+  formatPrometheusMetrics: jest.fn<() => string>(),
+  getSummary: jest.fn<() => string>().mockReturnValue('requests=0 errors=0'),
 };
 
-jest.mock('../metrics_collector', () => ({
+import.meta.jest.unstable_mockModule('../metrics_collector.js', () => ({
   metricsCollector: mockMetricsCollector,
 }));
 
-jest.mock('../config', () => ({
-  config: {
-    enableMetrics: true,
-  },
-}));
-
 // Import after mocking
-import { MetricsServer } from '../metrics_server.js';
+const { MetricsServer } = await import('../metrics_server.js');
 
 describe('MetricsServer Content Length Limits', () => {
-  let metricsServer: MetricsServer;
+  let metricsServer: InstanceType<typeof MetricsServer>;
 
   beforeEach(() => {
-    jest.resetModules();
     process.env = { ...originalEnv };
+    delete process.env.METRICS_PORT;
+    delete process.env.METRICS_HOST;
+    delete process.env.METRICS_ENABLED;
+    delete process.env.METRICS_RATE_LIMIT;
+    delete process.env.MAX_METRICS_BYTES;
     jest.clearAllMocks();
-    
+
     // Reset mock implementations
     mockMetricsCollector.formatJsonMetrics.mockReturnValue('{"mock": "json"}');
     mockMetricsCollector.formatPrometheusMetrics.mockReturnValue('# Mock prometheus metrics');
+    mockMetricsCollector.getSummary.mockReturnValue('requests=0 errors=0');
   });
 
   afterEach(async () => {
