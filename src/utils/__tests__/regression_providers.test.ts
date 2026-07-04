@@ -59,6 +59,37 @@ describe('OLS numerical core', () => {
     ];
     expect(() => fitOls(X, [1, 2, 3, 4])).toThrow(DataProcessingError);
   });
+
+  it('solves a well-conditioned system despite a huge column-scale gap', () => {
+    // Diagonal system with entries 1e12 and 1e-6 — not collinear, but pre-fix the
+    // global scale (1e12) inflated the tolerance to 100 and wrongly rejected the
+    // 1e-6 pivot as singular. Equilibration makes the singularity test scale-invariant.
+    const x = solveLinearSystem(
+      [
+        [1e12, 0],
+        [0, 1e-6],
+      ],
+      [1e12, 1e-6]
+    );
+    expect(x[0]).toBeCloseTo(1, 10);
+    expect(x[1]).toBeCloseTo(1, 10);
+  });
+
+  it('recovers coefficients when predictors differ by ~1e6 in scale', () => {
+    // y = 10 + 2*x1 + 0.001*x2 with x1 ~ 1..12 and x2 ~ 1e6, genuinely independent.
+    const X: number[][] = [];
+    const y: number[] = [];
+    for (let i = 0; i < 12; i++) {
+      const x1 = i + 1;
+      const x2 = 1_000_000 + ((i * 37) % 11) * 90_000;
+      X.push([x1, x2]);
+      y.push(10 + 2 * x1 + 0.001 * x2);
+    }
+    const { coefficients } = fitOls(X, y);
+    expect(coefficients[0]).toBeCloseTo(10, 4);
+    expect(coefficients[1]).toBeCloseTo(2, 4);
+    expect(coefficients[2]).toBeCloseTo(0.001, 6);
+  });
 });
 
 describe('RegressionMetricsProvider', () => {
@@ -164,6 +195,23 @@ describe('LogisticRegressionProvider', () => {
     const X = [[-3], [-2], [-1], [1], [2], [3]];
     const y = [0, 0, 0, 1, 1, 1];
     const result = provider.performLogisticRegression(X, y, ['x']);
+    expect(result).toContain('| Accuracy | 1.0000 |');
+    expect(result).toContain('| AUC | 1.0000 |');
+  });
+
+  it('fits a separable dataset when a predictor is on a ~1e3 scale', () => {
+    // IRLS also routes through solveLinearSystem; a large-scale predictor could
+    // trigger the same false singular rejection. x2 is ~1e3, class-separating.
+    const X = [
+      [-3, -3000],
+      [-2, -2000],
+      [-1, -1000],
+      [1, 1000],
+      [2, 2000],
+      [3, 3000],
+    ];
+    const y = [0, 0, 0, 1, 1, 1];
+    const result = provider.performLogisticRegression(X, y, ['x1', 'x2']);
     expect(result).toContain('| Accuracy | 1.0000 |');
     expect(result).toContain('| AUC | 1.0000 |');
   });

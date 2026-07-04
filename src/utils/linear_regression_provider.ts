@@ -35,8 +35,31 @@ export function addInterceptColumn(X: number[][]): number[][] {
  */
 export function solveLinearSystem(A: number[][], b: number[]): number[] {
   const n = A.length;
-  const M = A.map((row, i) => [...row, b[i] ?? 0]);
-  const scale = Math.max(1e-300, ...A.map((row) => Math.max(...row.map(Math.abs))));
+
+  // Symmetric Jacobi (diagonal) equilibration before elimination. The callers pass
+  // symmetric positive-(semi)definite Gram matrices (X'X, XtWX+ridge), where a
+  // large-magnitude predictor can dominate the raw matrix and inflate the
+  // singularity tolerance (scale * SINGULARITY_TOLERANCE), causing legitimate
+  // small-magnitude pivots to be misread as collinear. Scaling A -> D A D with
+  // D = diag(1/sqrt(|A_jj|)) gives a unit diagonal and correlation-like off-diagonals,
+  // so the tolerance becomes scale-invariant. Rank is invariant under the invertible
+  // diagonal D, so genuinely collinear systems still produce a zero pivot and throw.
+  // (A diagonal near 1e-300 could overflow the scaled entries, but real Gram diagonals
+  // are sums of squares and never approach that; the guard only handles exact zeros.)
+  const d = A.map((row, j) => {
+    const v = Math.sqrt(Math.abs(row[j] ?? 0));
+    return v > 0 ? v : 1;
+  });
+
+  // Build the augmented matrix from the equilibrated system: (D A D | D b).
+  const M = A.map((row, i) => {
+    const di = d[i] ?? 1;
+    const scaledRow = row.map((v, j) => (v ?? 0) / (di * (d[j] ?? 1)));
+    scaledRow.push((b[i] ?? 0) / di);
+    return scaledRow;
+  });
+  // scale is taken over the equilibrated A entries only (exclude the appended b column).
+  const scale = Math.max(1e-300, ...M.map((row) => Math.max(...row.slice(0, n).map(Math.abs))));
 
   for (let col = 0; col < n; col++) {
     let pivotRow = col;
@@ -67,15 +90,17 @@ export function solveLinearSystem(A: number[][], b: number[]): number[] {
     }
   }
 
-  const x = new Array<number>(n).fill(0);
+  // Back-substitution solves for z in the equilibrated variables.
+  const z = new Array<number>(n).fill(0);
   for (let i = n - 1; i >= 0; i--) {
     let sum = M[i]?.[n] ?? 0;
     for (let j = i + 1; j < n; j++) {
-      sum -= (M[i]?.[j] ?? 0) * (x[j] ?? 0);
+      sum -= (M[i]?.[j] ?? 0) * (z[j] ?? 0);
     }
-    x[i] = sum / (M[i]?.[i] ?? 1);
+    z[i] = sum / (M[i]?.[i] ?? 1);
   }
-  return x;
+  // Unscale back to the original variables: x_j = z_j / d_j.
+  return z.map((v, j) => v / (d[j] ?? 1));
 }
 
 /**
