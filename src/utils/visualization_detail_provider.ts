@@ -27,8 +27,55 @@ export class VisualizationDetailProvider {
     if (!typeInfo) {
       return this.getDefaultVisualizationInfo(type);
     }
-    
+
     return typeInfo;
+  }
+
+  /**
+   * Renders the visualization type info object as a markdown section. The getter above
+   * returns a plain object; callers that build a text report must format it rather than
+   * concatenate the object (which would yield the literal "[object Object]").
+   */
+  formatVisualizationTypeInfo(type: string): string {
+    const info = this.getVisualizationTypeInfo(type);
+
+    // Defensive against the getter's `any` return: a future shape drift degrades
+    // gracefully instead of crashing or emitting `undefined`.
+    const bullets = (arr: unknown): string =>
+      Array.isArray(arr) ? arr.map((x) => `- ${x}`).join('\n') : '';
+
+    let section = `### About ${info?.name ?? type}\n\n`;
+    if (info?.description) {
+      section += `${info.description}\n\n`;
+    }
+
+    const bestFor = bullets(info?.bestFor);
+    if (bestFor) {
+      section += `**Best For:**\n${bestFor}\n\n`;
+    }
+
+    const req = info?.requiredVariables;
+    if (req) {
+      const types = Array.isArray(req.types) ? req.types.join(', ') : 'any';
+      section += `**Required Variables:** ${req.minimum ?? '?'}–${req.maximum ?? '?'} (types: ${types})\n\n`;
+    }
+
+    const optional = bullets(info?.optionalFeatures);
+    if (optional) {
+      section += `**Optional Features:**\n${optional}\n\n`;
+    }
+
+    const limitations = bullets(info?.limitations);
+    if (limitations) {
+      section += `**Limitations:**\n${limitations}\n\n`;
+    }
+
+    const examples = bullets(info?.examples);
+    if (examples) {
+      section += `**Examples:**\n${examples}\n\n`;
+    }
+
+    return section;
   }
 
   /**

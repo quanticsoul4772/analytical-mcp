@@ -70,7 +70,7 @@ export async function dataVisualizationGenerator(
   let result = outputFormattingProvider.generateVisualizationHeader(visualizationType, variables, visualizationTitle, data.length);
   
   // Add visualization-specific details
-  result += detailProvider.getVisualizationTypeInfo(visualizationType);
+  result += detailProvider.formatVisualizationTypeInfo(visualizationType);
 
   // Generate visualization specification
   const spec = specProvider.generateVisualizationSpec(
