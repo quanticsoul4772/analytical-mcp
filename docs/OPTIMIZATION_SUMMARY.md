@@ -4,6 +4,13 @@
 **Session:** Deep Code Review and Optimization
 **Branch:** `claude/optimize-analytics-module-011CUKXnr1oGEM5yLYaYmuYD`
 
+> **Historical snapshot.** This is a point-in-time report of the October 2025 optimization
+> session. Some items have since changed — notably `src/utils/error_wrapper.ts` was removed
+> (it had no production consumer; retry lives in `api_helpers.ts`), `tokenize-text` was
+> dropped, and the `enhanced-errors` test timeout was fixed. For current architecture and
+> dependencies see `docs/ARCHITECTURE.md`; for recent changes see `CHANGELOG.md`. The
+> `performance_monitor.ts` and `cache_manager.getAsync` examples below remain accurate.
+
 ## Executive Summary
 
 Conducted a comprehensive code review and optimization of the analytical-mcp project, identifying and addressing critical issues, performance bottlenecks, and code quality concerns. The project successfully builds and all optimizations are backward compatible.
@@ -120,45 +127,9 @@ console.log(`P95: ${stats.p95}ms, Mean: ${stats.mean}ms`);
 - Minimal overhead (<1% performance impact)
 - Production-ready with configurable sampling
 
-### 2. Error Handling Wrapper System (NEW ✅)
-**File:** `src/utils/error_wrapper.ts` (380 lines)
-
-**Features:**
-- **Retry logic** with exponential backoff
-  - Configurable retry attempts, delays, and error types
-  - Automatic backoff multiplier
-
-- **Circuit breaker** pattern
-  - Protects against cascading failures
-  - Three states: CLOSED, OPEN, HALF_OPEN
-  - Automatic recovery testing
-
-- **Timeout handling**: `withTimeout()` wrapper
-- **Fallback strategies**: `withFallback()`, `withFallbackOperation()`
-- **Graceful degradation**: Multi-level fallback with priority
-- **Batch operations** with error isolation
-- **Async memoization** with TTL and size limits
-
-**Example Usage:**
-```typescript
-import { withRetry, CircuitBreaker } from './utils/error_wrapper.js';
-
-// Retry with custom config
-const result = await withRetry(
-  () => apiCall(),
-  { maxAttempts: 5, initialDelayMs: 200 },
-  'API call'
-);
-
-// Circuit breaker
-const breaker = new CircuitBreaker(5, 60000, 'externalAPI');
-const data = await breaker.execute(() => fetchFromAPI());
-```
-
-**Impact:**
-- Standardized error handling patterns across the codebase
-- Improved resilience against transient failures
-- Better error recovery and system stability
+> _The "Error Handling Wrapper System" (`src/utils/error_wrapper.ts`) documented here was
+> later removed — it had no production consumer. Retry with an explicit `shouldRetry`
+> predicate now lives in `src/utils/api_helpers.ts`._
 
 ---
 
@@ -283,28 +254,6 @@ console.log(`Mean: ${stats.mean}ms, P95: ${stats.p95}ms`);
 
 // Generate report
 console.log(monitor.getSummaryReport());
-```
-
-### Error Handling
-```typescript
-import { withRetry, withTimeout, CircuitBreaker } from './utils/error_wrapper.js';
-
-// Retry logic
-const result = await withRetry(
-  () => unreliableOperation(),
-  { maxAttempts: 3, initialDelayMs: 100 }
-);
-
-// Timeout protection
-const data = await withTimeout(
-  () => longRunningOperation(),
-  5000,
-  'longOperation'
-);
-
-// Circuit breaker
-const breaker = new CircuitBreaker(5, 60000, 'apiName');
-const response = await breaker.execute(() => apiCall());
 ```
 
 ### Async Cache Access

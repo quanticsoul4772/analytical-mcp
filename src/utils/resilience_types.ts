@@ -1,8 +1,7 @@
 /**
- * Shared types for API resilience and metrics
- * 
- * This file contains common types and interfaces to prevent circular dependencies
- * between api_resilience.ts and metrics_collector.ts
+ * Shared types for circuit-breaker metrics
+ *
+ * Circuit-breaker state and metric interfaces consumed by metrics_collector.ts.
  */
 
 /**

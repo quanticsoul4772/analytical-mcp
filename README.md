@@ -252,7 +252,7 @@ analytical-mcp/
 ## Architecture Notes
 
 - **Provider architecture**: Complex tools (regression, NLP, visualization, argument analysis) are decomposed into single-responsibility provider modules in `src/utils/` and `src/tools/` (e.g. `linear_regression_provider.ts`, `logistic_regression_provider.ts`, `polynomial_regression_provider.ts`, `multivariate_regression_provider.ts`, `regression_metrics_provider.ts`). Tool files orchestrate and format; providers hold the logic.
-- **Resilience**: `src/utils/api_resilience.ts` implements circuit breakers for external API calls; `src/utils/rate_limit_manager.ts` handles Exa rate limiting.
+- **Resilience**: `src/utils/rate_limit_manager.ts` handles Exa rate limiting (key rotation, per-endpoint throttling); `src/utils/api_helpers.ts` provides retry with an explicit `shouldRetry` predicate.
 - **Caching**: `src/utils/cache_manager.ts`, `src/utils/enhanced_cache.ts`, and `src/utils/research_cache.ts` provide layered, namespace-aware caching (enable with `ENABLE_RESEARCH_CACHE=true`).
 - **Statistics**: `src/utils/statistics.ts` implements log-gamma, incomplete beta/gamma, and t/F/chi-square CDFs from first principles for exact p-value computation — no statistical approximations or mocked results.
 

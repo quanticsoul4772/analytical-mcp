@@ -136,9 +136,8 @@ Key points:
   inside a `beforeEach`/helper combined with `jest.resetModules()` if you need a fresh
   module instance per test, as `config.test.ts` does).
 - Other real examples of this pattern: `src/utils/__tests__/metrics_server_content_limit.test.ts`,
-  `src/utils/__tests__/tool-wrapper.test.ts`, `src/utils/__tests__/advanced_ner.test.ts`,
-  `src/utils/__tests__/api_helpers.edge.test.ts`, `src/utils/__tests__/api_helpers.test.ts`,
-  `src/utils/__tests__/api_resilience.test.ts`.
+  `src/utils/__tests__/advanced_ner.test.ts`, `src/utils/__tests__/api_helpers.edge.test.ts`,
+  `src/utils/__tests__/api_helpers.test.ts`.
 
 ## Protocol smoke test (`npm run smoke`)
 

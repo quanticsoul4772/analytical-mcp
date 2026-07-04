@@ -121,19 +121,9 @@ Providers under `src/utils/` (from `ls src/utils`), grouped by area:
 `src/utils/`): `argument_structure_provider.ts`, `logical_fallacy_provider.ts`,
 `argument_validity_provider.ts`, `argument_strength_provider.ts`, `recommendation_provider.ts`.
 
-Note: `src/utils/tool-wrapper.updated.ts` exists but is not imported anywhere in `src/` — it is
-dead code, distinct from `tool-wrapper.ts` which is in use.
-
 ## Resilience
 
-- **`src/utils/api_resilience.ts`** — circuit breaker implementation with `CLOSED`/`OPEN`/
-  `HALF_OPEN` states (`DEFAULT_CIRCUIT_BREAKER_CONFIG`: failure threshold 5, success threshold 3,
-  60s request timeout, 30s reset timeout) plus a retry-with-exponential-backoff-and-jitter
-  mechanism (`DEFAULT_RETRY_CONFIG`: 3 retries, 1s base delay, 30s max delay, retryable status
-  codes `[408, 429, 502, 503, 504]`, retryable error codes
-  `[ECONNRESET, ETIMEDOUT, ENOTFOUND, EAI_AGAIN]`). Exposes a combined retry+circuit-breaker
-  wrapper and a helper to build a resilient API wrapper with default settings.
-- **`src/utils/api_helpers.ts`** — `withRetry()`, a simpler exponential-backoff retry helper that
+- **`src/utils/api_helpers.ts`** — `withRetry()`, an exponential-backoff retry helper that
   takes an explicit `shouldRetry(error)` predicate; when the predicate returns `false` the error
   is rethrown immediately without further attempts.
 - **`src/utils/rate_limit_manager.ts`** — API key rotation, per-endpoint throttling, and usage
@@ -212,7 +202,7 @@ Configured in `jest.config.js` with two Jest `projects`:
 - **`unit`** — `src/**/__tests__/**/*.test.ts`.
 - **`integration`** — `src/integration/**/*.test.ts`, run with `maxWorkers: 1` (sequential).
 
-`src/integration/` contains: `api_resilience.integration.test.ts`,
+`src/integration/` contains:
 `data_processing_pipeline.test.ts`, `logical_reasoning_tools.test.ts`,
 `market_analysis_workflow.test.ts`, `research_api_integration.test.ts`, plus a shared
 `test-helper.ts`.
@@ -260,8 +250,8 @@ semver ranges) as of this branch:
 - `zod` 3.25.76 (schema validation and type inference).
 - `mathjs` 14.3.0 (mathematical computation — mean/median/std/correlation/etc.; `statistics.ts`'s
   distribution functions are hand-implemented, not from `mathjs`).
-- `natural` 6.12.0 (NLP tokenization/stemming), `wink-nlp` 2.4.0, `wink-lemmatizer` 3.0.4,
-  `wink-pos-tagger` 2.2.2, `pos` 0.4.2, `sentiment` 5.0.2, `nspell` 2.1.5 + `dictionary-en` 4.0.0
+- `natural` 6.12.0 (NLP tokenization/stemming), `wink-lemmatizer` 3.0.4,
+  `pos` 0.4.2, `sentiment` 5.0.2, `nspell` 2.1.5 + `dictionary-en` 4.0.0
   (spell checking).
 - `node-fetch` 3.3.2 (HTTP), `uuid` 14.0.0.
 - Dev/test: `jest` 29.7.0, `ts-jest` 29.4.11, `nock` 13.5.1 (HTTP mocking), ESLint 8 +
@@ -269,7 +259,7 @@ semver ranges) as of this branch:
 
 Note: `compromise` and `spellchecker`, mentioned in older versions of this document, are not
 dependencies of this project — `package.json` has no such entries. NLP/spell-checking here is
-built on `wink-nlp`/`wink-lemmatizer`/`wink-pos-tagger`/`pos`/`natural`/`nspell`.
+built on `wink-lemmatizer`/`pos`/`natural`/`sentiment`/`nspell`.
 
 ## Deployment
 
