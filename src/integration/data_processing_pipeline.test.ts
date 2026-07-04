@@ -8,18 +8,23 @@ import { ValidationError } from '../utils/errors.js';
 // Import the required types from the tools
 import type { DataPoint, Dataset, NumericDataPoint } from '../tools/types.js';
 
-// Sample test data for integration testing
+// Sample test data for integration testing.
+// Revenue and expenses are expressed in thousands of dollars; region is a numeric
+// code (2500 = 'North', 1500 = 'South'). The predictors used for regression
+// (year, expenses, customers) are kept on a comparable scale and given genuine
+// independent variation so the OLS design matrix is well-conditioned rather than
+// collinear (customers is not a linear function of year and expenses).
 const SAMPLE_DATASET: NumericDataPoint[] = [
-  { year: 2019, revenue: 1200000, expenses: 950000, customers: 2500, region: 2500 }, // Using 2500 as numeric region code for 'North'
-  { year: 2020, revenue: 980000, expenses: 910000, customers: 2100, region: 2500 },
-  { year: 2021, revenue: 1450000, expenses: 1050000, customers: 3200, region: 2500 },
-  { year: 2022, revenue: 1820000, expenses: 1230000, customers: 4100, region: 2500 },
-  { year: 2023, revenue: 2100000, expenses: 1410000, customers: 4800, region: 2500 },
-  { year: 2019, revenue: 980000, expenses: 820000, customers: 2100, region: 1500 }, // Using 1500 as numeric region code for 'South'
-  { year: 2020, revenue: 850000, expenses: 790000, customers: 1900, region: 1500 },
-  { year: 2021, revenue: 1120000, expenses: 910000, customers: 2700, region: 1500 },
-  { year: 2022, revenue: 1350000, expenses: 1050000, customers: 3300, region: 1500 },
-  { year: 2023, revenue: 1620000, expenses: 1210000, customers: 3900, region: 1500 },
+  { year: 2019, revenue: 1200, expenses: 950, customers: 2500, region: 2500 },
+  { year: 2020, revenue: 980, expenses: 910, customers: 3100, region: 2500 },
+  { year: 2021, revenue: 1450, expenses: 1050, customers: 2800, region: 2500 },
+  { year: 2022, revenue: 1820, expenses: 1230, customers: 4100, region: 2500 },
+  { year: 2023, revenue: 2100, expenses: 1410, customers: 3600, region: 2500 },
+  { year: 2019, revenue: 980, expenses: 820, customers: 3300, region: 1500 },
+  { year: 2020, revenue: 850, expenses: 790, customers: 1900, region: 1500 },
+  { year: 2021, revenue: 1120, expenses: 910, customers: 4200, region: 1500 },
+  { year: 2022, revenue: 1350, expenses: 1050, customers: 2200, region: 1500 },
+  { year: 2023, revenue: 1620, expenses: 1210, customers: 3900, region: 1500 },
 ];
 
 // Numeric dataset for preprocessing
@@ -50,22 +55,29 @@ describe('Data Processing Pipeline Integration Tests', () => {
     });
 
     expect(regressionResults).toContain('Regression Analysis Results');
-    expect(regressionResults).toContain('Model Formula');
+    expect(regressionResults).toContain('Multiple Linear Regression');
+    expect(regressionResults).toContain('Dependent Variable: revenue');
+    expect(regressionResults).toContain('**Linear Equation:**');
     expect(regressionResults).toContain('Coefficients');
-    expect(regressionResults).toContain('revenue =');
 
-    // Step 3: Generate visualization specifications
+    // Step 3: Generate visualization specifications.
+    // A scatter plot is used because the trendline feature (includeTrendline) is
+    // only rendered for scatter plots; it adds a Vega-Lite regression layer.
     const visualizationSpec = await dataVisualizationGenerator({
       data: SAMPLE_DATASET,
-      visualizationType: 'line',
+      visualizationType: 'scatter',
       variables: ['year', 'revenue', 'expenses'],
       title: 'Revenue and Expenses Trends (2019-2023)',
       includeTrendline: true
     });
 
     expect(visualizationSpec).toContain('Visualization Specification');
-    expect(visualizationSpec).toContain('Chart Type: Line Chart');
-    expect(visualizationSpec).toContain('Trendline');
+    expect(visualizationSpec).toContain('Scatter Plot');
+    // includeTrendline adds a regression (trendline) layer to the Vega-Lite spec;
+    // assert on the spec directly rather than prose, so this verifies the actual
+    // trendline is emitted (the regression transform over the x/y variables).
+    expect(visualizationSpec).toContain('"regression"');
+    expect(visualizationSpec).toContain('firebrick');
 
     // Step 4: Perform hypothesis testing
     const hypothesisResults = await hypothesisTesting(
@@ -161,18 +173,36 @@ describe('Data Processing Pipeline Integration Tests', () => {
     );
 
     expect(hypothesisResults).toContain('Independent T-Test Results (Welch)');
+    expect(hypothesisResults).toContain('Degrees of Freedom');
 
-    // The standardized data should have mean close to 0
-    // Extract the test statistic from the results
-    const testStatisticMatch = hypothesisResults.match(/T-Statistic\s*\|\s*([+-]?([0-9]*[.])?[0-9]+)/);
+    // Standardization is an affine transform (subtract the mean, divide by the
+    // standard deviation) applied uniformly to every value, so the two-sample
+    // Welch t-statistic is invariant to it. Running the same test on the raw
+    // revenue halves must therefore reproduce the same t-statistic as the
+    // standardized halves — this is the correct behavior for the transformation,
+    // not the (incorrect) expectation that standardizing shrinks the statistic.
+    const rawRevenue = SAMPLE_DATASET.map((d) => d.revenue);
+    const rawResults = await hypothesisTesting(
+      't_test_independent',
+      [rawRevenue.slice(0, midpoint), rawRevenue.slice(midpoint)],
+      undefined,
+      0.05,
+      'two-sided'
+    );
 
-    if (testStatisticMatch && testStatisticMatch[1]) {
-      const testStatistic = parseFloat(testStatisticMatch[1]);
-      // For standardized data, t-statistic should be small when testing against mean=0
-      expect(Math.abs(testStatistic)).toBeLessThan(1.0);
-    } else {
-      // If we can't extract the test statistic, at least check that test completed
-      expect(hypothesisResults).toContain('Degrees of Freedom');
-    }
+    const extractTStatistic = (report: string): number => {
+      const match = report.match(/T-Statistic\s*\|\s*([+-]?([0-9]*[.])?[0-9]+)/);
+      if (!match || !match[1]) {
+        throw new Error('Failed to extract T-Statistic from hypothesis testing report');
+      }
+      return parseFloat(match[1]);
+    };
+
+    const standardizedTStatistic = extractTStatistic(hypothesisResults);
+    const rawTStatistic = extractTStatistic(rawResults);
+
+    // Equal to 3 decimals (the standardized values are read back from a 4-decimal
+    // preview, so a tiny rounding difference is expected but the invariance holds).
+    expect(standardizedTStatistic).toBeCloseTo(rawTStatistic, 3);
   });
 });

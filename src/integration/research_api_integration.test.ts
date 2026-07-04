@@ -1,6 +1,6 @@
 import { describe, it, expect } from '@jest/globals';
 import { exaResearch } from '../utils/exa_research.js';
-import { APIError } from '../utils/errors.js';
+import { ValidationError } from '../utils/errors.js';
 import { Logger } from '../utils/logger.js';
 
 describe('Research API Integration', () => {
@@ -28,24 +28,33 @@ describe('Research API Integration', () => {
     expect(result.results.length).toBeGreaterThan(0);
   });
 
-  it('should extract key facts from search results', async () => {
-    // Skip test if EXA_API_KEY is not in environment
-    if (!process.env.EXA_API_KEY) {
-      Logger.warn('Skipping test: EXA_API_KEY not found in environment');
-      return;
-    }
+  it('should extract key facts from search results', () => {
+    // extractKeyFacts is a pure, offline transformation over search results, so
+    // we feed it deterministic canned results rather than nondeterministic live
+    // search output. This exercises the real extraction logic (advanced fact
+    // extraction with fallback) without any network call or API key, and passes
+    // identically whether or not EXA_API_KEY is set.
+    const results = [
+      {
+        title: 'Renewable Energy Report 2025',
+        url: 'https://example.com/energy',
+        contents:
+          'Global renewable energy capacity increased by thirty percent in 2025, and ' +
+          'solar power generation grew substantially across many regions worldwide. ' +
+          'Analysts reported that wind installations expanded faster than any previous year on record.',
+      },
+      {
+        title: 'Technology Trends Overview',
+        url: 'https://example.com/tech',
+        contents:
+          'Artificial intelligence adoption increased sharply as enterprises deployed ' +
+          'large language models into production systems this year. ' +
+          'Researchers found that automated tooling reduced development time considerably for most software teams.',
+      },
+    ];
 
-    // Get real search results first
-    const results = await exaResearch.search({
-      query: 'latest technology trends',
-      numResults: 2,
-      useWebResults: true,
-      useNewsResults: false,
-      includeContents: true,
-    });
-
-    // Extract key facts from the real results
-    const facts = exaResearch.extractKeyFacts(results.results);
+    // Extract key facts from the deterministic results
+    const facts = exaResearch.extractKeyFacts(results);
 
     // Check structure and patterns rather than specific content
     expect(facts).toBeInstanceOf(Array);
@@ -59,28 +68,27 @@ describe('Research API Integration', () => {
   });
 
   it('should handle API errors gracefully', async () => {
-    // Skip test if EXA_API_KEY is not in environment
-    if (!process.env.EXA_API_KEY) {
-      Logger.warn('Skipping test: EXA_API_KEY not found in environment');
-      return;
-    }
-
-    // Attempt search with invalid parameters to trigger an error
-    try {
-      await exaResearch.search({
-        query: '', // Empty query should cause an error
-        numResults: -1, // Invalid number
+    // Invalid parameters are rejected by schema validation before any network
+    // request is issued, so this is deterministic and needs no API key. The
+    // current error shape is a code-first ValidationError (see
+    // src/utils/errors.ts): `.code` is the ERR_xxxx code and `.recoverable`
+    // is false for validation failures.
+    const error = await exaResearch
+      .search({
+        query: '', // Empty query
+        numResults: -1, // Invalid number: violates the schema's min(1)
         useWebResults: true,
         useNewsResults: false,
         includeContents: true,
-      });
+      })
+      .then(() => {
+        throw new Error('Expected search to reject for invalid parameters');
+      })
+      .catch((e: unknown) => e);
 
-      // Should not reach here
-      expect(false).toBe(true); // Force fail if no error thrown
-    } catch (error) {
-      // Verify error is an APIError
-      expect(error).toBeInstanceOf(APIError);
-    }
+    expect(error).toBeInstanceOf(ValidationError);
+    expect((error as ValidationError).code).toBe('ERR_1001');
+    expect((error as ValidationError).recoverable).toBe(false);
   });
 
   it('should validate data using real API', async () => {
