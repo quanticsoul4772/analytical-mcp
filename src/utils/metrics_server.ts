@@ -423,7 +423,7 @@ export class MetricsServer {
     <div class="endpoint">
         <h3>Available Endpoints:</h3>
         <ul>
-            <li><a href="/metrics">/metrics</a> - Circuit breaker and cache metrics (Prometheus format)</li>
+            <li><a href="/metrics">/metrics</a> - Cache and performance metrics (Prometheus format)</li>
             <li><a href="/metrics?format=json">/metrics?format=json</a> - Metrics in JSON format</li>
             <li><a href="/health">/health</a> - Health check endpoint</li>
         </ul>

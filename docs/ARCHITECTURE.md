@@ -168,7 +168,7 @@ classic df=20, alpha=0.05 two-tailed critical t-value) in
   env: `METRICS_PORT` (default 9090), `METRICS_HOST` (default `127.0.0.1`), `METRICS_ENABLED`,
   `METRICS_RATE_LIMIT` (default 60 req/window), `MAX_METRICS_BYTES` (default 1 MiB). Includes
   per-IP rate limiting.
-- **`src/utils/metrics_collector.ts`** — aggregates circuit breaker and cache metrics, exposing
+- **`src/utils/metrics_collector.ts`** — aggregates cache and performance metrics, exposing
   both Prometheus-style and JSON output.
 - **`src/utils/performance_monitor.ts`** — execution time and memory tracking utilities.
 - **`src/utils/logger.ts`** — centralized `Logger`; all log output goes to stderr so stdout stays

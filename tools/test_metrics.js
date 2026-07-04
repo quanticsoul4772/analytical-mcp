@@ -74,7 +74,6 @@ async function testMetrics() {
       const metrics = await jsonResponse.json();
       console.log('✅ JSON metrics endpoint working');
       console.log('📊 Uptime:', Math.floor(metrics.uptime / 1000), 'seconds');
-      console.log('🔧 Circuit breakers:', Object.keys(metrics.circuitBreakers).length);
       console.log('💾 Cache namespaces:', Object.keys(metrics.cache.general).length + Object.keys(metrics.cache.research).length);
     } else {
       console.error('❌ JSON metrics endpoint failed');

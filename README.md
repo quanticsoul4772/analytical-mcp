@@ -104,7 +104,7 @@ The server registers 12 tools on startup, unconditionally (registration does not
 
 ## Observability & Metrics
 
-The Analytical MCP Server includes a built-in Prometheus-style metrics HTTP server (`src/utils/metrics_server.ts`) for monitoring circuit breakers and cache performance.
+The Analytical MCP Server includes a built-in Prometheus-style metrics HTTP server (`src/utils/metrics_server.ts`) for monitoring cache performance and system health.
 
 ### Metrics Endpoint
 
@@ -116,13 +116,6 @@ When enabled, the server exposes metrics via HTTP on port 9090 (configurable):
 - **`http://localhost:9090/`** - Metrics server status page
 
 ### Available Metrics
-
-#### Circuit Breaker Metrics
-- `analytical_mcp_circuit_breaker_state` - Current state (0=CLOSED, 1=HALF_OPEN, 2=OPEN)
-- `analytical_mcp_circuit_breaker_total_calls_total` - Total calls through circuit breaker
-- `analytical_mcp_circuit_breaker_rejected_calls_total` - Rejected calls by circuit breaker
-- `analytical_mcp_circuit_breaker_failure_count` - Current failure count
-- `analytical_mcp_circuit_breaker_success_count` - Current success count
 
 #### Cache Metrics
 - `analytical_mcp_cache_hits_total` - Cache hits by namespace
