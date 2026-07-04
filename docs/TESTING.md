@@ -7,7 +7,7 @@ Jest (`jest.config.js`) defines two named projects:
 | Project | `testMatch` | Notes |
 |---|---|---|
 | `unit` | `src/**/__tests__/**/*.test.ts` | Offline, no network, no API key required |
-| `integration` | `src/integration/**/*.test.ts` | `maxWorkers: 1` (sequential); several suites need `EXA_API_KEY` |
+| `integration` | `src/integration/**/*.test.ts` | `maxWorkers: 1` (sequential); live-Exa cases self-skip without `EXA_API_KEY` |
 
 Both projects share `preset: ts-jest/presets/default-esm`, ESM transform settings, and
 `setupFilesAfterEnv: src/setupTests.ts`.
@@ -22,19 +22,16 @@ tools are listed with valid input schemas and that `analyze_dataset` /
 
 ## Running Tests
 
-- `npm test` — runs the full jest suite (both projects). This goes through npm's
-  `pretest` lifecycle hook first, which runs `tools/check-api-keys.js` and **exits
-  non-zero if `EXA_API_KEY` is not set** — so bare `npm test` will refuse to run at
-  all without the key, even though most of the suite doesn't need it.
-- `npm run test:unit` — runs only the `unit` project directly via
-  `--selectProjects unit`. This does **not** go through `pretest` (npm only chains
-  `pre<name>` for the exact script name `test`), so it runs fine with no
-  `EXA_API_KEY` set. This is what CI runs.
-- `npm run test:integration` — runs only the `integration` project
-  (`--selectProjects integration`).
+- `npm test` — runs the offline `unit` project (`--selectProjects unit`). No API key,
+  no network; this is the same suite CI runs. Runs fine with `EXA_API_KEY` unset.
+- `npm run test:unit` — identical to `npm test` (explicit form).
+- `npm run test:integration` — runs the `integration` project. Its `pretest:integration`
+  hook runs `tools/check-api-keys.js --warn`, which **prints a heads-up and exits 0** if
+  `EXA_API_KEY` is not set (it does **not** block). The suite then runs offline, with the
+  live-Exa cases self-skipping; set `EXA_API_KEY` to exercise them.
 - `npm run test:integration:no-api` — runs the `integration` project but excludes
-  `research_api_integration` via `--testPathIgnorePatterns`, for running the
-  integration suite without live Exa API calls.
+  `research_api_integration` via `--testPathIgnorePatterns`. (No heads-up: npm scopes
+  `pre<script>` to the exact name, so `pretest:integration` does not fire here.)
 - `npm run test:coverage` — full suite with coverage (`collectCoverageFrom` excludes
   `src/integration/**` and `*.d.ts`).
 - `npm run test:watch` — watch mode.
@@ -43,9 +40,10 @@ tools are listed with valid input schemas and that `analyze_dataset` /
 - `npm run test:optimized` — `--max-old-space-size=4096 --expose-gc --runInBand`.
 - `npm run test:leak-detection` — adds `--detectOpenHandles --detectLeaks
   --logHeapUsage` on top of a larger heap. **Not run by default** — see below.
-- `npm run test:strict` — `typecheck:src` then `test`.
-- Single file: `npm test -- path/to/file.test.ts`
-- Single test name: `npm test -- -t "test name pattern"`
+- `npm run test:strict` — `typecheck:src` then `test` (typecheck + offline unit suite).
+- Single file: `npm test -- path/to/file.test.ts` (unit files only — `npm test` is the
+  unit project; for an integration file use `npm run test:integration`).
+- Single test name: `npm test -- -t "test name pattern"` (searches the unit project).
 - Shell wrapper: `tools/test-runner.sh [unit|integration|integration:no-api|all]`
 
 ## Leak diagnostics are off by default
@@ -65,20 +63,21 @@ projects load that file via `setupFilesAfterEnv` — so the effective per-test t
 
 ## `EXA_API_KEY` and tests
 
-- `npm test` (bare) is blocked entirely without the key, via `pretest`.
-- `npm run test:unit` is unaffected — no unit test requires the key.
-- Integration test files that call the live Exa API check
-  `process.env.EXA_API_KEY` themselves and skip (with `Logger.warn('Skipping test:
-  EXA_API_KEY not found in environment')`) rather than fail, e.g.
+- No key is required to run tests. `npm test` (the unit project) is fully offline.
+- `npm run test:integration` prints a non-blocking heads-up (`pretest:integration` →
+  `check-api-keys.js --warn`, exit 0) when the key is missing, then runs — its live-Exa
+  cases self-skip.
+- Integration test files that call the live Exa API check `process.env.EXA_API_KEY`
+  themselves and skip rather than fail, e.g.
   `src/integration/market_analysis_workflow.test.ts` and
   `src/integration/research_api_integration.test.ts`.
 - `src/setupTests.ts` also loads `.env.test` (gitignored — put your local key there)
   via `dotenv`'s `config({ path: '.env.test' })`, and calls `checkApiKeys()` in a
   `beforeAll`, but only logs a warning on failure — it does not fail the run.
 
-Net effect: only `npm test` and `npm run test:integration` (for the Exa-dependent
-suites) actually require `EXA_API_KEY`. `npm run test:unit`, `typecheck`, `lint`,
-`build`, and `smoke` do not.
+Net effect: `EXA_API_KEY` is never required to run any suite; it only enables the
+live-Exa integration cases (which otherwise self-skip). `npm test`, `test:unit`,
+`typecheck`, `lint`, `build`, and `smoke` are all offline.
 
 ## Mocking modules under ESM: `jest.mock()` does not work here
 

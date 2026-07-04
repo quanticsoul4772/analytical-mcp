@@ -28,12 +28,13 @@
 
 ### Testing
 See [TESTING.md](./TESTING.md) for the full picture (ESM mocking pattern, jest
-project split, what requires `EXA_API_KEY`). Quick reference:
-- **Unit tests**: `npm run test:unit`
-- **All tests** (unit + integration; runs `pretest` → `tools/check-api-keys.js`,
-  which exits non-zero without `EXA_API_KEY`): `npm test`
+project split, how `EXA_API_KEY` affects tests). Quick reference:
+- **Unit tests (offline, the default)**: `npm test` (or the explicit `npm run test:unit`)
+- **Integration tests**: `npm run test:integration` — prints a non-blocking heads-up
+  without `EXA_API_KEY` and runs anyway (live-Exa cases self-skip)
 - **Coverage**: `npm run test:coverage`
-- **Single file**: `npm test -- path/to/test.ts`
+- **Single file**: `npm test -- path/to/test.ts` (unit files; for an integration file use
+  `npm run test:integration`)
 - **Single test name**: `npm test -- -t "test name pattern"`
 - **Debug**: `npm run test:debug`
 
@@ -41,12 +42,11 @@ project split, what requires `EXA_API_KEY`). Quick reference:
 - **Cache stats**: `npm run cache:stats` (`node tools/cache-manager.js stats`)
 - **Clear cache**: `npm run cache:clear`
 - **Preload cache**: `npm run cache:preload`
-- **Cache performance demo**: `npm run cache:demo` (`node examples/cache_performance_demo.js`)
 
 ### Other Utility Scripts
 - **API key validation**: `npm run check-api-keys` (`node tools/check-api-keys.js`) —
-  also runs automatically as the `pretest` hook before bare `npm test`.
-- **NLP demo**: `npm run nlp:demo` (`node examples/advanced_nlp_demo.js`)
+  exits non-zero if `EXA_API_KEY` is unset. The `--warn` variant runs automatically as
+  the `pretest:integration` hook (heads-up only, does not block).
 - **Shell test wrapper**: `tools/test-runner.sh [unit|integration|integration:no-api|all]`
   — a thin wrapper over the npm test scripts above.
 - **Metrics smoke check**: `node tools/test_metrics.js` — starts the server with

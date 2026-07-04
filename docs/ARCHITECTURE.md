@@ -226,8 +226,9 @@ server (`build/index.js`) as a real child process, speaks MCP JSON-RPC over its 
 verifies it initializes, lists tools, and executes a tool call — with `METRICS_ENABLED=false` in
 the spawned process's env so the probe doesn't bind an HTTP port. Exits 0/1 for CI use.
 
-`npm test` runs `node --experimental-vm-modules .../jest.js` (ESM); useful variants include
-`test:unit`, `test:integration`, `test:integration:no-api` (skips `research_api_integration`),
+`npm test` runs the offline `unit` project (`node --experimental-vm-modules .../jest.js
+--selectProjects unit`, ESM); useful variants include
+`test:integration`, `test:integration:no-api` (skips `research_api_integration`),
 `test:coverage`, `test:ci` (`--ci --coverage --maxWorkers=2 --silent`), and `test:debug`
 (`--inspect-brk --runInBand`).
 

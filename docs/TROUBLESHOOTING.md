@@ -125,9 +125,9 @@ npm run typecheck
 
 #### Test Failures
 **Common Issues:**
-- Bare `npm test` refuses to start without `EXA_API_KEY` (the `pretest` hook runs
-  `tools/check-api-keys.js`, which exits 1 if the key is missing) — use `npm run
-  test:unit` instead if you just want the offline suite.
+- `npm test` runs the offline unit suite and needs no `EXA_API_KEY`. `npm run
+  test:integration` prints a non-blocking heads-up when the key is missing and still
+  runs (its live-Exa cases self-skip).
 - A `jest.mock()` call that appears to do nothing — see the ESM mocking note above.
 - Fake-timer misuse or stale expected values in a specific suite — check that suite's
   git history before assuming environment issues.
@@ -137,7 +137,7 @@ npm run typecheck
 # Run the offline unit suite (no API key needed)
 npm run test:unit
 
-# Verify API key is set (only needed for `npm test` / `npm run test:integration`)
+# Verify API key is set (enables the live-Exa integration cases)
 npm run check-api-keys
 
 # Use the shell wrapper
@@ -267,9 +267,9 @@ METRICS_PORT=9090
 METRICS_HOST=127.0.0.1
 ```
 
-`EXA_API_KEY` missing only disables research/NLP features at runtime and blocks the
-Exa-dependent tests (see [TESTING.md](./TESTING.md)) — it does not stop the server
-from starting or the rest of the tools from working.
+`EXA_API_KEY` missing only disables research/NLP features at runtime; the Exa-dependent
+tests self-skip (see [TESTING.md](./TESTING.md)) rather than fail — it does not stop the
+server from starting or the rest of the tools from working.
 
 ### Claude Desktop Configuration
 Example `mcpServers` entry:

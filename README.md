@@ -204,13 +204,13 @@ curl http://localhost:9090/health
 
 ### Testing
 ```bash
-# Run all tests (unit + integration)
+# Run the offline unit suite (no API key needed) — same as test:unit
 npm test
 
 # Unit tests only (offline, no API key needed)
 npm run test:unit
 
-# Integration tests (need EXA_API_KEY)
+# Integration tests (non-blocking heads-up without EXA_API_KEY; live-Exa cases self-skip)
 npm run test:integration
 
 # Integration tests excluding the live-API suite
@@ -238,9 +238,9 @@ npm run test:integration:no-api
 ```
 analytical-mcp/
 ├── src/
-│   ├── tools/           # MCP tool implementations (9 registered tools + supporting providers)
+│   ├── tools/           # MCP tool implementations (12 registered tools + supporting providers)
 │   ├── utils/           # Utility functions, regression/NLP providers, caching, resilience, metrics
-│   ├── integration/     # Integration tests (require EXA_API_KEY unless noted)
+│   ├── integration/     # Integration tests (live-Exa cases self-skip without EXA_API_KEY)
 │   ├── __tests__/       # Server-level protocol test (InMemoryTransport)
 │   └── index.ts         # Main server entry point
 ├── docs/                # Documentation

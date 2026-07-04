@@ -23,11 +23,11 @@ There is no `src/__mocks__/` directory — Jest runs in ESM mode, where the clas
 # Unit tests only — offline, no API key required
 npm run test:unit
 
-# Integration tests — some suites require EXA_API_KEY, others run offline
+# Integration tests — live-Exa cases self-skip without EXA_API_KEY (non-blocking heads-up)
 npm run test:integration
 npm run test:integration:no-api   # skips the live-API suite
 
-# Everything
+# Offline unit suite (the default; same as test:unit)
 npm test
 
 # Or via the thin wrapper script
