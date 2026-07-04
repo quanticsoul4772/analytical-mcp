@@ -276,13 +276,15 @@ MIT License. See LICENSE file for details.
 
 ## Contributing
 
-1. Fork the repository
-2. Create feature branch: `git checkout -b feature/your-feature`
-3. Make changes and commit: `git commit -m 'Add feature description'`
-4. Push to branch: `git push origin feature/your-feature`
-5. Open pull request
+See [CONTRIBUTING.md](./CONTRIBUTING.md) for the contribution workflow and conventions, and
+[docs/DEVELOPMENT.md](./docs/DEVELOPMENT.md) for the full development reference. All
+participants are expected to follow the [Code of Conduct](./CODE_OF_CONDUCT.md).
 
-See [docs/DEVELOPMENT.md](./docs/DEVELOPMENT.md) for detailed development guidelines, code standards, and testing requirements.
+In short: branch from `main`, make sure `npm run typecheck`, `npm run lint`, `npm test`, and
+`npm run smoke` all pass, add tests for new behavior, and open a PR using the template.
+
+To report a security vulnerability, follow [SECURITY.md](./SECURITY.md) — do not open a
+public issue.
 
 ## Troubleshooting
 
