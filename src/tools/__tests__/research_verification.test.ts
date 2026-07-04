@@ -198,4 +198,36 @@ describe('Research Verification Tool', () => {
     // Validation failures happen before any research call
     expect(searchMock).not.toHaveBeenCalled();
   });
+
+  it('returns an unverified zero-confidence result when no sources are found', async () => {
+    // Every search returns zero results → no facts extracted at all. The old
+    // implementation threw "Cannot calculate the mean of an empty array".
+    searchMock.mockResolvedValue({ results: [] });
+
+    const result = await researchVerification.verifyResearch({
+      query: 'A query that returns nothing',
+      verificationQueries: ['Also nothing'],
+    });
+
+    expect(result.confidence.score).toBe(0);
+    expect(result.confidence.verified).toBe(false);
+    expect(result.confidence.details.sourceCount).toBe(0);
+  });
+
+  it('returns an unverified zero-confidence result when sources yield no extractable facts', async () => {
+    // Sources are returned but their content extracts to zero facts (empty
+    // contents). The old implementation threw on the per-source mean.
+    searchMock.mockResolvedValue({
+      results: [{ title: 'Empty Source', contents: '' }],
+    });
+
+    const result = await researchVerification.verifyResearch({
+      query: 'A query whose sources are empty',
+    });
+
+    expect(result.confidence.score).toBe(0);
+    expect(result.confidence.verified).toBe(false);
+    // One source was returned, so the diagnostic still reports it.
+    expect(result.confidence.details.sourceCount).toBe(1);
+  });
 });

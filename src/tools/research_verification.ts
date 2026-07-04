@@ -147,20 +147,41 @@ export class ResearchVerificationTool {
     factExtractions: ResearchConfidence['details']['factExtractions'], 
     minThreshold: number
   ): ResearchConfidence {
+    // No extractable facts → honest "couldn't verify anything" result. Averaging any of the
+    // arrays below would throw ("Cannot calculate the mean of an empty array"), and
+    // Math.log(factExtractions.length) would be Math.log(0) = -Infinity.
+    if (facts.length === 0) {
+      return {
+        score: 0,
+        verified: false,
+        consistencyThreshold: minThreshold,
+        details: {
+          sourceConsistency: 0,
+          sourceCount: factExtractions.length,
+          uniqueSources: Array.from(new Set(factExtractions.map(e => e.source))),
+          conflictingClaims: [],
+          factExtractions,
+        },
+      };
+    }
+
+    // Mean over a possibly-empty array (a source that yielded zero facts) → 0 instead of throwing.
+    const safeMean = (xs: number[]): number => (xs.length ? Number(mathjs.mean(xs)) : 0);
+
     // Compute fact similarity and consistency
     const factConsistencyMatrix = this.computeFactConsistency(facts);
 
     // Calculate source-level confidences
-    const sourceConfidences = factExtractions.map(extraction => 
-      mathjs.mean(extraction.facts.map(f => f.confidence))
+    const sourceConfidences = factExtractions.map(extraction =>
+      safeMean(extraction.facts.map(f => f.confidence))
     );
 
     // Overall source confidence
-    const averageSourceConfidence = mathjs.mean(sourceConfidences);
+    const averageSourceConfidence = safeMean(sourceConfidences);
 
     // Compute consistency score
-    const consistencyScore = mathjs.mean(
-      factConsistencyMatrix.map(row => mathjs.mean(row))
+    const consistencyScore = safeMean(
+      factConsistencyMatrix.map(row => safeMean(row))
     );
 
     // Final confidence computation
