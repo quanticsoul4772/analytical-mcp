@@ -1,6 +1,6 @@
 # Analytical MCP Server
 
-Model Context Protocol server providing statistical analysis, decision support, logical reasoning, and research verification tools for Claude.
+Model Context Protocol server exposing 12 analytical tools for Claude: descriptive statistics, regression (linear/polynomial/logistic/multivariate), hypothesis testing, data preprocessing, data visualization specs, multi-criteria decision analysis, ML model evaluation, logical argument/fallacy analysis, and Exa-backed research verification. Runs over stdio; the analytical core needs no API key (research features require `EXA_API_KEY`).
 
 ## Setup
 
@@ -17,21 +17,14 @@ npm run build
 ```
 
 #### Option 2: Docker
+Build the image. The server speaks the MCP protocol over **stdio** — it is launched
+(and its stdin/stdout piped) by the MCP client, not run as a detached daemon; see the
+Docker entry under [Configuration](#configuration) for how Claude Desktop invokes it.
 ```bash
-# Build the Docker image
 docker build -t analytical-mcp .
 
-# Run with environment variables
-docker run -d \
-  --name analytical-mcp \
-  -e EXA_API_KEY=your_api_key_here \
-  -v $(pwd)/cache:/app/cache \
-  analytical-mcp
-
-# Or use docker-compose
-cp .env.example .env
-# Edit .env with your API key
-docker-compose up -d
+# Smoke-test the image interactively (Ctrl-C to exit):
+docker run --rm -i -e EXA_API_KEY=your_api_key_here analytical-mcp
 ```
 
 ### Configuration

@@ -81,8 +81,6 @@ const DEFAULT_FEATURE_FLAGS: Record<Environment, FeatureFlags> = {
 export const config = {
   // Core settings
   NODE_ENV: process.env.NODE_ENV || 'development',
-  PORT: process.env.PORT || '3000',
-  HOST: process.env.HOST || 'localhost',
   LOG_LEVEL: process.env.LOG_LEVEL || 'info',
 
   // API Keys - Expected to be in system environment variables

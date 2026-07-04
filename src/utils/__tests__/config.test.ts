@@ -13,8 +13,6 @@ import.meta.jest.unstable_mockModule('dotenv', () => {
 // Environment variables the config module reads and these tests manipulate
 const MANAGED_KEYS = [
   'NODE_ENV',
-  'PORT',
-  'HOST',
   'LOG_LEVEL',
   'EXA_API_KEY',
   'ENABLE_RESEARCH_INTEGRATION',
@@ -66,8 +64,6 @@ describe('Configuration Module', () => {
       const { config } = await freshConfig();
 
       expect(config.NODE_ENV).toBe('development');
-      expect(config.PORT).toBe('3000');
-      expect(config.HOST).toBe('localhost');
       expect(config.LOG_LEVEL).toBe('info');
       expect(config.EXA_API_KEY).toBe('');
       expect(config.ENABLE_RESEARCH_INTEGRATION).toBe('false');
@@ -84,8 +80,6 @@ describe('Configuration Module', () => {
 
     it('should load values from environment variables when provided', async () => {
       process.env.NODE_ENV = 'production';
-      process.env.PORT = '8080';
-      process.env.HOST = 'api.example.com';
       process.env.LOG_LEVEL = 'ERROR';
       process.env.EXA_API_KEY = 'test-api-key';
       process.env.ENABLE_RESEARCH_INTEGRATION = 'true';
@@ -93,21 +87,19 @@ describe('Configuration Module', () => {
       const { config } = await freshConfig();
 
       expect(config.NODE_ENV).toBe('production');
-      expect(config.PORT).toBe('8080');
-      expect(config.HOST).toBe('api.example.com');
       expect(config.LOG_LEVEL).toBe('ERROR');
       expect(config.EXA_API_KEY).toBe('test-api-key');
       expect(config.ENABLE_RESEARCH_INTEGRATION).toBe('true');
     });
 
     it('should expose env-derived values as strings without conversion', async () => {
-      process.env.PORT = '9999';
+      process.env.LOG_LEVEL = 'WARN';
       process.env.ENABLE_RESEARCH_INTEGRATION = 'true';
 
       const { config } = await freshConfig();
 
-      expect(config.PORT).toBe('9999');
-      expect(typeof config.PORT).toBe('string');
+      expect(config.LOG_LEVEL).toBe('WARN');
+      expect(typeof config.LOG_LEVEL).toBe('string');
       expect(typeof config.ENABLE_RESEARCH_INTEGRATION).toBe('string');
     });
 

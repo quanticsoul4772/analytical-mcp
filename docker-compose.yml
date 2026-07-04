@@ -16,11 +16,16 @@ services:
       - CACHE_PERSISTENT=true
       - CACHE_DIR=./cache
       - LOG_LEVEL=INFO
+      # Bind the metrics server to all interfaces so the mapped port is reachable
+      # from the host (default is 127.0.0.1, which is container-local only).
+      - METRICS_HOST=0.0.0.0
     volumes:
       - ./cache:/app/cache
       - ./logs:/app/logs
     ports:
-      - "3000:3000"
+      # Optional metrics HTTP server (METRICS_PORT, default 9090). The MCP server
+      # itself uses stdio and is not reached via a port.
+      - "9090:9090"
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "node", "-e", "console.log('Health check passed')"]

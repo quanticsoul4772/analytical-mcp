@@ -63,13 +63,13 @@ COPY --from=builder /app/.env.example ./
 # Switch to non-root user
 USER analytical
 
-# Expose port (though MCP servers typically use stdio)
-EXPOSE 3000
+# The MCP server itself communicates over stdio; the only HTTP listener is the
+# optional metrics server (METRICS_ENABLED defaults to true) on METRICS_PORT.
+EXPOSE 9090
 
 # Set environment variables
 ENV NODE_ENV=production
 ENV CACHE_DIR=./cache
-ENV PORT=3000
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
