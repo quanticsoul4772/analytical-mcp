@@ -161,6 +161,20 @@ export class Logger {
   }
 
   /**
+   * Emit a structured audit record.
+   *
+   * Audit records are a security/forensics control: they are emitted
+   * unconditionally to stderr (independent of `minLevel`) so a restrictive
+   * `LOG_LEVEL` cannot silently suppress them. The caller decides whether
+   * auditing is enabled. stdout is reserved for the MCP JSON-RPC channel.
+   * @param message Structured audit message (typically JSON)
+   */
+  static audit(message: string): void {
+    const prefix = this.config.includeTimestamp ? `[${new Date().toISOString()}] AUDIT:` : 'AUDIT:';
+    console.error(`${prefix} ${message}`);
+  }
+
+  /**
    * Get numeric priority of log level for comparison
    * @param level Log level
    * @returns Numeric priority

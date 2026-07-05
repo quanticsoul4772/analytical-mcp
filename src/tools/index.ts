@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { Logger } from '../utils/logger.js';
+import { auditToolCall } from '../utils/audit.js';
 import { MAX_STRING_LENGTH } from './limits.js';
 
 // Import tools and their schemas
@@ -205,10 +206,13 @@ export function registerTools(server: McpServer): void {
         tool.description,
 'shape' in tool.schema ? tool.schema.shape : tool.schema,
 async (args: any, extra: any) => {
+          const startMs = Date.now();
           try {
             // All handlers now expect the args object directly
             const result = await tool.handler(args);
-            
+
+            auditToolCall({ tool: tool.name, args, durationMs: Date.now() - startMs, ok: true });
+
             return {
               content: [
                 {
@@ -218,6 +222,7 @@ async (args: any, extra: any) => {
               ]
             };
           } catch (error) {
+            auditToolCall({ tool: tool.name, args, durationMs: Date.now() - startMs, ok: false, error });
             Logger.error(`Error executing tool ${tool.name}`, error);
             return {
               isError: true,

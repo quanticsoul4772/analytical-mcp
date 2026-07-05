@@ -119,6 +119,9 @@ export const config = {
   METRICS_ENABLED: process.env.METRICS_ENABLED || 'true',
   METRICS_PORT: validatePort(process.env.METRICS_PORT || '9090').toString(),
   METRICS_HOST: process.env.METRICS_HOST || '127.0.0.1',
+
+  // Per-call audit logging (stderr only). Gated solely by this flag, not LOG_LEVEL.
+  ENABLE_AUDIT_LOG: process.env.ENABLE_AUDIT_LOG || 'true',
 };
 
 /**
