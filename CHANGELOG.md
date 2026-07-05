@@ -6,6 +6,13 @@ does not yet follow strict SemVer (pre-1.0).
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-07-05
+
+Published to the Glama MCP directory at a 100% profile with an **A** quality
+score (all 12 tools rated A). This release folds in every change since 0.2.0:
+the full 12-tool surface, a `mathjs` security bump, real bug fixes, dead-code
+removal, and a complete tool-definition overhaul.
+
 ### Added
 
 - Registered three previously-unexposed analytical tools (9 → 12):
@@ -15,15 +22,51 @@ does not yet follow strict SemVer (pre-1.0).
   (classification and regression metrics). Two had been registered in the
   original codebase and were dropped during an earlier rewrite; all three are
   real-math implementations.
+- `npm run smoke` now validates **all 12 tools** over real stdio JSON-RPC —
+  each with a known-good call asserting a computed value plus an empty-input
+  edge case asserting a clean error (previously it spot-checked one tool). This
+  is the regression net that catches protocol-level breakage unit tests miss.
+- Community-health files (`CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`,
+  `SECURITY.md`, issue/PR templates); private vulnerability reporting enabled.
+- Glama score badge in the README.
 
 ### Changed
 
+- Overhauled all 12 tool definitions: every `description` rewritten (purpose,
+  output, when-to-use vs. sibling tools, and requirements) and a `.describe()`
+  added to every input parameter — improving agent tool selection and Glama
+  Tool-Definition-Quality (graded A).
 - The tool registration wrapper now returns `isError: true` when a handler
   throws, so a schema-valid input that fails inside a tool surfaces as an MCP
   error result rather than a success-shaped text block.
+- `serverInfo.version` now tracks `package.json` (it had been hardcoded and
+  understated the version in the MCP handshake).
+- Refreshed the README and removed a vestigial port-3000 reference across
+  config and Docker.
+
+### Removed
+
+- Dead code: the unused `data_resource_management` tool (code-execution smell),
+  unwired resilience/wrapper modules, the circuit-breaker metrics surface, and
+  unused dependencies.
 
 ### Fixed
 
+- `verify_research` crashed with "Cannot calculate the mean of an empty array"
+  on every query when fact extraction yielded no facts; it now returns an
+  unverified, zero-confidence result.
+- Docker build failed, blocking Glama deployment: the production `tsc` build
+  compiled test infrastructure (`src/setupTests.ts`, which imports
+  `@jest/globals`) that does not resolve under a strict pnpm `node_modules`;
+  test infrastructure is now excluded from the build. The repository
+  Dockerfile's `npm ci` was also fixed (the lockfile had been `.dockerignore`d,
+  and the `prepare` hook rebuilt during install).
+- `advanced_regression_analysis` solver falsely rejected well-conditioned,
+  multi-scale data as singular (added symmetric Jacobi equilibration).
+- `data_visualization_generator` emitted `[object Object]` instead of
+  formatted values.
+- The 9 pre-existing failing integration tests, and an inverted
+  `npm test` / `EXA_API_KEY` gate that selected the wrong test project.
 - `ml_model_evaluation` now throws a `ValidationError` on empty input,
   mismatched array lengths, or an unknown model type (previously it returned a
   success-shaped error report), and guards precision/recall/F1/R² against
@@ -31,6 +74,13 @@ does not yet follow strict SemVer (pre-1.0).
 - `advanced_data_preprocessing` now accepts a flat `number[]` (its schema
   permitted it, but the flattening logic produced an empty series and crashed),
   and rejects empty input with a `ValidationError`.
+- Broken `lint:fix` script and spurious `no-console` lint warnings.
+
+### Security
+
+- Bumped `mathjs` 14 → 15.2.0, clearing the prototype-pollution advisory
+  ([GHSA-29qv-4j9f-fjw5](https://github.com/advisories/GHSA-29qv-4j9f-fjw5))
+  that 0.2.0 listed as a known issue.
 
 ## [0.2.0] - 2026-07-03
 
@@ -115,4 +165,6 @@ below was required to reach a working state.
   requires `EXA_API_KEY`; without it those two tools are unavailable but
   the other 7 tools work normally.
 
+[Unreleased]: https://github.com/quanticsoul4772/analytical-mcp/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/quanticsoul4772/analytical-mcp/releases/tag/v0.3.0
 [0.2.0]: https://github.com/quanticsoul4772/analytical-mcp/releases/tag/v0.2.0
