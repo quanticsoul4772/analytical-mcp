@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { ValidationError, ToolExecutionError, DataProcessingError } from '../utils/errors.js';
 import { Logger } from '../utils/logger.js';
+import { MAX_STRING_LENGTH } from './limits.js';
 
 // Fallacy definition type
 interface FallacyDefinition {
@@ -17,7 +18,7 @@ interface FallacyDefinition {
 
 // Schema for logical fallacy detector
 const logicalFallacyDetectorSchemaDefinition = z.object({
-  text: z.string().describe('Text to analyze for logical fallacies'),
+  text: z.string().max(MAX_STRING_LENGTH).describe('Text to analyze for logical fallacies'),
   confidenceThreshold: z
     .number()
     .min(0)

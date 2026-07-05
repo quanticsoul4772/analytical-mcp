@@ -2,6 +2,7 @@ import { z } from 'zod';
 import * as math from 'mathjs';
 import { ValidationError, DataProcessingError } from '../utils/errors.js';
 import { Logger } from '../utils/logger.js';
+import { MAX_DATA_POINTS } from './limits.js';
 
 // Type definitions
 type Dataset = number[] | Record<string, any>[];
@@ -10,7 +11,8 @@ type Dataset = number[] | Record<string, any>[];
 export const analyzeDatasetSchema = z.object({
   data: z
     .array(z.number())
-    .or(z.array(z.record(z.string(), z.any())))
+    .max(MAX_DATA_POINTS)
+    .or(z.array(z.record(z.string(), z.any())).max(MAX_DATA_POINTS))
     .describe(
       'The numeric series to summarize: a number[], or an array of objects whose first numeric property is analyzed.'
     ),

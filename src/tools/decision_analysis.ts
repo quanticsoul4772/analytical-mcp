@@ -1,19 +1,22 @@
 import { z } from 'zod';
 import { ValidationError, DataProcessingError } from '../utils/errors.js';
 import { Logger } from '../utils/logger.js';
+import { MAX_DECISION_ITEMS } from './limits.js';
 
 // Schema for the tool parameters
 export const decisionAnalysisSchema = z.object({
-  options: z.array(z.string()).describe('List of decision options to analyze'),
-  criteria: z.array(z.string()).describe('List of criteria to evaluate options against'),
+  options: z.array(z.string()).max(MAX_DECISION_ITEMS).describe('List of decision options to analyze'),
+  criteria: z.array(z.string()).max(MAX_DECISION_ITEMS).describe('List of criteria to evaluate options against'),
   scores: z
-    .array(z.array(z.number().min(0).max(10)))
+    .array(z.array(z.number().min(0).max(10)).max(MAX_DECISION_ITEMS))
+    .max(MAX_DECISION_ITEMS)
     .describe(
       'Score matrix: one row per option, one score (0-10) per criterion. ' +
         'scores[i][j] rates option i against criterion j.'
     ),
   weights: z
     .array(z.number())
+    .max(MAX_DECISION_ITEMS)
     .optional()
     .describe('Optional weights for each criterion (must match criteria length)'),
 });

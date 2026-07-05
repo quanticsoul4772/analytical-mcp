@@ -9,6 +9,7 @@ import { z } from 'zod';
 import { ValidationError } from '../utils/errors.js';
 import { Logger } from '../utils/logger.js';
 import { ValidationHelpers } from '../utils/validation_helpers.js';
+import { MAX_DATA_POINTS, MAX_PREDICTORS } from './limits.js';
 
 // Provider imports - focused responsibility classes
 import { RegressionValidationProvider } from '../utils/regression_validation_provider.js';
@@ -41,6 +42,7 @@ export interface RegressionAnalysisOptions {
 export const advancedRegressionAnalysisSchema = z.object({
   data: z
     .array(z.record(z.string(), z.number()))
+    .max(MAX_DATA_POINTS)
     .describe('Array of data points for regression analysis'),
   regressionType: z
     .enum(['linear', 'polynomial', 'logistic', 'multivariate'])
@@ -48,6 +50,7 @@ export const advancedRegressionAnalysisSchema = z.object({
   independentVariables: z
     .array(z.string())
     .min(1)
+    .max(MAX_PREDICTORS)
     .describe('Names of independent variables (predictors)'),
   dependentVariable: z
     .string()

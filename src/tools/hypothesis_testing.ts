@@ -3,6 +3,7 @@ import * as mathjs from 'mathjs';
 import { Logger } from '../utils/logger.js';
 import { ValidationError, DataProcessingError } from '../utils/errors.js';
 import { tTestPValue, chiSquarePValue, fTestPValue } from '../utils/statistics.js';
+import { MAX_DATA_POINTS, MAX_DIMENSIONS } from './limits.js';
 
 // Schema for hypothesis testing
 const HypothesisTestingSchema = z.object({
@@ -12,7 +13,13 @@ const HypothesisTestingSchema = z.object({
       "Which test to run: 't_test_independent' (Welch, two independent groups), 't_test_paired' (two paired groups), 'correlation' (Pearson r + significance), 'chi_square' (independence on a contingency table), or 'anova' (one-way, 2+ groups)."
     ),
   data: z
-    .array(z.union([z.array(z.number()), z.array(z.record(z.string(), z.number()))]))
+    .array(
+      z.union([
+        z.array(z.number()).max(MAX_DATA_POINTS),
+        z.array(z.record(z.string(), z.number())).max(MAX_DATA_POINTS),
+      ])
+    )
+    .max(MAX_DIMENSIONS)
     .describe(
       'Shape depends on testType: t-tests and ANOVA take an array of numeric groups (number[][]); correlation takes two numeric arrays or an array of {x,y} records (see variables); chi_square takes a contingency table (rows x columns of counts).'
     ),

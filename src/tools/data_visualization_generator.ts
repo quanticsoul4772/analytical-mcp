@@ -6,6 +6,7 @@ import { VisualizationValidationProvider } from '../utils/visualization_validati
 import { OutputFormattingProvider } from '../utils/output_formatting_provider.js';
 import { VisualizationDetailProvider } from '../utils/visualization_detail_provider.js';
 import { VisualizationSpecProvider } from '../utils/visualization_spec_provider.js';
+import { MAX_DATA_POINTS, MAX_DIMENSIONS } from './limits.js';
 
 // TypeScript interface for visualization options
 
@@ -22,12 +23,13 @@ export interface VisualizationOptions {
 
 // Schema for the tool parameters
 export const dataVisualizationGeneratorSchema = z.object({
-  data: z.array(z.record(z.string(), z.any())).describe('Array of data objects to visualize'),
+  data: z.array(z.record(z.string(), z.any())).max(MAX_DATA_POINTS).describe('Array of data objects to visualize'),
   visualizationType: z
     .enum(['scatter', 'line', 'bar', 'histogram', 'box', 'heatmap', 'pie', 'violin', 'correlation'])
     .describe('Type of visualization to generate'),
   variables: z
     .array(z.string())
+    .max(MAX_DIMENSIONS)
     .describe('Variable names to include in the visualization (properties in data objects)'),
   title: z.string().optional().describe('Optional title for the visualization'),
   includeTrendline: z

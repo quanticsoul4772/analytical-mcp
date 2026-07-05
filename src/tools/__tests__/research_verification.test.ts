@@ -1,5 +1,6 @@
 import { describe, it, expect, jest, beforeEach } from '@jest/globals';
 import { ValidationError } from '../../utils/errors.js';
+import { MAX_STRING_LENGTH } from '../limits.js';
 
 // Mock the Exa research boundary so tests stay offline (no network, no API key)
 type SearchResponse = { results: Array<{ title: string; url?: string; contents?: string }> };
@@ -238,6 +239,16 @@ describe('Research Verification Tool', () => {
       researchVerification.verifyResearch({
         query: 'Primary',
         verificationQueries: ['a', 'b', 'c', 'd', 'e', 'f'], // 6 > max 5
+      })
+    ).rejects.toThrow(ValidationError);
+
+    expect(searchMock).not.toHaveBeenCalled();
+  });
+
+  it('rejects an over-long query without issuing any search', async () => {
+    await expect(
+      researchVerification.verifyResearch({
+        query: 'x'.repeat(MAX_STRING_LENGTH + 1),
       })
     ).rejects.toThrow(ValidationError);
 

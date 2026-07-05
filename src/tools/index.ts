@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { Logger } from '../utils/logger.js';
+import { MAX_STRING_LENGTH } from './limits.js';
 
 // Import tools and their schemas
 import { analyzeDataset, analyzeDatasetSchema } from './analyze_dataset.js';
@@ -42,7 +43,7 @@ import { researchVerification } from './research_verification.js';
 
 // Schema for research verification
 const ResearchVerificationSchema = z.object({
-  query: z.string().describe('The primary factual claim or question to verify.'),
+  query: z.string().max(MAX_STRING_LENGTH).describe('The primary factual claim or question to verify.'),
   verificationQueries: z
     .array(z.string())
     .max(5)

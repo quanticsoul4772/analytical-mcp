@@ -6,6 +6,7 @@ import { LogicalFallacyProvider } from './logical_fallacy_provider.js';
 import { ArgumentValidityProvider } from './argument_validity_provider.js';
 import { ArgumentStrengthProvider } from './argument_strength_provider.js';
 import { RecommendationProvider } from './recommendation_provider.js';
+import { MAX_STRING_LENGTH } from './limits.js';
 
 /**
  * Logical Argument Analyzer Tool
@@ -14,7 +15,7 @@ import { RecommendationProvider } from './recommendation_provider.js';
 
 // Schema for the tool parameters
 export const logicalArgumentAnalyzerSchema = z.object({
-  argument: z.string().describe('The argument to analyze'),
+  argument: z.string().max(MAX_STRING_LENGTH).describe('The argument to analyze'),
   analysisType: z
     .enum(['structure', 'fallacies', 'validity', 'strength', 'comprehensive'])
     .default('comprehensive')

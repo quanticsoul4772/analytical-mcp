@@ -7,6 +7,7 @@
 
 import { z } from 'zod';
 import * as mathjs from 'mathjs';
+import { MAX_DATA_POINTS, MAX_NUMERIC_COLUMNS } from './limits.js';
 
 /**
  * Advanced Statistical Analysis Schema
@@ -15,6 +16,7 @@ import * as mathjs from 'mathjs';
 export const advancedStatisticalAnalysisSchema = z.object({
   data: z
     .array(z.record(z.string(), z.number().or(z.string())))
+    .max(MAX_DATA_POINTS)
     .describe('Array of data objects for statistical analysis'),
   analysisType: z
     .enum(['descriptive', 'correlation'])
@@ -86,6 +88,14 @@ export async function advancedAnalyzeDataset(
 
   if (numericColumns.length === 0) {
     throw new Error('No numeric columns found in the dataset for analysis.');
+  }
+
+  // Correlation is O(numericColumns^2 x rows); bound the column count (which comes
+  // from record keys, so a schema .max cannot catch it) to keep work bounded.
+  if (numericColumns.length > MAX_NUMERIC_COLUMNS) {
+    throw new Error(
+      `Too many numeric columns for correlation (${numericColumns.length} > ${MAX_NUMERIC_COLUMNS}).`
+    );
   }
 
   let result = `# Advanced Statistical Analysis\n\n`;

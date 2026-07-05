@@ -2,10 +2,11 @@ import { z } from 'zod';
 import { exaResearch } from '../utils/exa_research.js';
 import { Logger } from '../utils/logger.js';
 import { ValidationError, DataProcessingError, APIError } from '../utils/errors.js';
+import { MAX_STRING_LENGTH } from './limits.js';
 
 // Schema for perspective shifter
 const PerspectiveShifterSchema = z.object({
-  problem: z.string().describe('The problem or situation to examine from new angles.'),
+  problem: z.string().max(MAX_STRING_LENGTH).describe('The problem or situation to examine from new angles.'),
   currentPerspective: z
     .string()
     .optional()

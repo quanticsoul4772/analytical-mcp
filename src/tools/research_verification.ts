@@ -4,10 +4,11 @@ import { enhancedFactExtractor } from './exa_research.js';
 import { Logger } from '../utils/logger.js';
 import { APIError, ValidationError, DataProcessingError } from '../utils/errors.js';
 import * as mathjs from 'mathjs';
+import { MAX_STRING_LENGTH } from './limits.js';
 
 // Research verification configuration schema
 const ResearchVerificationSchema = z.object({
-  query: z.string().describe('Primary research query'),
+  query: z.string().max(MAX_STRING_LENGTH).describe('Primary research query'),
   verificationQueries: z.array(z.string()).max(5).optional().describe('Alternate queries for verification (max 5)'),
   minConsistencyThreshold: z.number().min(0).max(1).default(0.7).describe('Minimum consistency score'),
   sources: z.number().min(1).max(10).default(3).describe('Number of sources to cross-verify'),

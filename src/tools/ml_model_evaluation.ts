@@ -8,6 +8,7 @@
 import { z } from 'zod';
 import * as mathjs from 'mathjs';
 import { ValidationError } from '../utils/errors.js';
+import { MAX_DATA_POINTS } from './limits.js';
 
 /**
  * ML Model Evaluation Schema
@@ -19,9 +20,11 @@ export const mlModelEvaluationSchema = z.object({
   // Prediction data
   actualValues: z
     .array(z.number())
+    .max(MAX_DATA_POINTS)
     .describe('Ground-truth target values; for classification, binary labels encoded as 0 or 1.'),
   predictedValues: z
     .array(z.number())
+    .max(MAX_DATA_POINTS)
     .describe(
       'Model predictions, same length/order as actualValues; for classification, 0 or 1.'
     ),

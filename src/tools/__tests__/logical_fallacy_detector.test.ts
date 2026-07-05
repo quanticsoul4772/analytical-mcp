@@ -79,7 +79,7 @@ describe('Logical Fallacy Detector', () => {
 
     it('should handle regex pattern errors gracefully', async () => {
       // Create a scenario that could potentially cause regex errors
-      const extremelyLongText = 'a'.repeat(100000); // Very long text that might cause regex issues
+      const extremelyLongText = 'a'.repeat(40000); // Long text (under the 50k cap) that might stress regex matching
 
       // Should still work without throwing pattern matching errors
       const result = await logicalFallacyDetector(extremelyLongText);

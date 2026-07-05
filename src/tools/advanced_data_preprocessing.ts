@@ -2,6 +2,7 @@ import { z } from 'zod';
 import * as mathjs from 'mathjs';
 import { Logger } from '../utils/logger.js';
 import { ValidationError, DataProcessingError } from '../utils/errors.js';
+import { MAX_DATA_POINTS } from './limits.js';
 
 // Enhanced type definition for numeric types
 type MathNumericType = number | Record<string, number>;
@@ -17,6 +18,7 @@ function toNumber(value: mathjs.MathType | MathNumericType): number {
 const AdvancedDataPreprocessingSchema = z.object({
   data: z
     .array(z.union([z.number(), z.record(z.string(), z.number())]))
+    .max(MAX_DATA_POINTS)
     .describe(
       'The numeric series to transform: a number[], or an array of {key: number} records (values are flattened).'
     ),
