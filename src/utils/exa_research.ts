@@ -6,6 +6,7 @@ import { Logger } from './logger.js';
 import { config, isFeatureEnabled } from './config.js';
 import { factExtractor } from './advanced_fact_extraction.js';
 import { rateLimitManager } from './rate_limit_manager.js';
+import { noteOutboundExaCall } from './request_context.js';
 import { researchCache, ResearchCacheNamespace } from './research_cache.js';
 
 // Exa client configuration schema
@@ -144,6 +145,10 @@ class ExaResearchTool {
       Logger.debug(`Cache hit for search query: "${parsedQuery.query}"`);
       return cachedResults;
     }
+
+    // Count one per logical network search (retries inside executeRateLimitedRequest
+    // are not re-counted; cache hits returned above are excluded).
+    noteOutboundExaCall();
 
     try {
       // Use rate limit manager to handle request with sophisticated rate limiting

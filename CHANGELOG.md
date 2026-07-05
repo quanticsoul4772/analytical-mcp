@@ -6,6 +6,25 @@ does not yet follow strict SemVer (pre-1.0).
 
 ## [Unreleased]
 
+### Added
+
+- Per-call **audit logging** to stderr (gated by `ENABLE_AUDIT_LOG`, default on,
+  independent of `LOG_LEVEL`): one structured record per tool invocation —
+  `{event, tool, ok, durationMs, argBytes, argHash, exaCalls}` (plus the error
+  message on failure). It logs argument *size* and a sha256 fingerprint only,
+  never raw argument content, so an operator can spot oversized/injection-shaped
+  inputs and reconstruct activity without any content leakage. `exaCalls` is the
+  number of outbound Exa requests the call issued (via `AsyncLocalStorage`), so
+  external fan-out is attributable to the invocation that caused it.
+
+### Changed
+
+- **Input-size caps** across all 12 tools (robustness): every data array and
+  free-text field now has a `.max()` bound, and the two super-linear paths are
+  guarded — regression predictors (O(n³)) and the statistics numeric-column count
+  (O(cols²×rows)). A single call can no longer submit an unbounded input that
+  stalls or OOMs the server. Limits are generous for real use and tunable.
+
 ### Security
 
 - `verify_research` now caps `verificationQueries` at 5 and bounds outbound Exa

@@ -31,6 +31,16 @@ describe('auditToolCall', () => {
     expect(rec).not.toHaveProperty('error');
   });
 
+  it('records the outbound Exa call count', () => {
+    auditToolCall({ tool: 'verify_research', args: { query: 'x' }, durationMs: 9, ok: true, exaCalls: 3 });
+    expect(capturedAudit(spy)).toMatchObject({ exaCalls: 3 });
+  });
+
+  it('defaults exaCalls to 0 when omitted', () => {
+    auditToolCall({ tool: 'analyze_dataset', args: { data: [1] }, durationMs: 1, ok: true });
+    expect(capturedAudit(spy)).toMatchObject({ exaCalls: 0 });
+  });
+
   it('includes the error message on a failed call', () => {
     auditToolCall({
       tool: 'verify_research',

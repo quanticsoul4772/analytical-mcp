@@ -21,6 +21,7 @@ export function auditToolCall(p: {
   durationMs: number;
   ok: boolean;
   error?: unknown;
+  exaCalls?: number;
 }): void {
   try {
     if (config.ENABLE_AUDIT_LOG !== 'true') return;
@@ -42,6 +43,7 @@ export function auditToolCall(p: {
       durationMs: p.durationMs,
       argBytes,
       argHash,
+      exaCalls: p.exaCalls ?? 0,
       ...(p.ok ? {} : { error: p.error instanceof Error ? p.error.message : String(p.error) }),
     };
 

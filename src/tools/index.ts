@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { Logger } from '../utils/logger.js';
 import { auditToolCall } from '../utils/audit.js';
+import { requestContext } from '../utils/request_context.js';
 import { MAX_STRING_LENGTH } from './limits.js';
 
 // Import tools and their schemas
@@ -207,11 +208,19 @@ export function registerTools(server: McpServer): void {
 'shape' in tool.schema ? tool.schema.shape : tool.schema,
 async (args: any, extra: any) => {
           const startMs = Date.now();
+          const ctx = { outboundExaCalls: 0 };
           try {
-            // All handlers now expect the args object directly
-            const result = await tool.handler(args);
+            // Run the handler inside a request context so outbound Exa calls are
+            // attributed to this invocation. All handlers expect the args object.
+            const result = await requestContext.run(ctx, () => tool.handler(args));
 
-            auditToolCall({ tool: tool.name, args, durationMs: Date.now() - startMs, ok: true });
+            auditToolCall({
+              tool: tool.name,
+              args,
+              durationMs: Date.now() - startMs,
+              ok: true,
+              exaCalls: ctx.outboundExaCalls,
+            });
 
             return {
               content: [
@@ -222,7 +231,14 @@ async (args: any, extra: any) => {
               ]
             };
           } catch (error) {
-            auditToolCall({ tool: tool.name, args, durationMs: Date.now() - startMs, ok: false, error });
+            auditToolCall({
+              tool: tool.name,
+              args,
+              durationMs: Date.now() - startMs,
+              ok: false,
+              error,
+              exaCalls: ctx.outboundExaCalls,
+            });
             Logger.error(`Error executing tool ${tool.name}`, error);
             return {
               isError: true,
