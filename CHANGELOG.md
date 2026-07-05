@@ -6,6 +6,16 @@ does not yet follow strict SemVer (pre-1.0).
 
 ## [Unreleased]
 
+### Security
+
+- `verify_research` now caps `verificationQueries` at 5 and bounds outbound Exa
+  requests to at most 3 in flight. Previously an uncapped query list was fanned
+  out with `Promise.all`, so untrusted content reaching the tool's arguments
+  (indirect prompt injection) could drive an unbounded number of simultaneous
+  third-party requests billed to `EXA_API_KEY` and inflate the O(facts²)
+  cross-source consistency matrix. Over-long lists now reject with a
+  `ValidationError` before any search runs.
+
 ## [0.3.0] - 2026-07-05
 
 Published to the Glama MCP directory at a 100% profile with an **A** quality
