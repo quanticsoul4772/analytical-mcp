@@ -45,8 +45,9 @@ const ResearchVerificationSchema = z.object({
   query: z.string().describe('The primary factual claim or question to verify.'),
   verificationQueries: z
     .array(z.string())
+    .max(5)
     .optional()
-    .describe('Optional alternate phrasings used to cross-check the claim across additional sources.'),
+    .describe('Optional alternate phrasings used to cross-check the claim across additional sources (max 5).'),
   minConsistencyThreshold: z
     .number()
     .min(0)

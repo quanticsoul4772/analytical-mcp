@@ -230,4 +230,39 @@ describe('Research Verification Tool', () => {
     // One source was returned, so the diagnostic still reports it.
     expect(result.confidence.details.sourceCount).toBe(1);
   });
+
+  it('rejects more than 5 verificationQueries without issuing any search', async () => {
+    // The schema caps verificationQueries at 5; a longer list must fail validation
+    // before any Exa request is made, so a caller cannot fan out unbounded searches.
+    await expect(
+      researchVerification.verifyResearch({
+        query: 'Primary',
+        verificationQueries: ['a', 'b', 'c', 'd', 'e', 'f'], // 6 > max 5
+      })
+    ).rejects.toThrow(ValidationError);
+
+    expect(searchMock).not.toHaveBeenCalled();
+  });
+
+  it('bounds Exa search concurrency to at most 3 in flight', async () => {
+    let inFlight = 0;
+    let peak = 0;
+    searchMock.mockImplementation(async () => {
+      inFlight++;
+      peak = Math.max(peak, inFlight);
+      // Real macrotask delay so concurrent calls genuinely overlap.
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      inFlight--;
+      return { results: [] };
+    });
+
+    // Primary + 5 verification queries = 6 search tasks.
+    await researchVerification.verifyResearch({
+      query: 'Primary',
+      verificationQueries: ['a', 'b', 'c', 'd', 'e'],
+    });
+
+    expect(searchMock).toHaveBeenCalledTimes(6);
+    expect(peak).toBeLessThanOrEqual(3);
+  });
 });

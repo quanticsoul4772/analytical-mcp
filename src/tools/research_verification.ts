@@ -8,7 +8,7 @@ import * as mathjs from 'mathjs';
 // Research verification configuration schema
 const ResearchVerificationSchema = z.object({
   query: z.string().describe('Primary research query'),
-  verificationQueries: z.array(z.string()).optional().describe('Alternate queries for verification'),
+  verificationQueries: z.array(z.string()).max(5).optional().describe('Alternate queries for verification (max 5)'),
   minConsistencyThreshold: z.number().min(0).max(1).default(0.7).describe('Minimum consistency score'),
   sources: z.number().min(1).max(10).default(3).describe('Number of sources to cross-verify'),
   factExtractionOptions: z.object({
@@ -39,6 +39,25 @@ interface ResearchConfidence {
   };
 }
 
+// Run `worker` over `items` with at most `limit` calls in flight at once,
+// returning results in input order (callers index results against items).
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  limit: number,
+  worker: (item: T, index: number) => Promise<R>
+): Promise<R[]> {
+  const results = new Array<R>(items.length);
+  let next = 0;
+  const runners = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (next < items.length) {
+      const i = next++;
+      results[i] = await worker(items[i], i);
+    }
+  });
+  await Promise.all(runners);
+  return results;
+}
+
 export class ResearchVerificationTool {
   // Cross-source verification method with enhanced fact extraction
   async verifyResearch(
@@ -65,16 +84,16 @@ export class ResearchVerificationTool {
         })),
       ];
 
-      const searchResults = await Promise.all(
-        searchTasks.map((t) =>
-          exaResearch.search({
-            query: t.query,
-            numResults: params.sources,
-            includeContents: true,
-            useWebResults: true,
-            useNewsResults: false,
-          })
-        )
+      // Bounded concurrency: cap in-flight Exa requests so a long (capped) query
+      // list can't fire an unbounded number of simultaneous third-party calls.
+      const searchResults = await mapWithConcurrency(searchTasks, 3, (t) =>
+        exaResearch.search({
+          query: t.query,
+          numResults: params.sources,
+          includeContents: true,
+          useWebResults: true,
+          useNewsResults: false,
+        })
       );
 
       // Aggregate in original order so factExtractions matches the previous serial output

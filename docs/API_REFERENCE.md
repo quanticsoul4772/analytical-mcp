@@ -373,8 +373,8 @@ return results instead of an error.
 
 **Parameters (as exposed to MCP clients):**
 - `query` (string, required): primary research query.
-- `verificationQueries` (`string[]`, optional): additional queries run in parallel with `query` for
-  cross-verification.
+- `verificationQueries` (`string[]`, optional, max 5): additional queries run (at most 3 in flight)
+  alongside `query` for cross-verification.
 - `minConsistencyThreshold` (number, optional, 0–1): default `0.7`.
 - `sources` (number, optional, 1–10): number of results requested per query. Default `3`.
 
