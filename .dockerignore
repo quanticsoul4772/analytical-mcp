@@ -132,6 +132,5 @@ examples/
 logs
 *.log
 
-# Lock files (we'll use the one from the container)
-package-lock.json
-yarn.lock
+# NOTE: package-lock.json is intentionally NOT ignored — the Dockerfile runs
+# `npm ci`, which requires the lockfile to be present in the build context.

@@ -16,8 +16,11 @@ COPY package*.json ./
 COPY tsconfig.json ./
 COPY tsconfig.test.json ./
 
-# Install dependencies (including dev dependencies for build)
-RUN npm ci
+# Install dependencies (including dev dependencies for build).
+# --ignore-scripts skips the package.json `prepare` hook (which runs `tsc`)
+# during install — src/ isn't copied yet and the explicit build below is the
+# real compile step.
+RUN npm ci --ignore-scripts
 
 # Copy source code and configuration files
 COPY src/ ./src/
@@ -45,8 +48,10 @@ WORKDIR /app
 # Copy package files
 COPY package*.json ./
 
-# Install only production dependencies
-RUN npm ci --only=production && npm cache clean --force
+# Install only production dependencies. --ignore-scripts skips the `prepare`
+# hook (tsc is a dev dependency and absent here); the built output is copied
+# from the builder stage below.
+RUN npm ci --omit=dev --ignore-scripts && npm cache clean --force
 
 # Copy built application from builder stage
 COPY --from=builder /app/build ./build/
@@ -70,6 +75,9 @@ EXPOSE 9090
 # Set environment variables
 ENV NODE_ENV=production
 ENV CACHE_DIR=./cache
+# Keep the container pure stdio (no HTTP metrics listener) — this is what
+# sandboxed MCP introspection expects. Override to true to enable metrics.
+ENV METRICS_ENABLED=false
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
