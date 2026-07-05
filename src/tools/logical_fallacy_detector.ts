@@ -26,9 +26,18 @@ const logicalFallacyDetectorSchemaDefinition = z.object({
     .describe('Minimum confidence level to report a fallacy'),
   categories: z
     .array(z.enum(['informal', 'formal', 'relevance', 'ambiguity', 'all']))
-    .default(['all']),
-  includeExplanations: z.boolean().default(true),
-  includeExamples: z.boolean().default(true),
+    .default(['all'])
+    .describe(
+      "Fallacy categories to include: 'informal', 'formal', 'relevance', 'ambiguity', or 'all' (default ['all'] = every category)."
+    ),
+  includeExplanations: z
+    .boolean()
+    .default(true)
+    .describe('Include a description of each detected fallacy (default true).'),
+  includeExamples: z
+    .boolean()
+    .default(true)
+    .describe('Include fallacious vs. improved example phrasings (default true).'),
 });
 
 // Export the schema

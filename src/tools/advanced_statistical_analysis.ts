@@ -18,7 +18,9 @@ export const advancedStatisticalAnalysisSchema = z.object({
     .describe('Array of data objects for statistical analysis'),
   analysisType: z
     .enum(['descriptive', 'correlation'])
-    .describe('Type of statistical analysis to perform'),
+    .describe(
+      "'descriptive' for per-column summary statistics, or 'correlation' for Pearson r across all numeric column pairs."
+    ),
 });
 
 /**

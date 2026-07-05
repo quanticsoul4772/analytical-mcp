@@ -11,11 +11,15 @@ export const analyzeDatasetSchema = z.object({
   data: z
     .array(z.number())
     .or(z.array(z.record(z.string(), z.any())))
-    .describe('Array of data to analyze'),
+    .describe(
+      'The numeric series to summarize: a number[], or an array of objects whose first numeric property is analyzed.'
+    ),
   analysisType: z
     .enum(['summary', 'stats'])
     .default('summary')
-    .describe('Type of analysis to perform'),
+    .describe(
+      "'summary' (count/min/max/mean/sum, default) or 'stats' (adds median, quartiles, standard deviation, variance, coefficient of variation)."
+    ),
 });
 
 // Tool implementation

@@ -5,14 +5,31 @@ import { ValidationError, DataProcessingError, APIError } from '../utils/errors.
 
 // Schema for perspective shifter
 const PerspectiveShifterSchema = z.object({
-  problem: z.string(),
-  currentPerspective: z.string().optional().default('default'),
+  problem: z.string().describe('The problem or situation to examine from new angles.'),
+  currentPerspective: z
+    .string()
+    .optional()
+    .default('default')
+    .describe('The viewpoint you currently hold, for context (optional).'),
   shiftType: z
     .enum(['stakeholder', 'discipline', 'contrarian', 'optimistic', 'pessimistic'])
     .optional()
-    .default('stakeholder'),
-  numberOfPerspectives: z.number().min(1).max(10).optional().default(3),
-  includeActionable: z.boolean().optional().default(true),
+    .default('stakeholder')
+    .describe(
+      "How to generate perspectives: 'stakeholder' (default) and 'discipline' are research-backed; 'contrarian', 'optimistic', and 'pessimistic' produce generic framings."
+    ),
+  numberOfPerspectives: z
+    .number()
+    .min(1)
+    .max(10)
+    .optional()
+    .default(3)
+    .describe('How many perspectives to generate, 1-10 (default 3).'),
+  includeActionable: z
+    .boolean()
+    .optional()
+    .default(true)
+    .describe('Include actionable insights with each perspective (default true).'),
 });
 
 // Export the schema

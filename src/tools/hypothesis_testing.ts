@@ -6,11 +6,34 @@ import { tTestPValue, chiSquarePValue, fTestPValue } from '../utils/statistics.j
 
 // Schema for hypothesis testing
 const HypothesisTestingSchema = z.object({
-  testType: z.enum(['t_test_independent', 't_test_paired', 'correlation', 'chi_square', 'anova']),
-  data: z.array(z.union([z.array(z.number()), z.array(z.record(z.string(), z.number()))])),
-  variables: z.array(z.string()).optional(),
-  alpha: z.number().min(0.01).max(0.1).default(0.05),
-  alternativeHypothesis: z.string().optional(),
+  testType: z
+    .enum(['t_test_independent', 't_test_paired', 'correlation', 'chi_square', 'anova'])
+    .describe(
+      "Which test to run: 't_test_independent' (Welch, two independent groups), 't_test_paired' (two paired groups), 'correlation' (Pearson r + significance), 'chi_square' (independence on a contingency table), or 'anova' (one-way, 2+ groups)."
+    ),
+  data: z
+    .array(z.union([z.array(z.number()), z.array(z.record(z.string(), z.number()))]))
+    .describe(
+      'Shape depends on testType: t-tests and ANOVA take an array of numeric groups (number[][]); correlation takes two numeric arrays or an array of {x,y} records (see variables); chi_square takes a contingency table (rows x columns of counts).'
+    ),
+  variables: z
+    .array(z.string())
+    .optional()
+    .describe(
+      "For 'correlation' only: the two record keys to correlate when data is an array of objects. Ignored otherwise."
+    ),
+  alpha: z
+    .number()
+    .min(0.01)
+    .max(0.1)
+    .default(0.05)
+    .describe('Significance level for the reject/fail decision, 0.01-0.1 (default 0.05).'),
+  alternativeHypothesis: z
+    .string()
+    .optional()
+    .describe(
+      "Direction: 'less' or 'greater' for a one-sided test; anything else (or omit) is two-sided."
+    ),
 });
 
 type TTail = 'two-sided' | 'greater' | 'less';

@@ -17,8 +17,14 @@ export const mlModelEvaluationSchema = z.object({
   modelType: z.enum(['classification', 'regression']).describe('Type of machine learning model'),
 
   // Prediction data
-  actualValues: z.array(z.number()).describe('Actual target values'),
-  predictedValues: z.array(z.number()).describe("Model's predicted values"),
+  actualValues: z
+    .array(z.number())
+    .describe('Ground-truth target values; for classification, binary labels encoded as 0 or 1.'),
+  predictedValues: z
+    .array(z.number())
+    .describe(
+      'Model predictions, same length/order as actualValues; for classification, 0 or 1.'
+    ),
 
   // Optional parameters for more specific evaluations
   evaluationMetrics: z
@@ -41,7 +47,10 @@ export const mlModelEvaluationSchema = z.object({
     .default([
       'accuracy', // default for classification
       'mse', // default for regression
-    ]),
+    ])
+    .describe(
+      "Metrics to report - classification: 'accuracy','precision','recall','f1_score'; regression: 'mse','mae','rmse','r_squared'. Only metrics matching modelType are computed (default ['accuracy','mse'])."
+    ),
 });
 
 /**

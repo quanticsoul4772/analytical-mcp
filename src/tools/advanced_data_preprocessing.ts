@@ -15,13 +15,16 @@ function toNumber(value: mathjs.MathType | MathNumericType): number {
 
 // Schema for advanced data preprocessing
 const AdvancedDataPreprocessingSchema = z.object({
-  data: z.array(z.union([z.number(), z.record(z.string(), z.number())])),
-  preprocessingType: z.enum([
-    'normalization',
-    'standardization',
-    'missing_value_handling',
-    'outlier_detection',
-  ]),
+  data: z
+    .array(z.union([z.number(), z.record(z.string(), z.number())]))
+    .describe(
+      'The numeric series to transform: a number[], or an array of {key: number} records (values are flattened).'
+    ),
+  preprocessingType: z
+    .enum(['normalization', 'standardization', 'missing_value_handling', 'outlier_detection'])
+    .describe(
+      "'normalization' (scale to [0,1]), 'standardization' (z-scores), 'missing_value_handling' (drop invalid/missing entries), or 'outlier_detection' (flag values outside the IQR fences)."
+    ),
 });
 
 // Advanced data preprocessing function
