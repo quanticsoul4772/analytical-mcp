@@ -1,5 +1,7 @@
 # Analytical MCP Server
 
+[![analytical-mcp MCP server](https://glama.ai/mcp/servers/quanticsoul4772/analytical-mcp/badges/score.svg)](https://glama.ai/mcp/servers/quanticsoul4772/analytical-mcp)
+
 Model Context Protocol server exposing 12 analytical tools for Claude: descriptive statistics, regression (linear/polynomial/logistic/multivariate), hypothesis testing, data preprocessing, data visualization specs, multi-criteria decision analysis, ML model evaluation, logical argument/fallacy analysis, and Exa-backed research verification. Runs over stdio; the analytical core needs no API key (research features require `EXA_API_KEY`).
 
 ## Setup
