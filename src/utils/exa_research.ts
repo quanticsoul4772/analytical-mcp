@@ -25,18 +25,35 @@ const ExaResearchQuerySchema = z.object({
     .max(36)
     .optional()
     .describe('Time range for results in months'),
-  useWebResults: z.boolean().default(true).describe('Include web search results'),
-  useNewsResults: z.boolean().default(false).describe('Include news results'),
-  includeContents: z.boolean().default(true).describe('Include full content of search results'),
+  // Inert: Exa's /search API has no web/news or time-range request params in
+  // this form; kept for caller compatibility but not sent in the request body.
+  useWebResults: z.boolean().default(true).describe('Include web search results (inert)'),
+  useNewsResults: z.boolean().default(false).describe('Include news results (inert)'),
+  includeContents: z.boolean().default(true).describe('Request full page text of search results'),
 });
 
-// Exa search result type
+// Exa search result type. Exa returns page text under `text`; `contents` is our
+// normalized alias (see normalizeExaResults) that the fact-extraction consumers read.
 interface ExaSearchResult {
   title: string;
   url: string;
   publishedDate?: string;
   contents?: string;
+  text?: string;
+  highlights?: string[];
   score?: number;
+}
+
+/**
+ * Normalize raw Exa `/search` results: populate `contents` from Exa's `text`
+ * field (fact-extraction consumers read `contents`) while preserving `text` and
+ * `highlights` (the NER provider reads those). Pure and side-effect free.
+ */
+export function normalizeExaResults(raw: any[]): ExaSearchResult[] {
+  return (raw ?? []).map((r) => ({
+    ...r,
+    contents: r.contents ?? r.text ?? undefined,
+  }));
 }
 
 // Data validation options
@@ -163,12 +180,11 @@ class ExaResearchTool {
             body: JSON.stringify({
               query: parsedQuery.query,
               numResults: parsedQuery.numResults,
-              timeRange: parsedQuery.timeRangeMonths
-                ? `${parsedQuery.timeRangeMonths}m`
-                : undefined,
-              useWebResults: parsedQuery.useWebResults,
-              useNewsResults: parsedQuery.useNewsResults,
-              includeContents: parsedQuery.includeContents,
+              // Exa returns page text only when the request asks for it via a
+              // `contents.text` object; the page body comes back under `text`.
+              ...(parsedQuery.includeContents
+                ? { contents: { text: { maxCharacters: 2000 } } }
+                : {}),
             }),
           });
 
@@ -181,7 +197,10 @@ class ExaResearchTool {
 
           const data = (await response.json()) as { results: ExaSearchResult[] };
           Logger.debug(`Exa search returned ${data.results.length} results`);
-          return data;
+          // Map Exa's `text` field to `contents` (what the fact-extraction
+          // consumers read) while preserving `text`/`highlights` (for the NER
+          // provider). Normalizing here covers both the returned and cached values.
+          return { results: normalizeExaResults(data.results) };
         },
         {
           provider: 'exa',

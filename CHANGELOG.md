@@ -33,6 +33,15 @@ does not yet follow strict SemVer (pre-1.0).
 - Documented per-call audit logging and `ENABLE_AUDIT_LOG` in the README's Observability section,
   and corrected the stale `serverInfo` version (`0.1.0` → `0.3.0`) in `docs/ARCHITECTURE.md`.
 
+### Fixed
+
+- The Exa client never retrieved page text: the `/search` request sent non-existent params
+  (`useWebResults`/`useNewsResults`/`includeContents`) instead of Exa's `contents: { text }`
+  object, and the response's `text` field was never mapped to `contents`. So every fact-extraction
+  consumer saw only titles — `verify_research` scored 0 and `perspective_shifter` returned empty
+  perspective bodies. The request now asks for `contents.text` and results are normalized so
+  `contents` is populated (with `text`/`highlights` preserved for the NER path).
+
 ### Security
 
 - Bounded the rule-based NER ORGANIZATION regex (`{1,6}` leading words instead of `+`),
