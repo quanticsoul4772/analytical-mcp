@@ -55,7 +55,7 @@ function initializeServer(): McpServer {
   const server = new McpServer(
     {
       name: 'Analytical MCP Server',
-      version: '0.3.0',
+      version: '0.4.0',
     },
     {
       capabilities: {

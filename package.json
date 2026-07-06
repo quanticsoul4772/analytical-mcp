@@ -1,6 +1,6 @@
 {
   "name": "analytical-mcp-server",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "MCP server providing statistical analysis, decision support, logical reasoning, and research verification tools",
   "private": true,
   "license": "MIT",

@@ -6,6 +6,13 @@ does not yet follow strict SemVer (pre-1.0).
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-07-06
+
+Hardening and research-pipeline release: input-size caps, per-call audit logging with
+outbound-call provenance, the unauthenticated metrics endpoint off by default, a bounded
+NER regex — and the fix that makes the Exa-backed tools actually work (the client never
+retrieved page text) plus the quality cleanup on top of it.
+
 ### Added
 
 - Per-call **audit logging** to stderr (gated by `ENABLE_AUDIT_LOG`, default on,
@@ -227,6 +234,7 @@ below was required to reach a working state.
   requires `EXA_API_KEY`; without it those two tools are unavailable but
   the other 7 tools work normally.
 
-[Unreleased]: https://github.com/quanticsoul4772/analytical-mcp/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/quanticsoul4772/analytical-mcp/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/quanticsoul4772/analytical-mcp/releases/tag/v0.4.0
 [0.3.0]: https://github.com/quanticsoul4772/analytical-mcp/releases/tag/v0.3.0
 [0.2.0]: https://github.com/quanticsoul4772/analytical-mcp/releases/tag/v0.2.0
