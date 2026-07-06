@@ -93,7 +93,7 @@ export class FactExtractor {
 
   // Entity patterns (simplified - in production would use a proper NLP library)
   private static ENTITY_PATTERNS = {
-    ORGANIZATION: /\b[A-Z][a-z]*([ ][A-Z][a-z]*)+\b/,
+    ORGANIZATION: /\b[A-Z][a-z]*([ ][A-Z][a-z]*){1,6}\b/,
     PERCENTAGE: /\b\d+(\.\d+)?[ ]?(%|percent)\b/,
     MONEY: /\$\d+(\.\d+)?([ ]?(million|billion|trillion))?\b/,
     DATE: /\b(January|February|March|April|May|June|July|August|September|October|November|December)[ ]\d{1,2}(,[ ]\d{4})?\b/,

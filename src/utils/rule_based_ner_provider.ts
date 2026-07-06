@@ -285,8 +285,11 @@ export class RuleBasedNERProvider {
       [EntityType.PERCENT, /\b\d+\.?\d*%\b/g],
       // Consecutive capitalized words ending in an organization suffix.
       // The word-by-word form (rather than a single [a-zA-Z\s&]+ run) keeps
-      // the match from swallowing whole clauses of lowercase words.
-      [EntityType.ORGANIZATION, /\b(?:[A-Z][a-zA-Z&]*\s+)+(?:Inc|Corp|LLC|Ltd|Company|Group|University|College|Hospital|School|Bank|Trust|Agency|Department|Bureau|Office|Commission|Authority|Board|Council|Institute|Foundation|Association|Society|Union|Federation|League)\b/g]
+      // the match from swallowing whole clauses of lowercase words. The {1,6}
+      // bound (vs `+`) caps suffix-retry backtracking at a constant, keeping the
+      // worst case linear (an unbounded run of capitalized words with no suffix
+      // would otherwise be O(n^2)); real org names have <=6 words before the suffix.
+      [EntityType.ORGANIZATION, /\b(?:[A-Z][a-zA-Z&]*\s+){1,6}(?:Inc|Corp|LLC|Ltd|Company|Group|University|College|Hospital|School|Bank|Trust|Agency|Department|Bureau|Office|Commission|Authority|Board|Council|Institute|Foundation|Association|Society|Union|Federation|League)\b/g]
     ]);
   }
 

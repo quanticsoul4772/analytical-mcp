@@ -27,6 +27,10 @@ does not yet follow strict SemVer (pre-1.0).
 
 ### Security
 
+- Bounded the rule-based NER ORGANIZATION regex (`{1,6}` leading words instead of `+`),
+  making its worst case linear instead of O(n²) on a long run of capitalized, space-separated
+  words with no organization suffix. This path runs only on Exa-fetched research content, so it
+  was not an exploitable ReDoS, but the quadratic backtracking is removed.
 - The optional metrics HTTP server (unauthenticated) is now **off by default**:
   `config.METRICS_ENABLED` defaulted to `'true'` while the server singleton was off
   unless the env var was explicitly `'true'` — the two disagreed, and a refactor
