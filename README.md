@@ -147,6 +147,25 @@ curl http://localhost:9090/metrics?format=json
 curl http://localhost:9090/health
 ```
 
+### Audit logging
+
+Every tool call emits one structured audit record to **stderr** (never stdout — that is the MCP
+protocol channel), independent of `LOG_LEVEL`:
+
+```
+[2026-07-05T22:56:12.629Z] AUDIT: {"event":"tool_call","tool":"verify_research","ok":true,"durationMs":1352,"argBytes":120,"argHash":"31b769fe1f66","exaCalls":2}
+```
+
+Each record carries the tool name, outcome, duration, the **byte size and a SHA-256 fingerprint**
+of the arguments (never the raw argument values, so no content is leaked), and `exaCalls` — the
+number of outbound Exa requests the call issued. This gives an operator a forensic trail (oversized
+or repeated inputs, unexpected external fan-out) without recording sensitive content. It is gated
+by a single flag, on by default and independent of `LOG_LEVEL`:
+
+```bash
+ENABLE_AUDIT_LOG=true   # per-call audit records to stderr (default: true)
+```
+
 ## Usage Examples
 
 ### Dataset Analysis

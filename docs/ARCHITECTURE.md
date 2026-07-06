@@ -10,7 +10,7 @@ tools. It runs as a single Node.js process communicating over stdio.
 
 Source: `src/index.ts`.
 
-1. `initializeServer()` creates an `McpServer` (`{ name: 'Analytical MCP Server', version: '0.1.0' }`)
+1. `initializeServer()` creates an `McpServer` (`{ name: 'Analytical MCP Server', version: '0.3.0' }`)
    with `capabilities: { tools: {} }`.
 2. `registerTools(server)` (`src/tools/index.ts`) registers all 12 tools (see below).
 3. `initializeCache()` preloads the disk cache via `cacheManager.preload()` — but only if

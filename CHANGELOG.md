@@ -25,6 +25,14 @@ does not yet follow strict SemVer (pre-1.0).
   (O(cols²×rows)). A single call can no longer submit an unbounded input that
   stalls or OOMs the server. Limits are generous for real use and tunable.
 
+### Documentation
+
+- Documented an `EXA_API_KEY` rotation and emergency-revocation procedure in `SECURITY.md`
+  (restart-based; the key is read once at startup and only ever sent to Exa in an
+  `Authorization: Bearer` header). Corrected the Supported-versions table to `0.3.x`.
+- Documented per-call audit logging and `ENABLE_AUDIT_LOG` in the README's Observability section,
+  and corrected the stale `serverInfo` version (`0.1.0` → `0.3.0`) in `docs/ARCHITECTURE.md`.
+
 ### Security
 
 - Bounded the rule-based NER ORGANIZATION regex (`{1,6}` leading words instead of `+`),
