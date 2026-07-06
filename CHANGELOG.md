@@ -35,6 +35,13 @@ does not yet follow strict SemVer (pre-1.0).
 
 ### Fixed
 
+- Research-output quality: the enhanced fact extractor no longer emits the whole page as one
+  document-level "sentiment" fact (which produced giant blobs and drove spurious cross-source
+  "conflicts"); the conflict detector now skips oversized (>300-char) facts; navigation/social/
+  credit boilerplate is filtered via a shared, anchored `SITE_CHROME_PATTERNS` on both the
+  `verify_research` and `perspective_shifter` paths; and `perspective_shifter`'s actionable line is
+  now derived from the top extracted fact (and states plainly when no evidence was retrieved)
+  instead of a hardcoded template.
 - The Exa client never retrieved page text: the `/search` request sent non-existent params
   (`useWebResults`/`useNewsResults`/`includeContents`) instead of Exa's `contents: { text }`
   object, and the response's `text` field was never mapped to `contents`. So every fact-extraction

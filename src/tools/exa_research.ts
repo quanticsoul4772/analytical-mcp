@@ -5,6 +5,7 @@ import { nlpToolkit } from '../utils/nlp_toolkit.js';
 import { APIError, ValidationError, DataProcessingError } from '../utils/errors.js';
 import { executeApiRequest, RETRYABLE_STATUS_CODES } from '../utils/api_helpers.js';
 import { config, isFeatureEnabled } from '../utils/config.js';
+import { SITE_CHROME_PATTERNS } from '../utils/advanced_fact_extraction.js';
 import * as mathjs from 'mathjs';
 
 // Enhanced fact extraction interfaces
@@ -43,12 +44,13 @@ export class EnhancedFactExtractor {
       // Preliminary text cleaning
       const cleanedText = this.preprocessText(text);
 
-      // Multiple extraction techniques
+      // Multiple extraction techniques. (Document-level sentiment is not a fact —
+      // emitting the whole page as one "sentiment fact" produced giant blobs and
+      // spurious conflicts, so it is intentionally omitted.)
       const extractionTechniques = [
         this.extractNamedEntities(cleanedText),
         this.extractStatementFacts(cleanedText),
-        this.extractRelationshipFacts(cleanedText),
-        this.extractSentimentFacts(cleanedText)
+        this.extractRelationshipFacts(cleanedText)
       ];
 
       // Flatten and score facts
@@ -119,11 +121,15 @@ export class EnhancedFactExtractor {
     // Use tokenization to break text into meaningful statements
     const tokens = nlpToolkit.tokenize(text);
     const sentences = text.split(/[.!?]/)
-      .filter(s => 
-        s.trim().length > 30 &&  // Minimum meaningful length
-        !s.includes('disclaimer') &&
-        !s.includes('copyright')
-      );
+      .filter(s => {
+        const trimmed = s.trim();
+        return (
+          trimmed.length > 30 && // Minimum meaningful length
+          !trimmed.includes('disclaimer') &&
+          !trimmed.includes('copyright') &&
+          !SITE_CHROME_PATTERNS.some(p => p.test(trimmed)) // nav/social/credit chrome
+        );
+      });
 
     return sentences.map(sentence => ({
       fact: sentence.trim(),
@@ -165,23 +171,6 @@ export class EnhancedFactExtractor {
     return facts;
   }
 
-  // Sentiment Fact Extraction
-  private extractSentimentFacts(text: string): ExtractedFact[] {
-    const sentimentAnalysis = nlpToolkit.analyzeSentiment(text);
-
-    return [{
-      fact: text,
-      type: 'sentiment' as const,
-      confidence: this.mapSentimentToConfidence(sentimentAnalysis.score),
-      sentiment: {
-        score: sentimentAnalysis.score,
-        comparative: sentimentAnalysis.comparative,
-        positive: sentimentAnalysis.positive,
-        negative: sentimentAnalysis.negative
-      }
-    }];
-  }
-
   // Compute confidence for a sentence
   private computeSentenceConfidence(sentence: string): number {
     // Multiple confidence factors
@@ -194,16 +183,6 @@ export class EnhancedFactExtractor {
 
     return mathjs.round(
       (lengthFactor + uniqueWordFactor + spellCheckFactor) / 3, 
-      2
-    );
-  }
-
-  // Map sentiment score to confidence
-  private mapSentimentToConfidence(sentimentScore: number): number {
-    // Convert sentiment score to confidence
-    // Sentiment score typically ranges from -5 to 5
-    return mathjs.round(
-      Math.min(1, Math.max(0, (Math.abs(sentimentScore) / 5))), 
       2
     );
   }

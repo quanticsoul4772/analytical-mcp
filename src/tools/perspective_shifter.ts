@@ -118,9 +118,12 @@ async function generatePerspectives(
       ];
 
       if (includeActionable) {
+        const lead = perspectiveInsights[0];
         perspectiveSection.push(
           `\n\n**Actionable Insights:**\n`,
-          `- Consider the unique constraints and opportunities from the ${domain} perspective\n`
+          lead
+            ? `- For "${problem}" through a ${domain} lens: ${lead}\n`
+            : `- No ${domain}-specific evidence was retrieved for "${problem}".\n`
         );
       }
 

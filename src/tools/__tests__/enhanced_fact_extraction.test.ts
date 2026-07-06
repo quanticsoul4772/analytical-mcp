@@ -44,17 +44,16 @@ describe('Enhanced Fact Extractor', () => {
   });
 
   test('should handle different fact types', () => {
-    // Sentiment facts are only kept when sentiment is strong enough to clear
-    // the default confidence threshold, so the text carries clear sentiment.
     const text =
       'John Smith works at Google in New York. The company is celebrated for its amazing, wonderful technology.';
     const extraction = enhancedFactExtractor.extractFacts(text);
 
     const factTypes = extraction.facts.map(f => f.type);
-    
+
     expect(factTypes).toContain('named_entity');
     expect(factTypes).toContain('statement');
-    expect(factTypes).toContain('sentiment');
+    // Sentiment is a document-level score, not a fact — it is no longer emitted.
+    expect(factTypes).not.toContain('sentiment');
   });
 
   test('should handle empty or very short text', () => {
@@ -79,22 +78,13 @@ describe('Enhanced Fact Extractor', () => {
     expect(namedEntityFacts.some(f => f.fact.includes('Cupertino'))).toBeTruthy();
   });
 
-  test('should perform sentiment analysis', () => {
-    const positiveText = 'This is an amazing breakthrough in technology!';
-    const negativeText = 'The project failed miserably and caused significant problems.';
-    
-    const positiveExtraction = enhancedFactExtractor.extractFacts(positiveText);
-    const negativeExtraction = enhancedFactExtractor.extractFacts(negativeText);
+  test('does not emit the whole document as a sentiment fact', () => {
+    const text =
+      'This is an amazing breakthrough in technology. The team reported record results this quarter.';
+    const extraction = enhancedFactExtractor.extractFacts(text);
 
-    const positiveSentimentFact = positiveExtraction.facts.find(f => f.type === 'sentiment');
-    const negativeSentimentFact = negativeExtraction.facts.find(f => f.type === 'sentiment');
-
-    expect(positiveSentimentFact).toBeDefined();
-    expect(negativeSentimentFact).toBeDefined();
-    
-    if (positiveSentimentFact && negativeSentimentFact) {
-      expect(positiveSentimentFact.sentiment?.score).toBeGreaterThan(0);
-      expect(negativeSentimentFact.sentiment?.score).toBeLessThan(0);
-    }
+    // No fact is the entire input text, and none is typed 'sentiment'.
+    expect(extraction.facts.some(f => f.type === 'sentiment')).toBe(false);
+    expect(extraction.facts.some(f => f.fact === text)).toBe(false);
   });
 });

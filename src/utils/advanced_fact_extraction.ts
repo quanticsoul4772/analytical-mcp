@@ -6,6 +6,19 @@
 
 import { Logger } from './logger.js';
 
+/**
+ * Site-chrome / navigation boilerplate patterns, shared with the enhanced fact
+ * extractor (tools/exa_research.ts). Anchored / word-bounded to avoid matching
+ * inside ordinary words (e.g. never a bare /search/ — it would hit "research").
+ */
+export const SITE_CHROME_PATTERNS: RegExp[] = [
+  /^\s*(search|search search|suggested searches|menu|home|sign in|log ?in|register)\s*$/i,
+  /skip to main content/i,
+  /\bshare on (facebook|twitter|x|linkedin|reddit|whatsapp|email)\b/i,
+  /\bcourtesy of\b/i, // "Image courtesy of …" / "courtesy of …"
+  /\bfollow us on\b|\bconnect with us\b/i,
+];
+
 // Types for fact extraction
 export interface ExtractedFact {
   text: string;
@@ -265,7 +278,10 @@ export class FactExtractor {
    * Check if text is likely boilerplate content
    */
   private isBoilerplate(text: string): boolean {
-    return FactExtractor.BOILERPLATE_PATTERNS.some((pattern) => pattern.test(text));
+    return (
+      FactExtractor.BOILERPLATE_PATTERNS.some((pattern) => pattern.test(text)) ||
+      SITE_CHROME_PATTERNS.some((pattern) => pattern.test(text))
+    );
   }
 
   /**

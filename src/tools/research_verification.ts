@@ -330,6 +330,13 @@ export class ResearchVerificationTool {
             totalComparisons++;
             const fact1 = factObj1.fact;
             const fact2 = factObj2.fact;
+            // Only compare short, claim-sized facts. Oversized text (e.g. an
+            // unpunctuated nav run) shares words with everything and trips the
+            // negation heuristic spuriously.
+            const MAX_CLAIM_LENGTH = 300;
+            if (fact1.length > MAX_CLAIM_LENGTH || fact2.length > MAX_CLAIM_LENGTH) {
+              continue;
+            }
             // Skip if facts are too similar (likely saying the same thing)
             const similarity = this.computeTextSimilarity(fact1, fact2);
             if (similarity > 0.7) continue;
