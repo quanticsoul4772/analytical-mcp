@@ -115,8 +115,9 @@ export const config = {
     useNewsResults: process.env.NLP_EXA_USE_NEWS === 'true',
   },
 
-  // Metrics server configuration
-  METRICS_ENABLED: process.env.METRICS_ENABLED || 'true',
+  // Metrics server configuration. The metrics HTTP endpoint is unauthenticated,
+  // so it is off unless the operator explicitly sets METRICS_ENABLED=true.
+  METRICS_ENABLED: process.env.METRICS_ENABLED || 'false',
   METRICS_PORT: validatePort(process.env.METRICS_PORT || '9090').toString(),
   METRICS_HOST: process.env.METRICS_HOST || '127.0.0.1',
 

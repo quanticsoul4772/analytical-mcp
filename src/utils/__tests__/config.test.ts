@@ -73,7 +73,7 @@ describe('Configuration Module', () => {
       expect(config.ENABLE_ADVANCED_NLP).toBe('true');
       expect(config.CACHE_PERSISTENT).toBe('true');
       expect(config.CACHE_DIR).toBe('./cache');
-      expect(config.METRICS_ENABLED).toBe('true');
+      expect(config.METRICS_ENABLED).toBe('false');
       expect(config.METRICS_PORT).toBe('9090');
       expect(config.METRICS_HOST).toBe('127.0.0.1');
     });

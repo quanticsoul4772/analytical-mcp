@@ -32,8 +32,8 @@ a fix, and coordinate disclosure with you.
 
 - The server runs over **stdio** and exposes analytical tools to the MCP client that
   spawns it; it does not open a network listening socket for the protocol itself.
-- The optional metrics HTTP server (`METRICS_ENABLED`, default port 9090) binds to
-  `127.0.0.1` by default. Only expose it beyond localhost (`METRICS_HOST=0.0.0.0`)
-  deliberately — it serves cache/system metrics with no authentication.
+- The optional metrics HTTP server is **off by default** (`METRICS_ENABLED=false`; opt-in) and
+  binds to `127.0.0.1` when enabled. It serves cache/system metrics with **no authentication**,
+  so enable it, and expose it beyond localhost (`METRICS_HOST=0.0.0.0`), only deliberately.
 - `EXA_API_KEY` and any secrets are read from environment variables and must never be
   committed. `.env` and `.env.test` are gitignored.

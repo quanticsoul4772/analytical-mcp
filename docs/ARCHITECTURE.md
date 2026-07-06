@@ -17,9 +17,9 @@ Source: `src/index.ts`.
    `ENABLE_RESEARCH_CACHE=true` (default `false`). A cache preload failure is logged and does not
    stop startup.
 4. `initializeMetricsServer()` starts the metrics HTTP server via `metricsServer.start()` — but
-   only if `METRICS_ENABLED=true`. `config.ts` defaults `METRICS_ENABLED` to `'true'`, so the
-   metrics server runs by default unless explicitly disabled. Port is `METRICS_PORT` (default
-   `9090`), host is `METRICS_HOST` (default `127.0.0.1`). A startup failure here is also
+   only if `METRICS_ENABLED=true`. `config.ts` defaults `METRICS_ENABLED` to `'false'`, so the
+   unauthenticated metrics endpoint is off unless the operator explicitly enables it. Port is
+   `METRICS_PORT` (default `9090`), host is `METRICS_HOST` (default `127.0.0.1`). A startup failure here is also
    non-fatal — logged and skipped.
 5. A `StdioServerTransport` is created and `server.connect(transport)` starts serving MCP requests
    over stdio.

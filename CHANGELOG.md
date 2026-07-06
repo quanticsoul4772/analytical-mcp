@@ -27,6 +27,11 @@ does not yet follow strict SemVer (pre-1.0).
 
 ### Security
 
+- The optional metrics HTTP server (unauthenticated) is now **off by default**:
+  `config.METRICS_ENABLED` defaulted to `'true'` while the server singleton was off
+  unless the env var was explicitly `'true'` — the two disagreed, and a refactor
+  unifying on the config value could have silently bound the endpoint. Both now
+  default off; enabling it is a deliberate `METRICS_ENABLED=true` opt-in.
 - `verify_research` now caps `verificationQueries` at 5 and bounds outbound Exa
   requests to at most 3 in flight. Previously an uncapped query list was fanned
   out with `Promise.all`, so untrusted content reaching the tool's arguments

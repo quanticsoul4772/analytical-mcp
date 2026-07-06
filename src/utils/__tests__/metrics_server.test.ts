@@ -28,6 +28,25 @@ describe('MetricsServer', () => {
     process.env = originalEnv;
   });
 
+  describe('Enabled flag (default off)', () => {
+    it('is disabled by default and start() does not bind a port', async () => {
+      // METRICS_ENABLED is deleted in beforeEach → the unauthenticated endpoint
+      // must stay off unless explicitly enabled.
+      metricsServer = new MetricsServer();
+      expect(metricsServer.getConfig().enabled).toBe(false);
+
+      await metricsServer.start();
+      expect(metricsServer.isRunning()).toBe(false);
+      expect(metricsServer.getPort()).toBeFalsy();
+    });
+
+    it('starts when explicitly enabled via the constructor', async () => {
+      metricsServer = new MetricsServer({ enabled: true, port: 0 });
+      await metricsServer.start();
+      expect(metricsServer.isRunning()).toBe(true);
+    });
+  });
+
   describe('Rate Limiting Configuration', () => {
     it('should use default rate limit of 60 requests per minute', () => {
       delete process.env.METRICS_RATE_LIMIT;

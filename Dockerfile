@@ -69,7 +69,7 @@ COPY --from=builder /app/.env.example ./
 USER analytical
 
 # The MCP server itself communicates over stdio; the only HTTP listener is the
-# optional metrics server (METRICS_ENABLED defaults to true) on METRICS_PORT.
+# optional metrics server (METRICS_ENABLED defaults to false; opt-in) on METRICS_PORT.
 EXPOSE 9090
 
 # Set environment variables
