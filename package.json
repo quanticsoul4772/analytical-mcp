@@ -50,7 +50,7 @@
     "dictionary-en": "^4.0.0",
     "dotenv": "^17.4.2",
     "mathjs": "^15.2.0",
-    "natural": "^6.9.0",
+    "natural": "^8.1.1",
     "node-fetch": "^3.3.2",
     "nspell": "^2.1.5",
     "pos": "^0.4.2",
