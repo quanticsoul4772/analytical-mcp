@@ -62,7 +62,7 @@
   "devDependencies": {
     "@types/jest": "^29.5.12",
     "@types/natural": "^5.1.5",
-    "@types/node": "^26.1.0",
+    "@types/node": "^26.1.1",
     "@types/node-fetch": "^2.6.13",
     "@types/sentiment": "^5.0.2",
     "@types/uuid": "^11.0.0",
