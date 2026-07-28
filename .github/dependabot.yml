@@ -30,6 +30,10 @@ updates:
         update-types: ["version-update:semver-major"]
       - dependency-name: "eslint"
         update-types: ["version-update:semver-major"]
+      # natural@8 pulls ESM-only afinn-165/uuid (breaks Jest) and prints a
+      # dotenv banner to stdout, corrupting the MCP stdio channel. Stay on 6.x.
+      - dependency-name: "natural"
+        update-types: ["version-update:semver-major"]
     groups:
       # Group TypeScript-related updates
       typescript:
