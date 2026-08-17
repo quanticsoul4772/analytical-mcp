@@ -66,7 +66,7 @@
     "@types/node-fetch": "^2.6.13",
     "@types/sentiment": "^5.0.2",
     "@types/uuid": "^11.0.0",
-    "@typescript-eslint/eslint-plugin": "^8.65.0",
+    "@typescript-eslint/eslint-plugin": "^8.67.0",
     "@typescript-eslint/parser": "^8.39.0",
     "eslint": "^8.57.1",
     "eslint-config-prettier": "^10.1.8",
